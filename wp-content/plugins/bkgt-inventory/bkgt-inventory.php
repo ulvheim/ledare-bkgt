@@ -87,6 +87,9 @@ class BKGT_Inventory {
         // AJAX handlers
         add_action('wp_ajax_bkgt_get_item_types', array($this, 'ajax_get_item_types'));
         add_action('wp_ajax_bkgt_generate_identifier', array($this, 'ajax_generate_identifier'));
+        
+        // Shortcodes
+        add_shortcode('bkgt_inventory', array($this, 'shortcode_inventory'));
     }
     
     /**
@@ -321,6 +324,41 @@ class BKGT_Inventory {
             array(),
             BKGT_INV_VERSION
         );
+    }
+    
+    /**
+     * Shortcode for inventory display
+     */
+    public function shortcode_inventory($atts) {
+        // Check user permissions
+        if (!is_user_logged_in()) {
+            return '<p>' . __('Du måste vara inloggad för att se denna sida.', 'bkgt-inventory') . '</p>';
+        }
+        
+        // Get current user role
+        $user = wp_get_current_user();
+        $user_roles = $user->roles;
+        
+        // Basic inventory list
+        ob_start();
+        ?>
+        <div class="bkgt-inventory-container">
+            <h2><?php _e('Utrustningsinventarie', 'bkgt-inventory'); ?></h2>
+            <p><?php _e('Här kan du hantera klubbens utrustning.', 'bkgt-inventory'); ?></p>
+            
+            <?php if (in_array('administrator', $user_roles) || in_array('styrelsemedlem', $user_roles)): ?>
+                <a href="<?php echo admin_url('admin.php?page=bkgt-inventory'); ?>" class="btn btn-primary">
+                    <?php _e('Hantera Inventarie', 'bkgt-inventory'); ?>
+                </a>
+            <?php endif; ?>
+            
+            <!-- Placeholder for inventory list -->
+            <div class="inventory-list">
+                <p><?php _e('Inventarielista kommer här.', 'bkgt-inventory'); ?></p>
+            </div>
+        </div>
+        <?php
+        return ob_get_clean();
     }
 }
 
