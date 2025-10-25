@@ -119,7 +119,7 @@ body {
 }
 
 .site-footer {
-    background: linear-gradient(135deg, var(--bkgt-primary) 0%, var(--bkgt-secondary) 100%);
+    background-color: var(--bkgt-primary);
     border-top: 3px solid var(--bkgt-accent);
     padding: var(--spacing-lg) var(--spacing-xl);
     text-align: center;
