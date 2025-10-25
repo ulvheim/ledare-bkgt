@@ -75,6 +75,8 @@ class BKGT_Document_Management {
         add_action('init', array($this, 'register_post_types'));
         add_action('init', array($this, 'register_taxonomies'));
 
+        add_action('admin_menu', array($this, 'add_admin_menu'));
+
         // Frontend assets
         add_action('wp_enqueue_scripts', array($this, 'enqueue_frontend_assets'));
 
@@ -116,6 +118,36 @@ class BKGT_Document_Management {
      */
     public function deactivate() {
         flush_rewrite_rules();
+    }
+    
+    /**
+     * Add admin menu
+     */
+    public function add_admin_menu() {
+        add_menu_page(
+            __('BKGT Dokument', 'bkgt-document-management'),
+            __('Dokument', 'bkgt-document-management'),
+            'manage_options',
+            'bkgt-documents',
+            array($this, 'admin_page'),
+            'dashicons-media-document',
+            26
+        );
+    }
+    
+    /**
+     * Admin page
+     */
+    public function admin_page() {
+        ?>
+        <div class="wrap">
+            <h1><?php _e('BKGT Dokumenthantering', 'bkgt-document-management'); ?></h1>
+            <p><?php _e('Hantera klubbens dokument här.', 'bkgt-document-management'); ?></p>
+            <div class="bkgt-documents-admin">
+                <p><?php _e('Admin interface kommer här.', 'bkgt-document-management'); ?></p>
+            </div>
+        </div>
+        <?php
     }
 
     /**

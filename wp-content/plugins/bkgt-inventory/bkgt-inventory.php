@@ -78,6 +78,8 @@ class BKGT_Inventory {
         add_action('init', array($this, 'register_post_types'));
         add_action('init', array($this, 'register_taxonomies'));
         
+        add_action('admin_menu', array($this, 'add_admin_menu'));
+        
         // Check dependencies
         add_action('admin_notices', array($this, 'check_dependencies'));
         
@@ -103,6 +105,36 @@ class BKGT_Inventory {
             echo '</p>';
             echo '</div>';
         }
+    }
+    
+    /**
+     * Add admin menu
+     */
+    public function add_admin_menu() {
+        add_menu_page(
+            __('BKGT Utrustning', 'bkgt-inventory'),
+            __('Utrustning', 'bkgt-inventory'),
+            'manage_options',
+            'bkgt-inventory',
+            array($this, 'admin_page'),
+            'dashicons-archive',
+            25
+        );
+    }
+    
+    /**
+     * Admin page
+     */
+    public function admin_page() {
+        ?>
+        <div class="wrap">
+            <h1><?php _e('BKGT Utrustningssystem', 'bkgt-inventory'); ?></h1>
+            <p><?php _e('Hantera klubbens utrustning här.', 'bkgt-inventory'); ?></p>
+            <div class="bkgt-inventory-admin">
+                <p><?php _e('Admin interface kommer här.', 'bkgt-inventory'); ?></p>
+            </div>
+        </div>
+        <?php
     }
     
     /**
