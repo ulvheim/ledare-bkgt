@@ -259,3 +259,27 @@ function bkgt_ledare_hide_admin_bar() {
     }
 }
 add_action('after_setup_theme', 'bkgt_ledare_hide_admin_bar');
+
+/**
+ * Require login for all frontend pages
+ */
+function bkgt_ledare_require_login() {
+    // Don't require login for login page, admin area, or AJAX requests
+    if (is_admin() || is_login() || wp_doing_ajax()) {
+        return;
+    }
+
+    // Don't require login for REST API (needed for some plugins)
+    if (defined('REST_REQUEST') && REST_REQUEST) {
+        return;
+    }
+
+    // Check if user is logged in
+    if (!is_user_logged_in()) {
+        // Redirect to login page with return URL
+        $login_url = wp_login_url(get_permalink());
+        wp_redirect($login_url);
+        exit;
+    }
+}
+add_action('template_redirect', 'bkgt_ledare_require_login');
