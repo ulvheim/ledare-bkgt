@@ -91,7 +91,7 @@ body {
     color: var(--bkgt-white);
     position: fixed;
     height: 100vh;
-    overflow-y: auto;
+    overflow-y: hidden;
     z-index: 100;
 }
 
@@ -283,14 +283,14 @@ body {
     background-color: var(--bkgt-white);
     border-radius: var(--radius-md);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    border: 1px solid rgba(0, 51, 102, 0.1);
+    border: 1px solid rgba(136, 65, 25, 0.1);
     padding: var(--spacing-lg);
     margin-bottom: var(--spacing-lg);
     transition: all 0.3s ease;
 }
 
 .card:hover {
-    box-shadow: 0 8px 15px rgba(0, 51, 102, 0.15);
+    box-shadow: 0 8px 15px rgba(136, 65, 25, 0.15);
     transform: translateY(-2px);
 }
 
@@ -383,7 +383,7 @@ body {
 .btn-primary:hover {
     background: linear-gradient(135deg, var(--bkgt-secondary) 0%, var(--bkgt-primary) 100%);
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 51, 102, 0.3);
+    box-shadow: 0 4px 12px rgba(136, 65, 25, 0.3);
 }
 
 .btn-secondary {
