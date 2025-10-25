@@ -141,13 +141,13 @@ body {
     font-size: 1.5rem;
     font-weight: 700;
     margin-bottom: var(--spacing-xs);
-    color: var(--bkgt-accent);
+    color: var(--bkgt-secondary);
     text-transform: uppercase;
     letter-spacing: 1px;
 }
 
 .site-title a {
-    color: var(--bkgt-accent);
+    color: var(--bkgt-secondary);
     text-decoration: none;
 }
 
@@ -172,7 +172,7 @@ body {
     text-transform: uppercase;
     letter-spacing: 0.05em;
     padding: var(--spacing-sm) var(--spacing-lg);
-    color: var(--bkgt-accent);
+    color: var(--bkgt-secondary);
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     margin-bottom: var(--spacing-sm);
 }
@@ -214,7 +214,7 @@ body {
 }
 
 .nav-menu a.current {
-    border-left: 3px solid var(--bkgt-accent);
+    border-left: 3px solid var(--bkgt-secondary);
 }
 
 /* ========================================================================
