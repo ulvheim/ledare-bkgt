@@ -27,7 +27,9 @@ Tags: custom, admin, management, internal
 :root {
     /* BKGT Club Colors - Updated to match Svenskalag site: predominantly yellow with red accents */
     --bkgt-primary: #F9C606;        /* Yellow */
+    --bkgt-primary-dark: #D4A505;   /* Darker yellow for hover states */
     --bkgt-secondary: #E1251B;      /* Red */
+    --bkgt-secondary-dark: #B81E16; /* Darker red for hover states */
     --bkgt-accent: #C79E05;         /* Lighter yellow */
     --bkgt-light: #ffd847;          /* Light yellow */
     --bkgt-white: #FFFFFF;          /* Pure white */
@@ -64,6 +66,8 @@ Tags: custom, admin, management, internal
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+
+    /* (Removed Svenskalag overrides - using BKGT palette by default) */
 }
 
 body {
@@ -87,35 +91,40 @@ body {
 
 .site-sidebar {
     width: 260px;
-    background-color: var(--bkgt-primary);
-    color: var(--bkgt-white);
+    background-color: var(--bkgt-primary); /* Match header/footer BKGT primary */
+    color: var(--color-text);
     position: fixed;
     height: 100vh;
-    overflow-y: hidden;
+    overflow-y: auto;
     z-index: 100;
+    border-right: 1px solid rgba(0,0,0,0.06);
+    display: none;
 }
 
 .site-main {
     flex: 1;
-    margin-left: 260px;
+    margin-left: 0;
     display: flex;
     flex-direction: column;
 }
 
 .site-header {
-    background-color: var(--bkgt-primary);
+    background-color: var(--bkgt-primary); /* Reverted to BKGT primary */
     color: var(--bkgt-white);
-    border-bottom: 3px solid var(--bkgt-accent);
-    padding: var(--spacing-lg) var(--spacing-xl);
-    position: sticky;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+    padding: 0 var(--spacing-xl);
+    position: fixed;
     top: 0;
+    left: 0;
+    right: 0;
     z-index: 50;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
 }
 
 .site-content {
     flex: 1;
     padding: var(--spacing-xl);
+    padding-top: calc(var(--spacing-xl) + 80px); /* Account for fixed header */
 }
 
 .site-footer {
@@ -141,13 +150,13 @@ body {
     font-size: 1.5rem;
     font-weight: 700;
     margin-bottom: var(--spacing-xs);
-    color: var(--bkgt-secondary);
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    color: var(--bkgt-white);
+    text-transform: none;
+    letter-spacing: 0.5px;
 }
 
 .site-title a {
-    color: var(--bkgt-secondary);
+    color: var(--bkgt-white);
     text-decoration: none;
 }
 
@@ -172,7 +181,7 @@ body {
     text-transform: uppercase;
     letter-spacing: 0.05em;
     padding: var(--spacing-sm) var(--spacing-lg);
-    color: var(--bkgt-secondary);
+    color: var(--bkgt-white);
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     margin-bottom: var(--spacing-sm);
 }
@@ -180,18 +189,23 @@ body {
 .nav-menu li a {
     display: block;
     padding: var(--spacing-sm) var(--spacing-lg);
-    color: var(--bkgt-secondary);
+    color: var(--color-text);
     text-decoration: none;
-    transition: all 0.3s ease;
+    transition: background-color 0.18s ease, color 0.18s ease;
     border-radius: var(--radius-sm);
     margin: 2px var(--spacing-sm);
 }
 
-.nav-menu li a:hover,
-.nav-menu li a.current {
-    background-color: rgba(225, 25, 27, 0.1);
+.nav-menu li a:hover {
+    background-color: rgba(255,255,255,0.12);
     color: var(--bkgt-secondary);
-    font-weight: 500;
+    font-weight: 600;
+}
+
+.nav-menu a.current {
+    background-color: var(--bkgt-secondary);
+    color: var(--bkgt-white);
+    border-left: none;
 }
 
 .nav-menu li {
@@ -201,20 +215,103 @@ body {
 .nav-menu a {
     display: flex;
     align-items: center;
-    padding: var(--spacing-sm) var(--spacing-lg);
-    color: var(--bkgt-secondary);
+    padding: 0.35rem var(--spacing-lg);
+    color: var(--bkgt-white);
     text-decoration: none;
     transition: all 0.2s;
+    font-size: 0.95rem; /* shrink nav text slightly to save space */
 }
 
-.nav-menu a:hover,
-.nav-menu a.current {
-    background-color: rgba(225, 25, 27, 0.1);
+.nav-menu a:hover {
+    /* hover handled above already, but keep safe fallback */
+    background-color: rgba(255,255,255,0.12);
     color: var(--bkgt-secondary);
 }
 
+/* current handled above; ensure left border removed for the highlighted state */
 .nav-menu a.current {
-    border-left: 3px solid var(--bkgt-secondary);
+    border-left: none;
+}
+
+/* Make the sidebar navigation scrollable when long and use a thin scrollbar */
+.main-navigation .nav-menu {
+    max-height: calc(100vh - 220px); /* leave space for branding and header */
+    overflow-y: auto;
+    padding-right: 0.5rem; /* small breathing room for scrollbar */
+    -ms-overflow-style: auto; /* IE/Edge */
+    scrollbar-width: thin; /* Firefox */
+}
+
+.main-navigation .nav-menu::-webkit-scrollbar {
+    width: 10px;
+}
+.main-navigation .nav-menu::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.08);
+    border-radius: 6px;
+}
+
+/* ========================================================================
+   Top Navigation
+   ======================================================================== */
+
+.top-navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.top-nav {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.top-nav li {
+    position: relative;
+}
+
+.top-nav a {
+    display: block;
+    padding: var(--spacing-md);
+    color: var(--bkgt-white);
+    text-decoration: none;
+    font-size: 0.95rem;
+}
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: var(--bkgt-white);
+    min-width: 160px;
+    box-shadow: var(--shadow-md);
+    z-index: 1;
+    border-radius: var(--radius-sm);
+}
+
+.dropdown:hover .dropdown-content {
+    display: block;
+}
+
+.dropdown-content a {
+    color: var(--color-text);
+    padding: var(--spacing-sm) var(--spacing-md);
+    text-decoration: none;
+    display: block;
+}
+
+.dropdown-content a:hover {
+    background-color: var(--color-bg);
+}
+
+/* Apply a 'card' surface to the main content container so the content appears on a floating card */
+.content-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    background-color: var(--color-surface);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    padding: var(--spacing-lg);
 }
 
 /* ========================================================================
@@ -225,12 +322,15 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    padding: var(--spacing-lg) var(--spacing-lg);
+    position: relative;
 }
 
 .page-title {
     font-size: 1.5rem;
     font-weight: 700;
     color: var(--color-text);
+    display: none;
 }
 
 .user-info {
@@ -444,6 +544,87 @@ body {
 }
 
 /* ========================================================================
+   Inventory Admin Forms
+   ======================================================================== */
+
+.bkgt-inventory-admin .admin-section {
+    background: var(--color-card-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-xl);
+    margin-bottom: var(--spacing-xl);
+}
+
+.bkgt-inventory-admin .form-row {
+    display: flex;
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+}
+
+.bkgt-inventory-admin .form-group {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+.bkgt-inventory-admin .form-group label {
+    margin-bottom: var(--spacing-xs);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.bkgt-inventory-admin select,
+.bkgt-inventory-admin input[type="text"] {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--bkgt-white);
+    font-size: 0.875rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.bkgt-inventory-admin select:focus,
+.bkgt-inventory-admin input[type="text"]:focus {
+    outline: none;
+    border-color: var(--bkgt-accent);
+    box-shadow: 0 0 0 3px rgba(249, 201, 6, 0.1);
+}
+
+.bkgt-inventory-admin .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.bkgt-inventory-admin .btn-primary {
+    background: var(--bkgt-primary);
+    color: var(--bkgt-white);
+}
+
+.bkgt-inventory-admin .btn-primary:hover {
+    background: var(--bkgt-primary-dark);
+    transform: translateY(-1px);
+}
+
+.bkgt-inventory-admin #generate-identifier {
+    background: var(--bkgt-secondary);
+    color: var(--bkgt-white);
+    margin-left: var(--spacing-sm);
+}
+
+.bkgt-inventory-admin #generate-identifier:hover {
+    background: var(--bkgt-secondary-dark);
+}
+
+/* ========================================================================
    Status Badges
    ======================================================================== */
 
@@ -501,6 +682,11 @@ body {
     
     .site-main {
         margin-left: 0;
+    }
+    
+    .site-header {
+        left: 0;
+        padding: 0 var(--spacing-md);
     }
     
     .site-content {

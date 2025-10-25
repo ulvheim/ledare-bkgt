@@ -102,10 +102,7 @@ class BKGT_Manufacturer {
         global $wpdb;
         
         return $wpdb->get_results(
-            $wpdb->prepare(
-                "SELECT * FROM %s ORDER BY name ASC",
-                self::$db->get_manufacturers_table()
-            ),
+            "SELECT * FROM " . self::$db->get_manufacturers_table() . " ORDER BY name ASC",
             ARRAY_A
         );
     }

@@ -20,6 +20,20 @@ if "%1"=="--dry-run" (
     goto :dry_run
 )
 
+REM Check if rsync is available
+where rsync >nul 2>nul
+if %errorlevel%==0 (
+    echo ✓ rsync found - will use efficient incremental sync
+    set USE_RSYNC=1
+) else (
+    echo ⚠ rsync not found - falling back to scp (slower)
+    echo   To improve performance, install rsync for Windows:
+    echo   - Via WSL: wsl --install
+    echo   - Via MSYS2: https://www.msys2.org/
+    echo   - Via Cygwin: https://www.cygwin.com/
+    set USE_RSYNC=0
+)
+
 REM Test SSH connection
 echo Testing SSH connection...
 ssh -i "%SSH_KEY_PATH%" -o StrictHostKeyChecking=no -o ConnectTimeout=10 %SSH_USER%@%SSH_HOST% "echo 'SSH OK'"
@@ -35,7 +49,25 @@ ssh -i "%SSH_KEY_PATH%" %SSH_USER%@%SSH_HOST% "mkdir -p %REMOTE_FOLDER%/wp-conte
 ssh -i "%SSH_KEY_PATH%" %SSH_USER%@%SSH_HOST% "mkdir -p %REMOTE_FOLDER%/wp-content/plugins"
 echo ✓ Remote directories created
 
-REM Deploy full WordPress installation (excluding sensitive files)
+if %USE_RSYNC%==1 (
+    goto :deploy_rsync
+) else (
+    goto :deploy_scp
+)
+
+:deploy_rsync
+REM Deploy using rsync (efficient incremental sync)
+echo Deploying files using rsync...
+rsync -avz --delete --no-perms --no-owner --no-group --exclude=".git" --exclude=".gitignore" --exclude=".env" --exclude="node_modules" --exclude=".DS_Store" --exclude="*.log" --exclude="deploy.sh" --exclude="deploy.bat" --exclude="README.md" --exclude=".vscode" --exclude="*.tmp" --exclude="wp-config-sample.php" -e "ssh -i %SSH_KEY_PATH% -o StrictHostKeyChecking=no" "./" "%SSH_USER%@%SSH_HOST%:%REMOTE_FOLDER%/"
+if errorlevel 1 (
+    echo ✗ rsync deployment failed
+    exit /b 1
+)
+echo ✓ Files deployed successfully using rsync
+goto :post_deploy
+
+:deploy_scp
+REM Deploy full WordPress installation (excluding sensitive files) using SCP
 echo Deploying WordPress core files...
 scp -i "%SSH_KEY_PATH%" -o StrictHostKeyChecking=no -r "wp-admin" "%SSH_USER%@%SSH_HOST%:%REMOTE_FOLDER%/"
 scp -i "%SSH_KEY_PATH%" -o StrictHostKeyChecking=no -r "wp-includes" "%SSH_USER%@%SSH_HOST%:%REMOTE_FOLDER%/"
@@ -60,6 +92,8 @@ if errorlevel 1 (
     exit /b 1
 )
 echo ✓ Plugins deployed successfully
+
+:post_deploy
 
 REM Set permissions
 echo Setting file permissions...

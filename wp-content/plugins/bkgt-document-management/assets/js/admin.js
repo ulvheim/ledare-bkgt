@@ -240,6 +240,210 @@
         // Initialize access target type
         $('#bkgt_access_target_type').trigger('change');
 
+        // Initialize Monaco Editor for Markdown
+        if ($('#bkgt-markdown-editor').length > 0) {
+            initializeMonacoEditor();
+        }
+
     });
+
+    // Monaco Editor initialization
+    function initializeMonacoEditor() {
+        // Show loading state
+        $('#bkgt-markdown-editor').html('<div style="display:flex;align-items:center;justify-content:center;height:400px;font-size:16px;color:#666;">' + bkgt_document_ajax.strings.editor_loading + '</div>');
+
+        // Load Monaco Editor
+        require.config({ paths: { vs: bkgt_document_ajax.monaco_loader_url } });
+
+        require(['vs/editor/editor.main'], function() {
+            // Create Monaco Editor
+            window.bkgtMonacoEditor = monaco.editor.create(document.getElementById('bkgt-markdown-editor'), {
+                value: $('#bkgt-markdown-content').val() || '',
+                language: 'markdown',
+                theme: 'vs-light',
+                fontSize: 14,
+                lineHeight: 1.5,
+                wordWrap: 'on',
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+                suggestOnTriggerCharacters: true,
+                quickSuggestions: {
+                    other: true,
+                    comments: false,
+                    strings: true
+                },
+                tabSize: 2,
+                insertSpaces: true
+            });
+
+            // Set up live preview
+            setupLivePreview();
+
+            // Set up editor mode switching
+            setupEditorModes();
+
+            // Set up toolbar actions
+            setupToolbarActions();
+
+            // Set up variable insertion
+            setupVariableInsertion();
+
+            // Update word count
+            updateWordCount();
+
+            // Listen for content changes
+            window.bkgtMonacoEditor.onDidChangeModelContent(function() {
+                var content = window.bkgtMonacoEditor.getValue();
+                $('#bkgt-markdown-content').val(content);
+                updateWordCount();
+                updatePreview();
+            });
+        });
+    }
+
+    // Set up live preview
+    function setupLivePreview() {
+        updatePreview();
+    }
+
+    // Update preview content
+    function updatePreview() {
+        if (typeof marked !== 'undefined' && window.bkgtMonacoEditor) {
+            var markdownContent = window.bkgtMonacoEditor.getValue();
+            var htmlContent = marked.parse(markdownContent);
+            $('#bkgt-preview-content').html(htmlContent);
+        }
+    }
+
+    // Set up editor mode switching
+    function setupEditorModes() {
+        $('input[name="bkgt_editor_mode"]').on('change', function() {
+            var mode = $(this).val();
+            var $container = $('.bkgt-editor-container');
+
+            $container.attr('data-mode', mode);
+
+            if (mode === 'markdown') {
+                $container.find('.bkgt-preview-pane').hide();
+                $container.find('.bkgt-markdown-pane').css('width', '100%');
+            } else if (mode === 'preview') {
+                $container.find('.bkgt-markdown-pane').hide();
+                $container.find('.bkgt-preview-pane').css('width', '100%');
+            } else { // split
+                $container.find('.bkgt-markdown-pane, .bkgt-preview-pane').show();
+                $container.find('.bkgt-markdown-pane, .bkgt-preview-pane').css('width', '50%');
+            }
+
+            // Refresh Monaco Editor layout
+            if (window.bkgtMonacoEditor) {
+                setTimeout(function() {
+                    window.bkgtMonacoEditor.layout();
+                }, 100);
+            }
+        });
+
+        // Trigger initial mode
+        $('input[name="bkgt_editor_mode"]:checked').trigger('change');
+    }
+
+    // Set up toolbar actions
+    function setupToolbarActions() {
+        // Insert media
+        $('.bkgt-insert-media').on('click', function(e) {
+            e.preventDefault();
+
+            // Open WordPress media uploader
+            if (wp.media) {
+                var mediaUploader = wp.media({
+                    title: 'Infoga media',
+                    button: {
+                        text: 'Infoga'
+                    },
+                    multiple: false
+                });
+
+                mediaUploader.on('select', function() {
+                    var attachment = mediaUploader.state().get('selection').first().toJSON();
+                    var markdownLink = '![' + attachment.alt + '](' + attachment.url + ')';
+
+                    if (window.bkgtMonacoEditor) {
+                        var position = window.bkgtMonacoEditor.getPosition();
+                        window.bkgtMonacoEditor.executeEdits('', [{
+                            range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column),
+                            text: markdownLink
+                        }]);
+                        window.bkgtMonacoEditor.focus();
+                    }
+                });
+
+                mediaUploader.open();
+            }
+        });
+
+        // Insert template variable
+        $('.bkgt-insert-template').on('click', function(e) {
+            e.preventDefault();
+            $('.bkgt-template-variables').slideToggle();
+        });
+
+        // Fullscreen toggle
+        $('.bkgt-toggle-fullscreen').on('click', function(e) {
+            e.preventDefault();
+            var $editor = $('.bkgt-markdown-editor');
+            var $button = $(this);
+
+            if ($editor.hasClass('fullscreen')) {
+                $editor.removeClass('fullscreen');
+                $button.find('.dashicons').removeClass('dashicons-editor-contract').addClass('dashicons-editor-expand');
+            } else {
+                $editor.addClass('fullscreen');
+                $button.find('.dashicons').removeClass('dashicons-editor-expand').addClass('dashicons-editor-contract');
+            }
+
+            // Refresh Monaco Editor layout
+            if (window.bkgtMonacoEditor) {
+                setTimeout(function() {
+                    window.bkgtMonacoEditor.layout();
+                }, 300);
+            }
+        });
+
+        // Refresh preview
+        $('.bkgt-refresh-preview').on('click', function(e) {
+            e.preventDefault();
+            updatePreview();
+        });
+    }
+
+    // Set up variable insertion
+    function setupVariableInsertion() {
+        $('.bkgt-insert-variable').on('click', function(e) {
+            e.preventDefault();
+
+            var variable = $(this).data('variable');
+
+            if (window.bkgtMonacoEditor) {
+                var position = window.bkgtMonacoEditor.getPosition();
+                window.bkgtMonacoEditor.executeEdits('', [{
+                    range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column),
+                    text: variable
+                }]);
+                window.bkgtMonacoEditor.focus();
+            }
+        });
+    }
+
+    // Update word count
+    function updateWordCount() {
+        if (window.bkgtMonacoEditor) {
+            var content = window.bkgtMonacoEditor.getValue();
+            var words = content.trim().split(/\s+/).filter(function(word) {
+                return word.length > 0;
+            }).length;
+
+            $('.bkgt-word-count').text(words + ' ' + (words === 1 ? 'ord' : 'ord'));
+        }
+    }
 
 })(jQuery);

@@ -115,10 +115,7 @@ class BKGT_Item_Type {
         global $wpdb;
         
         $item_types = $wpdb->get_results(
-            $wpdb->prepare(
-                "SELECT * FROM %s ORDER BY name ASC",
-                self::$db->get_item_types_table()
-            ),
+            "SELECT * FROM " . self::$db->get_item_types_table() . " ORDER BY name ASC",
             ARRAY_A
         );
         

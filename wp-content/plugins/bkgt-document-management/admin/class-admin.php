@@ -251,17 +251,24 @@ class BKGT_Document_Admin {
             return;
         }
 
-        wp_enqueue_script('bkgt-document-admin', plugin_dir_url(__FILE__) . '../assets/js/admin.js', array('jquery'), '1.0.0', true);
+        // Enqueue Monaco Editor from CDN
+        wp_enqueue_script('monaco-editor', 'https://unpkg.com/monaco-editor@0.45.0/min/vs/loader.min.js', array(), '0.45.0', true);
+        wp_enqueue_script('marked', 'https://cdn.jsdelivr.net/npm/marked@11.1.1/lib/marked.umd.js', array(), '11.1.1', true);
+
+        wp_enqueue_script('bkgt-document-admin', plugin_dir_url(__FILE__) . '../assets/js/admin.js', array('jquery', 'monaco-editor', 'marked'), '1.0.0', true);
         wp_enqueue_style('bkgt-document-admin', plugin_dir_url(__FILE__) . '../assets/css/admin.css', array(), '1.0.0');
 
         wp_localize_script('bkgt-document-admin', 'bkgt_document_ajax', array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('bkgt_document_admin'),
+            'monaco_loader_url' => 'https://unpkg.com/monaco-editor@0.45.0/min/vs/',
             'strings' => array(
                 'confirm_delete' => __('Är du säker på att du vill radera detta dokument?', 'bkgt-document-management'),
                 'uploading' => __('Laddar upp...', 'bkgt-document-management'),
                 'upload_success' => __('Dokument uppladdat!', 'bkgt-document-management'),
                 'upload_error' => __('Uppladdning misslyckades.', 'bkgt-document-management'),
+                'editor_loading' => __('Laddar editor...', 'bkgt-document-management'),
+                'preview_error' => __('Kunde inte uppdatera förhandsvisning.', 'bkgt-document-management'),
             ),
         ));
     }
@@ -271,12 +278,21 @@ class BKGT_Document_Admin {
      */
     public function add_meta_boxes() {
         add_meta_box(
+            'bkgt_document_content',
+            __('Dokumentinnehåll (Markdown)', 'bkgt-document-management'),
+            array($this, 'content_meta_box'),
+            'bkgt_document',
+            'normal',
+            'high'
+        );
+
+        add_meta_box(
             'bkgt_document_file',
             __('Dokumentfil', 'bkgt-document-management'),
             array($this, 'file_meta_box'),
             'bkgt_document',
             'normal',
-            'high'
+            'default'
         );
 
         add_meta_box(
@@ -322,6 +338,91 @@ class BKGT_Document_Admin {
                 <input type="file" name="bkgt_document_file" id="bkgt_document_file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf,.jpg,.jpeg,.png,.gif">
                 <input type="text" name="bkgt_change_description" placeholder="<?php esc_attr_e('Beskrivning av ändring (valfritt)', 'bkgt-document-management'); ?>" class="regular-text">
                 <button type="button" class="button" id="bkgt_upload_file"><?php _e('Ladda upp', 'bkgt-document-management'); ?></button>
+            </div>
+        </div>
+        <?php
+    }
+
+    /**
+     * Content meta box - Advanced Markdown Editor
+     */
+    public function content_meta_box($post) {
+        $content = get_post_meta($post->ID, '_bkgt_markdown_content', true);
+        $editor_mode = get_post_meta($post->ID, '_bkgt_editor_mode', true) ?: 'split';
+        wp_nonce_field('bkgt_document_content', 'bkgt_document_content_nonce');
+        ?>
+        <div class="bkgt-markdown-editor">
+            <div class="bkgt-editor-toolbar">
+                <div class="bkgt-editor-modes">
+                    <label>
+                        <input type="radio" name="bkgt_editor_mode" value="markdown" <?php checked($editor_mode, 'markdown'); ?>>
+                        <?php _e('Endast Markdown', 'bkgt-document-management'); ?>
+                    </label>
+                    <label>
+                        <input type="radio" name="bkgt_editor_mode" value="split" <?php checked($editor_mode, 'split'); ?>>
+                        <?php _e('Delad vy', 'bkgt-document-management'); ?>
+                    </label>
+                    <label>
+                        <input type="radio" name="bkgt_editor_mode" value="preview" <?php checked($editor_mode, 'preview'); ?>>
+                        <?php _e('Endast förhandsvisning', 'bkgt-document-management'); ?>
+                    </label>
+                </div>
+                <div class="bkgt-editor-actions">
+                    <button type="button" class="button bkgt-insert-media" title="<?php esc_attr_e('Infoga media', 'bkgt-document-management'); ?>">
+                        <span class="dashicons dashicons-format-image"></span>
+                    </button>
+                    <button type="button" class="button bkgt-insert-template" title="<?php esc_attr_e('Infoga mallvariabel', 'bkgt-document-management'); ?>">
+                        <span class="dashicons dashicons-editor-code"></span>
+                    </button>
+                    <button type="button" class="button bkgt-toggle-fullscreen" title="<?php esc_attr_e('Helskärm', 'bkgt-document-management'); ?>">
+                        <span class="dashicons dashicons-editor-expand"></span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="bkgt-editor-container" data-mode="<?php echo esc_attr($editor_mode); ?>">
+                <div class="bkgt-editor-pane bkgt-markdown-pane">
+                    <div class="bkgt-editor-header">
+                        <span class="bkgt-pane-title"><?php _e('Markdown', 'bkgt-document-management'); ?></span>
+                        <span class="bkgt-word-count">0 <?php _e('ord', 'bkgt-document-management'); ?></span>
+                    </div>
+                    <div class="bkgt-monaco-editor" id="bkgt-markdown-editor"></div>
+                    <textarea name="bkgt_markdown_content" id="bkgt-markdown-content" style="display: none;"><?php echo esc_textarea($content); ?></textarea>
+                </div>
+
+                <div class="bkgt-editor-pane bkgt-preview-pane">
+                    <div class="bkgt-editor-header">
+                        <span class="bkgt-pane-title"><?php _e('Förhandsvisning', 'bkgt-document-management'); ?></span>
+                        <button type="button" class="button bkgt-refresh-preview" title="<?php esc_attr_e('Uppdatera förhandsvisning', 'bkgt-document-management'); ?>">
+                            <span class="dashicons dashicons-update"></span>
+                        </button>
+                    </div>
+                    <div class="bkgt-preview-content" id="bkgt-preview-content"></div>
+                </div>
+            </div>
+
+            <div class="bkgt-template-variables">
+                <h4><?php _e('Tillgängliga mallvariabler', 'bkgt-document-management'); ?></h4>
+                <div class="bkgt-variables-grid">
+                    <div class="bkgt-variable-group">
+                        <h5><?php _e('Allmänt', 'bkgt-document-management'); ?></h5>
+                        <button type="button" class="button bkgt-insert-variable" data-variable="{{CURRENT_DATE}}">{{CURRENT_DATE}}</button>
+                        <button type="button" class="button bkgt-insert-variable" data-variable="{{CURRENT_USER}}">{{CURRENT_USER}}</button>
+                        <button type="button" class="button bkgt-insert-variable" data-variable="{{DOCUMENT_TITLE}}">{{DOCUMENT_TITLE}}</button>
+                    </div>
+                    <div class="bkgt-variable-group">
+                        <h5><?php _e('Spelare', 'bkgt-document-management'); ?></h5>
+                        <button type="button" class="button bkgt-insert-variable" data-variable="{{PLAYER_NAME}}">{{PLAYER_NAME}}</button>
+                        <button type="button" class="button bkgt-insert-variable" data-variable="{{PLAYER_ID}}">{{PLAYER_ID}}</button>
+                        <button type="button" class="button bkgt-insert-variable" data-variable="{{PLAYER_TEAM}}">{{PLAYER_TEAM}}</button>
+                    </div>
+                    <div class="bkgt-variable-group">
+                        <h5><?php _e('Utrustning', 'bkgt-document-management'); ?></h5>
+                        <button type="button" class="button bkgt-insert-variable" data-variable="{{EQUIPMENT_NAME}}">{{EQUIPMENT_NAME}}</button>
+                        <button type="button" class="button bkgt-insert-variable" data-variable="{{EQUIPMENT_ID}}">{{EQUIPMENT_ID}}</button>
+                        <button type="button" class="button bkgt-insert-variable" data-variable="{{EQUIPMENT_STATUS}}">{{EQUIPMENT_STATUS}}</button>
+                    </div>
+                </div>
             </div>
         </div>
         <?php
@@ -456,6 +557,26 @@ class BKGT_Document_Admin {
             return;
         }
 
+        // Save markdown content
+        if (isset($_POST['bkgt_document_content_nonce']) &&
+            wp_verify_nonce($_POST['bkgt_document_content_nonce'], 'bkgt_document_content')) {
+
+            $markdown_content = isset($_POST['bkgt_markdown_content']) ? wp_kses_post($_POST['bkgt_markdown_content']) : '';
+            $editor_mode = isset($_POST['bkgt_editor_mode']) ? sanitize_text_field($_POST['bkgt_editor_mode']) : 'split';
+
+            update_post_meta($post_id, '_bkgt_markdown_content', $markdown_content);
+            update_post_meta($post_id, '_bkgt_editor_mode', $editor_mode);
+
+            // Also update the post content for WordPress search and display
+            if (!empty($markdown_content)) {
+                $post_content = $this->convert_markdown_to_html($markdown_content);
+                wp_update_post(array(
+                    'ID' => $post_id,
+                    'post_content' => $post_content
+                ));
+            }
+        }
+
         // Handle file upload if present
         if (!empty($_FILES['bkgt_document_file']['name'])) {
             $document = new BKGT_Document($post_id);
@@ -465,6 +586,41 @@ class BKGT_Document_Admin {
                 // Handle error - could add admin notice
             }
         }
+    }
+
+    /**
+     * Convert markdown to HTML
+     */
+    private function convert_markdown_to_html($markdown) {
+        // Use WordPress built-in markdown if available, otherwise basic conversion
+        if (function_exists('jetpack_markdown')) {
+            return jetpack_markdown($markdown);
+        }
+
+        // Basic markdown conversion for common elements
+        $html = $markdown;
+
+        // Headers
+        $html = preg_replace('/^### (.*)$/m', '<h3>$1</h3>', $html);
+        $html = preg_replace('/^## (.*)$/m', '<h2>$1</h2>', $html);
+        $html = preg_replace('/^# (.*)$/m', '<h1>$1</h1>', $html);
+
+        // Bold and italic
+        $html = preg_replace('/\*\*(.*?)\*\*/', '<strong>$1</strong>', $html);
+        $html = preg_replace('/\*(.*?)\*/', '<em>$1</em>', $html);
+
+        // Links
+        $html = preg_replace('/\[([^\]]+)\]\(([^)]+)\)/', '<a href="$2">$1</a>', $html);
+
+        // Lists
+        $html = preg_replace('/^\* (.*)$/m', '<li>$1</li>', $html);
+        $html = preg_replace('/^- (.*)$/m', '<li>$1</li>', $html);
+        $html = preg_replace('/(<li>.*<\/li>)/s', '<ul>$1</ul>', $html);
+
+        // Line breaks
+        $html = nl2br($html);
+
+        return wp_kses_post($html);
     }
 
     /**

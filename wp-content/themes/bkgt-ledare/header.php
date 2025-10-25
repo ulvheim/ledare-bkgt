@@ -109,16 +109,42 @@
         <!-- Header Bar -->
         <header class="site-header">
             <div class="header-content">
-                <h2 class="page-title">
-                    <?php 
-                    if (is_front_page()) {
-                        esc_html_e('Dashboard', 'bkgt-ledare');
-                    } else {
-                        the_title();
-                    }
-                    ?>
-                </h2>
-                
+                <nav class="top-navigation">
+                    <ul class="top-nav">
+                        <li class="dropdown">
+                            <a href="#"><?php esc_html_e('Huvudmeny', 'bkgt-ledare'); ?></a>
+                            <div class="dropdown-content">
+                                <a href="<?php echo esc_url(home_url('/')); ?>"><?php esc_html_e('Dashboard', 'bkgt-ledare'); ?></a>
+                                <a href="<?php echo esc_url(home_url('/lag')); ?>"><?php esc_html_e('Lag', 'bkgt-ledare'); ?></a>
+                                <a href="<?php echo esc_url(home_url('/spelare')); ?>"><?php esc_html_e('Spelare', 'bkgt-ledare'); ?></a>
+                            </div>
+                        </li>
+                        <li class="dropdown">
+                            <a href="#"><?php esc_html_e('Hantering', 'bkgt-ledare'); ?></a>
+                            <div class="dropdown-content">
+                                <a href="<?php echo esc_url(home_url('/?page_id=15')); ?>"><?php esc_html_e('Utrustning', 'bkgt-ledare'); ?></a>
+                                <a href="<?php echo esc_url(home_url('/?page_id=16')); ?>"><?php esc_html_e('Dokument', 'bkgt-ledare'); ?></a>
+                                <a href="<?php echo esc_url(home_url('/?page_id=17')); ?>"><?php esc_html_e('Kommunikation', 'bkgt-ledare'); ?></a>
+                            </div>
+                        </li>
+                        <?php if (bkgt_can_view_performance_data()): ?>
+                        <li class="dropdown">
+                            <a href="#"><?php esc_html_e('Konfidentiellt', 'bkgt-ledare'); ?></a>
+                            <div class="dropdown-content">
+                                <a href="<?php echo esc_url(home_url('/utvardering')); ?>"><?php esc_html_e('Utvärdering', 'bkgt-ledare'); ?></a>
+                            </div>
+                        </li>
+                        <?php endif; ?>
+                        <?php if (current_user_can('manage_options')): ?>
+                        <li class="dropdown">
+                            <a href="#"><?php esc_html_e('Administration', 'bkgt-ledare'); ?></a>
+                            <div class="dropdown-content">
+                                <a href="<?php echo esc_url(admin_url()); ?>"><?php esc_html_e('WP Admin', 'bkgt-ledare'); ?></a>
+                            </div>
+                        </li>
+                        <?php endif; ?>
+                    </ul>
+                </nav>
                 <div class="user-info">
                     <?php if (is_user_logged_in()): ?>
                         <span class="user-role"><?php echo esc_html(bkgt_get_user_role_label()); ?></span>
