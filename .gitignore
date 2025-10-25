@@ -1,0 +1,25 @@
+# Environment files
+.env
+.env.local
+.env.production
+
+# WordPress
+# wp-config.php - commented out to commit production version
+wp-content/uploads/
+wp-content/cache/
+wp-content/debug.log
+
+# Development
+node_modules/
+.vscode/
+*.log
+.DS_Store
+
+# Deployment
+deploy.sh.backup
+backup_*.sql
+
+# SSH keys (never commit these!)
+*.pem
+*.key
+id_rsa*

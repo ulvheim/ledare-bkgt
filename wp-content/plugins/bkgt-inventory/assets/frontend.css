@@ -1,0 +1,296 @@
+/**
+ * BKGT Inventory Frontend Styles
+ *
+ * @package BKGT_Inventory
+ * @since 1.0.0
+ */
+
+/* Container */
+.bkgt-inventory-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Header */
+.bkgt-inventory-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.bkgt-inventory-header h1 {
+    margin: 0;
+    color: #23282d;
+}
+
+.bkgt-item-unique-id {
+    background: #f0f0f0;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 14px;
+    color: #666;
+}
+
+/* Buttons */
+.bkgt-button {
+    display: inline-block;
+    padding: 8px 16px;
+    text-decoration: none;
+    border: 1px solid #007cba;
+    border-radius: 4px;
+    background: #007cba;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.bkgt-button:hover {
+    background: #005a87;
+    border-color: #005a87;
+    color: #fff;
+}
+
+.bkgt-button-secondary {
+    background: #fff;
+    color: #007cba;
+}
+
+.bkgt-button-secondary:hover {
+    background: #f0f0f0;
+}
+
+/* Filters */
+.bkgt-inventory-filters {
+    margin-bottom: 30px;
+    padding: 20px;
+    background: #f9f9f9;
+    border-radius: 8px;
+}
+
+.bkgt-inventory-filters form {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.bkgt-inventory-filters select {
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    min-width: 150px;
+}
+
+/* Inventory Grid */
+.bkgt-inventory-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.bkgt-inventory-item {
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.2s ease;
+}
+
+.bkgt-inventory-item:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.bkgt-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
+}
+
+.bkgt-item-header h3 {
+    margin: 0;
+    font-size: 18px;
+    color: #23282d;
+}
+
+.bkgt-item-id {
+    background: #007cba;
+    color: #fff;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: monospace;
+    font-weight: 600;
+}
+
+.bkgt-item-details div {
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.bkgt-item-details strong {
+    color: #666;
+    margin-right: 8px;
+}
+
+.bkgt-item-actions {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+}
+
+/* Single Item */
+.bkgt-item-content {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 30px;
+    margin-bottom: 30px;
+}
+
+.bkgt-item-details-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+    margin-bottom: 30px;
+}
+
+.bkgt-detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.bkgt-detail-item label {
+    font-weight: 600;
+    color: #666;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.bkgt-detail-item span {
+    font-size: 16px;
+    color: #23282d;
+}
+
+.bkgt-item-notes,
+.bkgt-item-description {
+    margin-bottom: 30px;
+}
+
+.bkgt-item-notes h3,
+.bkgt-item-description h3 {
+    margin-bottom: 15px;
+    color: #23282d;
+}
+
+.bkgt-item-image {
+    margin-bottom: 20px;
+}
+
+.bkgt-item-image img {
+    width: 100%;
+    height: auto;
+    border-radius: 4px;
+}
+
+.bkgt-history-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.bkgt-history-list li {
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.bkgt-history-list li:last-child {
+    border-bottom: none;
+}
+
+.bkgt-history-list small {
+    color: #666;
+    font-size: 12px;
+}
+
+/* Navigation */
+.bkgt-item-navigation {
+    padding-top: 20px;
+    border-top: 1px solid #e5e5e5;
+}
+
+/* No items */
+.bkgt-no-items {
+    text-align: center;
+    padding: 60px 20px;
+    background: #f9f9f9;
+    border-radius: 8px;
+}
+
+.bkgt-no-items p {
+    font-size: 18px;
+    color: #666;
+    margin: 0;
+}
+
+/* Access denied */
+.bkgt-access-denied {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.bkgt-access-denied p {
+    font-size: 18px;
+    color: #dc3232;
+    margin: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .bkgt-inventory-header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: flex-start;
+    }
+    
+    .bkgt-inventory-filters form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .bkgt-inventory-filters select {
+        min-width: auto;
+    }
+    
+    .bkgt-inventory-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .bkgt-item-content {
+        grid-template-columns: 1fr;
+    }
+    
+    .bkgt-item-header {
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-start;
+    }
+    
+    .bkgt-item-actions {
+        flex-direction: column;
+    }
+    
+    .bkgt-item-details-grid {
+        grid-template-columns: 1fr;
+    }
+}

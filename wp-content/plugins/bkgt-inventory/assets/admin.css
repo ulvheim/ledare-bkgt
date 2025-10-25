@@ -1,0 +1,170 @@
+/**
+ * BKGT Inventory Admin Styles
+ *
+ * @package BKGT_Inventory
+ * @since 1.0.0
+ */
+
+/* Dashboard Stats */
+.bkgt-dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.bkgt-stat-card {
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.bkgt-stat-card h3 {
+    margin: 0 0 10px 0;
+    color: #23282d;
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.bkgt-stat-number {
+    font-size: 36px;
+    font-weight: 700;
+    color: #007cba;
+    margin: 0;
+}
+
+.bkgt-stat-card.warning .bkgt-stat-number {
+    color: #ffb900;
+}
+
+.bkgt-stat-card.error .bkgt-stat-number {
+    color: #dc3232;
+}
+
+/* Dashboard Grid */
+.bkgt-dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.bkgt-dashboard-card {
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.bkgt-dashboard-card h3 {
+    margin: 0 0 15px 0;
+    color: #23282d;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+/* Activity List */
+.bkgt-activity-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.bkgt-activity-list li {
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.bkgt-activity-list li:last-child {
+    border-bottom: none;
+}
+
+.bkgt-activity-list strong {
+    color: #007cba;
+}
+
+.bkgt-activity-list em {
+    color: #666;
+    font-style: normal;
+}
+
+/* Condition List */
+.bkgt-condition-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.bkgt-condition-list li {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.bkgt-condition-list li:last-child {
+    border-bottom: none;
+}
+
+.condition-name {
+    font-weight: 600;
+}
+
+.condition-count {
+    background: #f0f0f0;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Admin Header */
+.bkgt-admin-header {
+    margin-bottom: 20px;
+}
+
+/* History List */
+.bkgt-history-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.bkgt-history-list li {
+    padding: 5px 0;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 12px;
+}
+
+.bkgt-history-list li:last-child {
+    border-bottom: none;
+}
+
+/* Meta Box Styles */
+#bkgt_inventory_details .form-table th {
+    width: 150px;
+}
+
+#bkgt_inventory_assignment .form-table th {
+    width: 120px;
+}
+
+/* Responsive Design */
+@media (max-width: 782px) {
+    .bkgt-dashboard-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .bkgt-dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .bkgt-condition-list li {
+        flex-direction: column;
+        gap: 5px;
+    }
+}
