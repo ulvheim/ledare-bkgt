@@ -25,12 +25,12 @@ Tags: custom, admin, management, internal
 }
 
 :root {
-    /* BKGT Club Colors - Updated to match actual BKGT Svenskalag site */
-    --bkgt-primary: #884119;        /* Brown */
+    /* BKGT Club Colors - Updated to match Svenskalag site: predominantly yellow with red accents */
+    --bkgt-primary: #F9C606;        /* Yellow */
     --bkgt-secondary: #E1251B;      /* Red */
-    --bkgt-accent: #F9C606;         /* Yellow */
-    --bkgt-light: #C79E05;          /* Lighter yellow */
-    --bkgt-white: var(--bkgt-white);          /* Pure white */
+    --bkgt-accent: #C79E05;         /* Lighter yellow */
+    --bkgt-light: #ffd847;          /* Light yellow */
+    --bkgt-white: #FFFFFF;          /* Pure white */
     --bkgt-gray: #EDEDED;           /* Light gray background */
     
     /* UI Colors */
@@ -283,14 +283,14 @@ body {
     background-color: var(--bkgt-white);
     border-radius: var(--radius-md);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    border: 1px solid rgba(136, 65, 25, 0.1);
+    border: 1px solid rgba(249, 198, 6, 0.1);
     padding: var(--spacing-lg);
     margin-bottom: var(--spacing-lg);
     transition: all 0.3s ease;
 }
 
 .card:hover {
-    box-shadow: 0 8px 15px rgba(136, 65, 25, 0.15);
+    box-shadow: 0 8px 15px rgba(249, 198, 6, 0.15);
     transform: translateY(-2px);
 }
 
@@ -383,7 +383,7 @@ body {
 .btn-primary:hover {
     background: linear-gradient(135deg, var(--bkgt-secondary) 0%, var(--bkgt-primary) 100%);
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(136, 65, 25, 0.3);
+    box-shadow: 0 4px 12px rgba(249, 198, 6, 0.3);
 }
 
 .btn-secondary {
