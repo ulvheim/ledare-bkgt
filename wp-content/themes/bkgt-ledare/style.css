@@ -30,7 +30,7 @@ Tags: custom, admin, management, internal
     --bkgt-secondary: #E1251B;      /* Red */
     --bkgt-accent: #F9C606;         /* Yellow */
     --bkgt-light: #C79E05;          /* Lighter yellow */
-    --bkgt-white: #FFFFFF;          /* Pure white */
+    --bkgt-white: var(--bkgt-white);          /* Pure white */
     --bkgt-gray: #EDEDED;           /* Light gray background */
     
     /* UI Colors */
@@ -39,9 +39,9 @@ Tags: custom, admin, management, internal
     --color-text: var(--bkgt-primary);
     --color-text-light: #6B7280;
     --color-border: #E5E7EB;
-    --color-success: #10B981;
-    --color-warning: #F59E0B;
-    --color-error: #EF4444;
+    --color-success: var(--bkgt-accent);
+    --color-warning: var(--bkgt-secondary);
+    --color-error: var(--bkgt-primary);
     
     /* Typography */
     --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -88,7 +88,7 @@ body {
 .site-sidebar {
     width: 260px;
     background-color: var(--bkgt-primary);
-    color: #ffffff;
+    color: var(--bkgt-white);
     position: fixed;
     height: 100vh;
     overflow-y: auto;
@@ -210,7 +210,7 @@ body {
 .nav-menu a:hover,
 .nav-menu a.current {
     background-color: rgba(255, 255, 255, 0.1);
-    color: #ffffff;
+    color: var(--bkgt-white);
 }
 
 .nav-menu a.current {
@@ -248,7 +248,7 @@ body {
     display: inline-block;
     padding: var(--spacing-xs) var(--spacing-sm);
     background-color: var(--bkgt-light);
-    color: #ffffff;
+    color: var(--bkgt-white);
     font-size: 0.75rem;
     border-radius: var(--radius-sm);
     font-weight: 500;
@@ -333,7 +333,7 @@ body {
 
 .data-table thead {
     background-color: var(--bkgt-secondary);
-    color: #ffffff;
+    color: var(--bkgt-white);
 }
 
 .data-table th {
@@ -393,8 +393,8 @@ body {
 }
 
 .btn-secondary:hover {
-    background-color: #B8860B;
-    border-color: #B8860B;
+    background-color: var(--bkgt-accent);
+    border-color: var(--bkgt-accent);
 }
 
 .btn-outline {
@@ -457,22 +457,22 @@ body {
 
 .badge-success {
     background-color: var(--color-success);
-    color: #ffffff;
+    color: var(--bkgt-white);
 }
 
 .badge-warning {
     background-color: var(--color-warning);
-    color: #ffffff;
+    color: var(--bkgt-white);
 }
 
 .badge-error {
     background-color: var(--color-error);
-    color: #ffffff;
+    color: var(--bkgt-white);
 }
 
 .badge-info {
     background-color: var(--bkgt-light);
-    color: #ffffff;
+    color: var(--bkgt-white);
 }
 
 /* ========================================================================
