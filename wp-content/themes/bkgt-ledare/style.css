@@ -87,7 +87,7 @@ body {
 
 .site-sidebar {
     width: 260px;
-    background-color: var(--bkgt-primary);
+    background-color: var(--bkgt-secondary);
     color: var(--bkgt-white);
     position: fixed;
     height: 100vh;
