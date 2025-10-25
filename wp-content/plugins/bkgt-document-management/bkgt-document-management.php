@@ -82,6 +82,9 @@ class BKGT_Document_Management {
         add_action('wp_ajax_bkgt_download_document', array($this, 'ajax_download_document'));
         add_action('wp_ajax_bkgt_download_version', array($this, 'ajax_download_version'));
         add_action('wp_ajax_bkgt_share_document', array($this, 'ajax_share_document'));
+        
+        // Shortcodes
+        add_shortcode('bkgt_documents', array($this, 'shortcode_documents'));
     }
 
     /**
@@ -387,6 +390,40 @@ class BKGT_Document_Management {
 
         wp_redirect($share_url);
         exit;
+    }
+    
+    /**
+     * Shortcode for documents display
+     */
+    public function shortcode_documents($atts) {
+        // Check user permissions
+        if (!is_user_logged_in()) {
+            return '<p>' . __('Du måste vara inloggad för att se denna sida.', 'bkgt-document-management') . '</p>';
+        }
+        
+        // Get current user role
+        $user = wp_get_current_user();
+        $user_roles = $user->roles;
+        
+        ob_start();
+        ?>
+        <div class="bkgt-documents-container">
+            <h2><?php _e('Dokumenthantering', 'bkgt-document-management'); ?></h2>
+            <p><?php _e('Här kan du hantera klubbens dokument.', 'bkgt-document-management'); ?></p>
+            
+            <?php if (in_array('administrator', $user_roles) || in_array('styrelsemedlem', $user_roles)): ?>
+                <a href="<?php echo admin_url('admin.php?page=bkgt-documents'); ?>" class="btn btn-primary">
+                    <?php _e('Hantera Dokument', 'bkgt-document-management'); ?>
+                </a>
+            <?php endif; ?>
+            
+            <!-- Placeholder for documents list -->
+            <div class="documents-list">
+                <p><?php _e('Dokumentlista kommer här.', 'bkgt-document-management'); ?></p>
+            </div>
+        </div>
+        <?php
+        return ob_get_clean();
     }
 }
 
