@@ -25,13 +25,13 @@ Tags: custom, admin, management, internal
 }
 
 :root {
-    /* BKGT Club Colors - Updated to match official BKGT branding */
-    --bkgt-primary: #003366;        /* Deep navy blue */
-    --bkgt-secondary: #001122;      /* Darker navy */
-    --bkgt-accent: #FFD700;         /* Gold accent */
-    --bkgt-light: #0066CC;          /* Lighter blue */
+    /* BKGT Club Colors - Updated to match actual BKGT Svenskalag site */
+    --bkgt-primary: #884119;        /* Brown */
+    --bkgt-secondary: #E1251B;      /* Red */
+    --bkgt-accent: #F9C606;         /* Yellow */
+    --bkgt-light: #C79E05;          /* Lighter yellow */
     --bkgt-white: #FFFFFF;          /* Pure white */
-    --bkgt-gray: #F8F9FA;           /* Light gray background */
+    --bkgt-gray: #EDEDED;           /* Light gray background */
     
     /* UI Colors */
     --color-bg: var(--bkgt-gray);
