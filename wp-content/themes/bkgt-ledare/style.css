@@ -87,7 +87,7 @@ body {
 
 .site-sidebar {
     width: 260px;
-    background-color: var(--bkgt-secondary);
+    background-color: var(--bkgt-primary);
     color: var(--bkgt-white);
     position: fixed;
     height: 100vh;
@@ -180,7 +180,7 @@ body {
 .nav-menu li a {
     display: block;
     padding: var(--spacing-sm) var(--spacing-lg);
-    color: var(--bkgt-white);
+    color: var(--bkgt-secondary);
     text-decoration: none;
     transition: all 0.3s ease;
     border-radius: var(--radius-sm);
@@ -189,8 +189,8 @@ body {
 
 .nav-menu li a:hover,
 .nav-menu li a.current {
-    background-color: rgba(255, 255, 255, 0.1);
-    color: var(--bkgt-accent);
+    background-color: rgba(225, 25, 27, 0.1);
+    color: var(--bkgt-secondary);
     font-weight: 500;
 }
 
@@ -202,15 +202,15 @@ body {
     display: flex;
     align-items: center;
     padding: var(--spacing-sm) var(--spacing-lg);
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--bkgt-secondary);
     text-decoration: none;
     transition: all 0.2s;
 }
 
 .nav-menu a:hover,
 .nav-menu a.current {
-    background-color: rgba(255, 255, 255, 0.1);
-    color: var(--bkgt-white);
+    background-color: rgba(225, 25, 27, 0.1);
+    color: var(--bkgt-secondary);
 }
 
 .nav-menu a.current {
