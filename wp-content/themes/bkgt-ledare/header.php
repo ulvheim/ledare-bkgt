@@ -59,17 +59,17 @@
                 <h4 class="nav-section-title"><?php esc_html_e('Hantering', 'bkgt-ledare'); ?></h4>
                 <ul class="nav-menu">
                     <li>
-                        <a href="<?php echo esc_url(home_url('/utrustning')); ?>">
+                        <a href="<?php echo esc_url(home_url('/?page_id=15')); ?>">
                             <?php esc_html_e('Utrustning', 'bkgt-ledare'); ?>
                         </a>
                     </li>
                     <li>
-                        <a href="<?php echo esc_url(home_url('/dokument')); ?>">
+                        <a href="<?php echo esc_url(home_url('/?page_id=16')); ?>">
                             <?php esc_html_e('Dokument', 'bkgt-ledare'); ?>
                         </a>
                     </li>
                     <li>
-                        <a href="<?php echo esc_url(home_url('/kommunikation')); ?>">
+                        <a href="<?php echo esc_url(home_url('/?page_id=17')); ?>">
                             <?php esc_html_e('Kommunikation', 'bkgt-ledare'); ?>
                         </a>
                     </li>
