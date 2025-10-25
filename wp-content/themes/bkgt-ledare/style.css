@@ -36,7 +36,7 @@ Tags: custom, admin, management, internal
     /* UI Colors */
     --color-bg: var(--bkgt-gray);
     --color-surface: var(--bkgt-white);
-    --color-text: var(--bkgt-primary);
+    --color-text: var(--bkgt-secondary);
     --color-text-light: #6B7280;
     --color-border: #E5E7EB;
     --color-success: var(--bkgt-accent);
@@ -103,7 +103,7 @@ body {
 }
 
 .site-header {
-    background: linear-gradient(135deg, var(--bkgt-primary) 0%, var(--bkgt-secondary) 100%);
+    background-color: var(--bkgt-primary);
     color: var(--bkgt-white);
     border-bottom: 3px solid var(--bkgt-accent);
     padding: var(--spacing-lg) var(--spacing-xl);
@@ -372,7 +372,7 @@ body {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, var(--bkgt-primary) 0%, var(--bkgt-secondary) 100%);
+    background-color: var(--bkgt-primary);
     color: var(--bkgt-white);
     border: 2px solid var(--bkgt-primary);
     font-weight: 600;
@@ -381,7 +381,7 @@ body {
 }
 
 .btn-primary:hover {
-    background: linear-gradient(135deg, var(--bkgt-secondary) 0%, var(--bkgt-primary) 100%);
+    background-color: var(--bkgt-secondary);
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(249, 198, 6, 0.3);
 }
