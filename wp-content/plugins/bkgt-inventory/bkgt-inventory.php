@@ -92,6 +92,7 @@ class BKGT_Inventory {
         
         // Shortcodes
         add_shortcode('bkgt_inventory', array($this, 'shortcode_inventory'));
+        add_shortcode('bkgt_inventory_admin', array($this, 'shortcode_inventory_admin'));
     }
     
     /**
@@ -379,7 +380,7 @@ class BKGT_Inventory {
             <p><?php _e('Här kan du hantera klubbens utrustning.', 'bkgt-inventory'); ?></p>
             
             <?php if (in_array('administrator', $user_roles) || in_array('styrelsemedlem', $user_roles)): ?>
-                <a href="<?php echo admin_url('admin.php?page=bkgt-inventory'); ?>" class="btn btn-primary">
+                <a href="<?php echo esc_url(home_url('/?page_id=18')); ?>" class="btn btn-primary">
                     <?php _e('Hantera Inventarie', 'bkgt-inventory'); ?>
                 </a>
             <?php endif; ?>
@@ -387,6 +388,75 @@ class BKGT_Inventory {
             <!-- Placeholder for inventory list -->
             <div class="inventory-list">
                 <p><?php _e('Inventarielista kommer här.', 'bkgt-inventory'); ?></p>
+            </div>
+        </div>
+        <?php
+        return ob_get_clean();
+    }
+    
+    /**
+     * Shortcode for inventory admin interface
+     */
+    public function shortcode_inventory_admin($atts) {
+        // Check user permissions - only admins
+        if (!current_user_can('manage_options')) {
+            return '<p>' . __('Du har inte behörighet att komma åt denna sida.', 'bkgt-inventory') . '</p>';
+        }
+        
+        ob_start();
+        ?>
+        <div class="bkgt-inventory-admin">
+            <h2><?php _e('Hantera Utrustning', 'bkgt-inventory'); ?></h2>
+            
+            <!-- Add Item Form -->
+            <div class="admin-section">
+                <h3><?php _e('Lägg till ny utrustning', 'bkgt-inventory'); ?></h3>
+                <form id="add-item-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="manufacturer"><?php _e('Tillverkare', 'bkgt-inventory'); ?></label>
+                            <select id="manufacturer" name="manufacturer_id" required>
+                                <option value=""><?php _e('Välj tillverkare', 'bkgt-inventory'); ?></option>
+                                <?php
+                                $manufacturers = BKGT_Manufacturer::get_all();
+                                foreach ($manufacturers as $manufacturer) {
+                                    echo '<option value="' . esc_attr($manufacturer->id) . '">' . esc_html($manufacturer->name) . '</option>';
+                                }
+                                ?>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="item_type"><?php _e('Artikeltyp', 'bkgt-inventory'); ?></label>
+                            <select id="item_type" name="item_type_id" required>
+                                <option value=""><?php _e('Välj artikeltyp', 'bkgt-inventory'); ?></option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="unique_identifier"><?php _e('Unik Identifierare', 'bkgt-inventory'); ?></label>
+                            <input type="text" id="unique_identifier" name="unique_identifier" readonly required>
+                            <button type="button" id="generate-identifier"><?php _e('Generera', 'bkgt-inventory'); ?></button>
+                        </div>
+                        <div class="form-group">
+                            <label for="assigned_to"><?php _e('Tilldelad till', 'bkgt-inventory'); ?></label>
+                            <select id="assigned_to" name="assigned_to">
+                                <option value="club"><?php _e('Klubben', 'bkgt-inventory'); ?></option>
+                                <option value="team"><?php _e('Lag', 'bkgt-inventory'); ?></option>
+                                <option value="player"><?php _e('Spelare', 'bkgt-inventory'); ?></option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary"><?php _e('Lägg till', 'bkgt-inventory'); ?></button>
+                </form>
+            </div>
+            
+            <!-- Inventory List -->
+            <div class="admin-section">
+                <h3><?php _e('Utrustningslista', 'bkgt-inventory'); ?></h3>
+                <div id="inventory-table">
+                    <p><?php _e('Laddar...', 'bkgt-inventory'); ?></p>
+                </div>
             </div>
         </div>
         <?php

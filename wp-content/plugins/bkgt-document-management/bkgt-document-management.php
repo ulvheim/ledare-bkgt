@@ -87,6 +87,7 @@ class BKGT_Document_Management {
         
         // Shortcodes
         add_shortcode('bkgt_documents', array($this, 'shortcode_documents'));
+        add_shortcode('bkgt_documents_admin', array($this, 'shortcode_documents_admin'));
     }
 
     /**
@@ -444,7 +445,7 @@ class BKGT_Document_Management {
             <p><?php _e('Här kan du hantera klubbens dokument.', 'bkgt-document-management'); ?></p>
             
             <?php if (in_array('administrator', $user_roles) || in_array('styrelsemedlem', $user_roles)): ?>
-                <a href="<?php echo admin_url('admin.php?page=bkgt-documents'); ?>" class="btn btn-primary">
+                <a href="<?php echo get_permalink(19); ?>" class="btn btn-primary">
                     <?php _e('Hantera Dokument', 'bkgt-document-management'); ?>
                 </a>
             <?php endif; ?>
@@ -452,6 +453,56 @@ class BKGT_Document_Management {
             <!-- Placeholder for documents list -->
             <div class="documents-list">
                 <p><?php _e('Dokumentlista kommer här.', 'bkgt-document-management'); ?></p>
+            </div>
+        </div>
+        <?php
+        return ob_get_clean();
+    }
+    
+    /**
+     * Shortcode for documents admin interface
+     */
+    public function shortcode_documents_admin($atts) {
+        // Check user permissions - only admins
+        if (!current_user_can('manage_options')) {
+            return '<p>' . __('Du har inte behörighet att komma åt denna sida.', 'bkgt-document-management') . '</p>';
+        }
+        
+        ob_start();
+        ?>
+        <div class="bkgt-documents-admin">
+            <h2><?php _e('Hantera Dokument', 'bkgt-document-management'); ?></h2>
+            
+            <!-- Upload Document Form -->
+            <div class="admin-section">
+                <h3><?php _e('Ladda upp nytt dokument', 'bkgt-document-management'); ?></h3>
+                <form id="upload-document-form" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="document-title"><?php _e('Titel', 'bkgt-document-management'); ?></label>
+                        <input type="text" id="document-title" name="title" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="document-file"><?php _e('Fil', 'bkgt-document-management'); ?></label>
+                        <input type="file" id="document-file" name="document_file" accept=".pdf,.doc,.docx,.xls,.xlsx" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="document-category"><?php _e('Kategori', 'bkgt-document-management'); ?></label>
+                        <select id="document-category" name="category">
+                            <option value="allmanna"><?php _e('Allmänna dokument', 'bkgt-document-management'); ?></option>
+                            <option value="ekonomi"><?php _e('Ekonomi', 'bkgt-document-management'); ?></option>
+                            <option value="spelare"><?php _e('Spelare', 'bkgt-document-management'); ?></option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary"><?php _e('Ladda upp', 'bkgt-document-management'); ?></button>
+                </form>
+            </div>
+            
+            <!-- Documents List -->
+            <div class="admin-section">
+                <h3><?php _e('Dokumentlista', 'bkgt-document-management'); ?></h3>
+                <div id="documents-table">
+                    <p><?php _e('Laddar...', 'bkgt-document-management'); ?></p>
+                </div>
             </div>
         </div>
         <?php
