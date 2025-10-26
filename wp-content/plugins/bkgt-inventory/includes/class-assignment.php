@@ -152,9 +152,18 @@ class BKGT_Assignment {
      * Get default club location ID
      */
     private static function get_default_club_location_id() {
-        // For now, return a default location ID. This could be configurable later.
-        // We'll use ID 1 for "Förråd" (Storage) as the default club location
-        return 1;
+        // Find the default club storage location
+        $locations = BKGT_Location::get_all_locations();
+        
+        // Look for "Klubbförråd" or the first storage location
+        foreach ($locations as $location) {
+            if ($location['slug'] === 'klubbförråd' || $location['location_type'] === BKGT_Location::TYPE_STORAGE) {
+                return $location['id'];
+            }
+        }
+        
+        // Fallback to first location if no storage location found
+        return !empty($locations) ? $locations[0]['id'] : 1;
     }
     
     /**

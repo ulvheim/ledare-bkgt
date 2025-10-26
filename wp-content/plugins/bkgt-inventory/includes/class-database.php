@@ -34,6 +34,11 @@ class BKGT_Inventory_Database {
     private $assignments_table;
     
     /**
+     * Locations table name
+     */
+    private $locations_table;
+    
+    /**
      * Constructor
      */
     public function __construct() {
@@ -43,6 +48,7 @@ class BKGT_Inventory_Database {
         $this->item_types_table = $wpdb->prefix . 'bkgt_item_types';
         $this->inventory_items_table = $wpdb->prefix . 'bkgt_inventory_items';
         $this->assignments_table = $wpdb->prefix . 'bkgt_assignments';
+        $this->locations_table = $wpdb->prefix . 'bkgt_locations';
     }
     
     /**
@@ -113,14 +119,37 @@ class BKGT_Inventory_Database {
             UNIQUE KEY unique_active_assignment (item_id, unassigned_date)
         ) $charset_collate;";
         
+        // Locations table
+        $locations_sql = "CREATE TABLE {$this->locations_table} (
+            id int(11) NOT NULL AUTO_INCREMENT,
+            name varchar(255) NOT NULL,
+            slug varchar(255) NOT NULL UNIQUE,
+            parent_id int(11) DEFAULT NULL,
+            location_type enum('storage','repair','locker','warehouse','other') DEFAULT 'storage',
+            address text,
+            contact_person varchar(255),
+            contact_phone varchar(50),
+            contact_email varchar(255),
+            capacity int(11) DEFAULT NULL,
+            access_restrictions text,
+            notes text,
+            is_active tinyint(1) DEFAULT 1,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY slug (slug),
+            FOREIGN KEY (parent_id) REFERENCES {$this->locations_table}(id) ON DELETE SET NULL
+        ) $charset_collate;";
+        
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($manufacturers_sql);
         dbDelta($item_types_sql);
         dbDelta($inventory_items_sql);
         dbDelta($assignments_sql);
+        dbDelta($locations_sql);
         
         // Update database version
-        update_option('bkgt_inventory_db_version', '1.1.0');
+        update_option('bkgt_inventory_db_version', '1.2.0');
     }
     
     /**
@@ -133,6 +162,7 @@ class BKGT_Inventory_Database {
         $wpdb->query("DROP TABLE IF EXISTS {$this->inventory_items_table}");
         $wpdb->query("DROP TABLE IF EXISTS {$this->item_types_table}");
         $wpdb->query("DROP TABLE IF EXISTS {$this->manufacturers_table}");
+        $wpdb->query("DROP TABLE IF EXISTS {$this->locations_table}");
         
         delete_option('bkgt_inventory_db_version');
     }
@@ -166,6 +196,13 @@ class BKGT_Inventory_Database {
     }
     
     /**
+     * Get locations table name
+     */
+    public function get_locations_table() {
+        return $this->locations_table;
+    }
+    
+    /**
      * Check if tables exist
      */
     public function tables_exist() {
@@ -175,7 +212,8 @@ class BKGT_Inventory_Database {
         $item_types_exists = $wpdb->get_var("SHOW TABLES LIKE '{$this->item_types_table}'") === $this->item_types_table;
         $inventory_items_exists = $wpdb->get_var("SHOW TABLES LIKE '{$this->inventory_items_table}'") === $this->inventory_items_table;
         $assignments_exists = $wpdb->get_var("SHOW TABLES LIKE '{$this->assignments_table}'") === $this->assignments_table;
+        $locations_exists = $wpdb->get_var("SHOW TABLES LIKE '{$this->locations_table}'") === $this->locations_table;
         
-        return $manufacturers_exists && $item_types_exists && $inventory_items_exists && $assignments_exists;
+        return $manufacturers_exists && $item_types_exists && $inventory_items_exists && $assignments_exists && $locations_exists;
     }
 }

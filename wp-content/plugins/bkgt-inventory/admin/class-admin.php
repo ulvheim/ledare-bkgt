@@ -82,6 +82,15 @@ class BKGT_Inventory_Admin {
             'bkgt-history',
             array($this, 'render_history_page')
         );
+        
+        add_submenu_page(
+            'bkgt-inventory',
+            __('Platser', 'bkgt-inventory'),
+            __('Platser', 'bkgt-inventory'),
+            'manage_options',
+            'bkgt-locations',
+            array($this, 'render_locations_page')
+        );
     }
     
     /**
@@ -1204,5 +1213,266 @@ class BKGT_Inventory_Admin {
             'assignment_type' => $_POST['bkgt_assignment_type'] ?? '',
             'assigned_to' => $_POST['bkgt_assigned_to'] ?? '',
         ));
+    }
+    
+    /**
+     * Render locations page
+     */
+    public function render_locations_page() {
+        // Handle form submissions
+        if (isset($_POST['action'])) {
+            $this->handle_location_actions();
+        }
+        
+        // Get locations
+        $locations = BKGT_Location::get_all_locations();
+        
+        // Include template
+        include BKGT_INV_PLUGIN_DIR . 'templates/locations-page.php';
+    }
+    
+    /**
+     * Handle location actions
+     */
+    private function handle_location_actions() {
+        // Verify nonce
+        if (!wp_verify_nonce($_POST['_wpnonce'] ?? '', 'bkgt_location_action')) {
+            wp_die(__('Säkerhetstoken misslyckades.', 'bkgt-inventory'));
+        }
+        
+        $action = sanitize_text_field($_POST['action']);
+        $location_id = isset($_POST['location_id']) ? intval($_POST['location_id']) : 0;
+        
+        switch ($action) {
+            case 'create_location':
+                $result = $this->create_location_from_post();
+                if (is_wp_error($result)) {
+                    add_settings_error('bkgt_locations', 'create_error', $result->get_error_message());
+                } else {
+                    add_settings_error('bkgt_locations', 'create_success', __('Plats skapad framgångsrikt.', 'bkgt-inventory'), 'updated');
+                }
+                break;
+                
+            case 'update_location':
+                $result = $this->update_location_from_post($location_id);
+                if (is_wp_error($result)) {
+                    add_settings_error('bkgt_locations', 'update_error', $result->get_error_message());
+                } else {
+                    add_settings_error('bkgt_locations', 'update_success', __('Plats uppdaterad framgångsrikt.', 'bkgt-inventory'), 'updated');
+                }
+                break;
+                
+            case 'delete_location':
+                $result = BKGT_Location::delete_location($location_id);
+                if (is_wp_error($result)) {
+                    add_settings_error('bkgt_locations', 'delete_error', $result->get_error_message());
+                } else {
+                    add_settings_error('bkgt_locations', 'delete_success', __('Plats borttagen framgångsrikt.', 'bkgt-inventory'), 'updated');
+                }
+                break;
+        }
+    }
+    
+    /**
+     * Create location from POST data
+     */
+    private function create_location_from_post() {
+        $data = array(
+            'name' => sanitize_text_field($_POST['location_name'] ?? ''),
+            'slug' => sanitize_title($_POST['location_slug'] ?? ''),
+            'parent_id' => !empty($_POST['parent_id']) ? intval($_POST['parent_id']) : null,
+            'location_type' => sanitize_text_field($_POST['location_type'] ?? BKGT_Location::TYPE_STORAGE),
+            'address' => sanitize_textarea_field($_POST['address'] ?? ''),
+            'contact_person' => sanitize_text_field($_POST['contact_person'] ?? ''),
+            'contact_phone' => sanitize_text_field($_POST['contact_phone'] ?? ''),
+            'contact_email' => sanitize_email($_POST['contact_email'] ?? ''),
+            'capacity' => !empty($_POST['capacity']) ? intval($_POST['capacity']) : null,
+            'access_restrictions' => sanitize_textarea_field($_POST['access_restrictions'] ?? ''),
+            'notes' => sanitize_textarea_field($_POST['notes'] ?? ''),
+            'is_active' => isset($_POST['is_active']) ? 1 : 0
+        );
+        
+        return BKGT_Location::create_location($data);
+    }
+    
+    /**
+     * Update location from POST data
+     */
+    private function update_location_from_post($location_id) {
+        $data = array(
+            'name' => sanitize_text_field($_POST['location_name'] ?? ''),
+            'slug' => sanitize_title($_POST['location_slug'] ?? ''),
+            'parent_id' => !empty($_POST['parent_id']) ? intval($_POST['parent_id']) : null,
+            'location_type' => sanitize_text_field($_POST['location_type'] ?? BKGT_Location::TYPE_STORAGE),
+            'address' => sanitize_textarea_field($_POST['address'] ?? ''),
+            'contact_person' => sanitize_text_field($_POST['contact_person'] ?? ''),
+            'contact_phone' => sanitize_text_field($_POST['contact_phone'] ?? ''),
+            'contact_email' => sanitize_email($_POST['contact_email'] ?? ''),
+            'capacity' => !empty($_POST['capacity']) ? intval($_POST['capacity']) : null,
+            'access_restrictions' => sanitize_textarea_field($_POST['access_restrictions'] ?? ''),
+            'notes' => sanitize_textarea_field($_POST['notes'] ?? ''),
+            'is_active' => isset($_POST['is_active']) ? 1 : 0
+        );
+        
+        return BKGT_Location::update_location($location_id, $data);
+    }
+    
+    /**
+     * Render location options for select dropdown
+     */
+    private function render_location_options($locations, $selected = '', $parent_id = null, $level = 0) {
+        $indent = str_repeat('—', $level);
+        
+        foreach ($locations as $location) {
+            if ($location['parent_id'] == $parent_id) {
+                $option_value = $location['id'];
+                $option_text = $indent . ' ' . $location['name'];
+                $is_selected = ($selected == $option_value) ? 'selected' : '';
+                
+                echo '<option value="' . esc_attr($option_value) . '" ' . $is_selected . '>' . esc_html($option_text) . '</option>';
+                
+                // Render children
+                if (isset($location['children']) && !empty($location['children'])) {
+                    $this->render_location_options($location['children'], $selected, $location['id'], $level + 1);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Render locations hierarchy
+     */
+    private function render_locations_hierarchy($locations, $parent_id = null, $level = 0) {
+        foreach ($locations as $location) {
+            if ($location['parent_id'] == $parent_id) {
+                $this->render_location_item($location, $level);
+                
+                // Render children
+                if (isset($location['children']) && !empty($location['children'])) {
+                    echo '<div class="bkgt-location-children">';
+                    $this->render_locations_hierarchy($location['children'], $location['id'], $level + 1);
+                    echo '</div>';
+                }
+            }
+        }
+    }
+    
+    /**
+     * Render single location item
+     */
+    private function render_location_item($location, $level = 0) {
+        $location_types = BKGT_Location::get_location_types();
+        $item_count = BKGT_Location::get_location_item_count($location['id']);
+        $stats = BKGT_Location::get_location_stats($location['id']);
+        
+        ?>
+        <div class="bkgt-location-item" data-location-id="<?php echo esc_attr($location['id']); ?>">
+            <div class="bkgt-location-header">
+                <div>
+                    <span class="bkgt-location-name"><?php echo esc_html($location['name']); ?></span>
+                    <span class="bkgt-location-type"><?php echo esc_html($location_types[$location['location_type']] ?? $location['location_type']); ?></span>
+                </div>
+                <div class="bkgt-location-actions">
+                    <button class="button button-small bkgt-edit-location"><?php _e('Redigera', 'bkgt-inventory'); ?></button>
+                    <?php if ($item_count == 0): ?>
+                        <form method="post" action="" style="display: inline;">
+                            <?php wp_nonce_field('bkgt_location_action'); ?>
+                            <input type="hidden" name="action" value="delete_location">
+                            <input type="hidden" name="location_id" value="<?php echo esc_attr($location['id']); ?>">
+                            <button type="submit" class="button button-small button-link-delete" onclick="return confirm('<?php _e('Är du säker på att du vill ta bort denna plats?', 'bkgt-inventory'); ?>')"><?php _e('Ta bort', 'bkgt-inventory'); ?></button>
+                        </form>
+                    <?php endif; ?>
+                </div>
+            </div>
+            
+            <div class="bkgt-location-meta">
+                <?php if ($location['capacity']): ?>
+                    <span><?php printf(__('Kapacitet: %d artiklar', 'bkgt-inventory'), $location['capacity']); ?></span> |
+                <?php endif; ?>
+                <span><?php printf(_n('%d artikel tilldelad', '%d artiklar tilldelade', $item_count, 'bkgt-inventory'), $item_count); ?></span>
+                <?php if ($location['contact_person']): ?>
+                    | <span><?php printf(__('Kontakt: %s', 'bkgt-inventory'), esc_html($location['contact_person'])); ?></span>
+                <?php endif; ?>
+            </div>
+            
+            <div class="bkgt-edit-location-form" style="display: none;">
+                <form method="post" action="">
+                    <?php wp_nonce_field('bkgt_location_action'); ?>
+                    <input type="hidden" name="action" value="update_location">
+                    <input type="hidden" name="location_id" value="<?php echo esc_attr($location['id']); ?>">
+                    
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row"><label><?php _e('Platsnamn *', 'bkgt-inventory'); ?></label></th>
+                            <td><input type="text" name="location_name" value="<?php echo esc_attr($location['name']); ?>" class="regular-text" required></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><label><?php _e('Slug', 'bkgt-inventory'); ?></label></th>
+                            <td><input type="text" name="location_slug" value="<?php echo esc_attr($location['slug']); ?>" class="regular-text"></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><label><?php _e('Föräldraplats', 'bkgt-inventory'); ?></label></th>
+                            <td>
+                                <select name="parent_id" class="regular-text">
+                                    <option value=""><?php _e('Ingen förälder (toppnivå)', 'bkgt-inventory'); ?></option>
+                                    <?php 
+                                    $all_locations = BKGT_Location::get_all_locations();
+                                    $this->render_location_options($all_locations, $location['parent_id']); 
+                                    ?>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><label><?php _e('Platstyp', 'bkgt-inventory'); ?></label></th>
+                            <td>
+                                <select name="location_type" class="regular-text">
+                                    <?php foreach ($location_types as $type => $label): ?>
+                                        <option value="<?php echo esc_attr($type); ?>" <?php selected($location['location_type'], $type); ?>><?php echo esc_html($label); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><label><?php _e('Adress', 'bkgt-inventory'); ?></label></th>
+                            <td><textarea name="address" class="regular-text" rows="3"><?php echo esc_textarea($location['address']); ?></textarea></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><label><?php _e('Kontaktperson', 'bkgt-inventory'); ?></label></th>
+                            <td><input type="text" name="contact_person" value="<?php echo esc_attr($location['contact_person']); ?>" class="regular-text"></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><label><?php _e('Telefon', 'bkgt-inventory'); ?></label></th>
+                            <td><input type="tel" name="contact_phone" value="<?php echo esc_attr($location['contact_phone']); ?>" class="regular-text"></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><label><?php _e('E-post', 'bkgt-inventory'); ?></label></th>
+                            <td><input type="email" name="contact_email" value="<?php echo esc_attr($location['contact_email']); ?>" class="regular-text"></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><label><?php _e('Kapacitet', 'bkgt-inventory'); ?></label></th>
+                            <td><input type="number" name="capacity" value="<?php echo esc_attr($location['capacity']); ?>" class="regular-text" min="0"></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><label><?php _e('Åtkomstbegränsningar', 'bkgt-inventory'); ?></label></th>
+                            <td><textarea name="access_restrictions" class="regular-text" rows="2"><?php echo esc_textarea($location['access_restrictions']); ?></textarea></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><label><?php _e('Anteckningar', 'bkgt-inventory'); ?></label></th>
+                            <td><textarea name="notes" class="regular-text" rows="3"><?php echo esc_textarea($location['notes']); ?></textarea></td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php _e('Aktiv', 'bkgt-inventory'); ?></th>
+                            <td><label><input type="checkbox" name="is_active" value="1" <?php checked($location['is_active'], 1); ?>> <?php _e('Plats är aktiv', 'bkgt-inventory'); ?></label></td>
+                        </tr>
+                    </table>
+                    
+                    <p class="submit">
+                        <input type="submit" name="submit" class="button button-primary" value="<?php _e('Uppdatera plats', 'bkgt-inventory'); ?>">
+                        <button type="button" class="button bkgt-cancel-edit"><?php _e('Avbryt', 'bkgt-inventory'); ?></button>
+                    </p>
+                </form>
+            </div>
+        </div>
+        <?php
     }
 }

@@ -1,0 +1,202 @@
+/* Admin Styles for BKGT Document Management */
+
+/* General Admin Styles */
+.bkgt-admin-dashboard {
+    margin-top: 20px;
+}
+
+.bkgt-admin-section {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.bkgt-admin-section h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+/* Document List Styles */
+.bkgt-document-list {
+    margin-top: 20px;
+}
+
+.bkgt-document-item {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    border: 1px solid #e1e5e9;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    background: #fff;
+    transition: all 0.2s ease;
+}
+
+.bkgt-document-item:hover {
+    border-color: #007cba;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.bkgt-document-icon {
+    margin-right: 15px;
+    color: #666;
+    font-size: 24px;
+}
+
+.bkgt-document-info {
+    flex: 1;
+}
+
+.bkgt-document-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+.bkgt-document-meta {
+    font-size: 14px;
+    color: #666;
+}
+
+.bkgt-document-actions {
+    display: flex;
+    gap: 10px;
+}
+
+/* Form Styles */
+.bkgt-form-row {
+    margin-bottom: 15px;
+}
+
+.bkgt-form-row label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+.bkgt-form-row input[type="text"],
+.bkgt-form-row input[type="email"],
+.bkgt-form-row input[type="url"],
+.bkgt-form-row textarea,
+.bkgt-form-row select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.bkgt-form-row textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+/* Button Styles */
+.bkgt-button-group {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.bkgt-btn {
+    padding: 8px 16px;
+    border: 1px solid #007cba;
+    border-radius: 4px;
+    background: #007cba;
+    color: #fff;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.bkgt-btn:hover {
+    background: #005a87;
+    border-color: #005a87;
+}
+
+.bkgt-btn-secondary {
+    background: #fff;
+    color: #007cba;
+}
+
+.bkgt-btn-secondary:hover {
+    background: #f8f9fa;
+}
+
+/* Status Messages */
+.bkgt-notice {
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+}
+
+.bkgt-notice-success {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+}
+
+.bkgt-notice-error {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
+
+.bkgt-notice-warning {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    color: #856404;
+}
+
+.bkgt-notice-info {
+    background: #d1ecf1;
+    border: 1px solid #bee5eb;
+    color: #0c5460;
+}
+
+/* Loading Spinner */
+.bkgt-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #007cba;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .bkgt-document-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .bkgt-document-actions {
+        margin-top: 10px;
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .bkgt-button-group {
+        flex-direction: column;
+    }
+
+    .bkgt-btn {
+        text-align: center;
+    }
+}

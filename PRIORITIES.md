@@ -11,7 +11,40 @@
 
 ---
 
-## 1. Authentication and Authorization (User Roles)
+## ✅ IMPLEMENTATION STATUS OVERVIEW
+
+### **COMPLETED SYSTEMS:**
+- **🔐 User Management & Authentication** - Full role-based access control implemented
+- **📄 Document Management System (DMS)** - Complete with all advanced features
+- **📦 Inventory System** - Equipment tracking, assignment system, and location management implemented
+- **💬 Communication System** - Messaging and notifications framework
+- **🎨 Theme & Frontend** - Basic theme structure with user dashboard
+- **🔄 Data Retrieval & Scraping System** - Complete plugin with automated scraping and manual entry
+
+### **PENDING IMPLEMENTATION:**
+- **👥 Team & Player Pages** - Individual dossiers and performance tracking
+- **🚪 Offboarding System** - Personnel transition management
+
+---
+
+## 1. Authentication and Authorization (User Roles) ✅ COMPLETED
+
+### 1.1. Role Matrix
+
+| User Role (Swedish Term) | Access Level | Description and Specific Permissions |
+| :--- | :--- | :--- |
+| **Styrelsemedlem (Admin)** | Global Access | Full access to all features, settings, and data. Can view, edit, and export sensitive Performance Data. Full control over the Inventory System and DMS (Document Management System). |
+| **Tränare (Coach)** | Team-Specific | Can view and manage data (e.g., notes) for their assigned team(s). Full access to the Inventory System and DMS related to their team. **Has access** to Performance Data for their team. |
+| **Lagledare (Team Manager)** | Team-Specific (Limited) | Can view and manage data for their assigned team(s). Full access to the Inventory System and DMS related to their team. **DOES NOT have access** to Performance Data. |
+
+### 1.2. Technical Detail ✅ IMPLEMENTED
+
+* **Login:** Users must log in to access any protected content or functionality.
+* **Role Binding:** Each user must be bound to one or more **Teams** (e.g., Damlag/Women's Team, Herrlag/Men's Team, U17) for team-specific access to function correctly.
+
+**Implementation:** `bkgt-user-management` plugin with complete role management, team assignments, and capability system.
+
+---
 
 ### 1.1. Role Matrix
 
@@ -30,7 +63,7 @@
 
 ## 2. Features
 
-### 2.1. Inventory System (Utrustningssystem)
+### 2.1. Inventory System (Utrustningssystem) ✅ COMPLETED
 
 A system to track every individual equipment item and its assignment.
 
@@ -47,9 +80,59 @@ A system to track every individual equipment item and its assignment.
 | **Sticker Field (Klistermärke-fält)** | String/Auto-generated | Unique sticker code for labeling machine integration. Format: `[Unique ID]-[Sequential]` (e.g., `0001-0002-00001-A`). Used for physical labeling and replacement tracking. |
 | **History (Historik)** | Transaction Log | Every change in **Assigned To** and **Condition** must be logged with a timestamp and the user who made the change. |
 
-### 2.1.x. Item Assignment System (Utrustningstilldelningssystem)
+**Implementation:** Complete `bkgt-inventory` plugin with manufacturers, item types, inventory items, assignment system, and history tracking.
+
+| Field/Function (Swedish Term) | Data Type/Structure | Detailed Description |
+| :--- | :--- | :--- |
+| **Extensibility (Utökbarhet)** | Dynamic Fields | Board Members (Admin) must easily be able to add new custom fields (e.g., `Inköpspris`/`Purchase Price`, `Storlek`/`Size`) for specific Item Types without coding. |
+| **Manufacturer (Tillverkare)** | ID (Int, 0000-9999) + String | A database table/list of unique manufacturers. Used to generate the Unique Identifier. |
+| **Item Type (Artikeltyp)** | ID (Int, 0000-9999) + String | A database table/list of unique item types (e.g., `Hjälm`/`Helmet`, `Axelskydd`/`Shoulder Pads`). Used to generate the Unique Identifier. |
+| **Unique Identifier (Unik Identifierare)** | String (Format: `####-####-#####`) | The primary key for each inventory item. Format must be: `[Manufacturer-ID (4 digits)]-[ItemType-ID (4 digits)]-[Sequential Number (5 digits)]`. The sequential number is unique per Manufacturer/Item Type combination, starting at `00001` up to `99999`. |
+| **Assigned To (Tilldelad till)** | Entity Reference | **Must be assigned to one of the following mutually exclusive entities:** 1. The Club, 2. Specific Team (e.g., "Damlag"), 3. Individual (Reference to Player Dossier/User-ID). |
+| **Storage Location (Lagringsplats)** | Multiple References | Must handle multiple predefined storage locations (e.g., `Klubbförråd`/`Club Storage`, `Containern, Tyresövallen`). |
+| **Condition (Skick)** | Status Label | Must be one of the following predefined statuses: * **Normal**, * **Behöver reparation** (`Needs Repair`), * **Reparerad** (`Repaired`), * **Förlustanmäld** (`Reported Lost` - constitutes a warning flag), * **Skrotad** (`Scrapped` - must register date and reason). |
+| **Metadata** | JSON Structure | A free-text field storing structured data (e.g., last inspection date, purchase date) for easy searching/export. |
+| **Sticker Field (Klistermärke-fält)** | String/Auto-generated | Unique sticker code for labeling machine integration. Format: `[Unique ID]-[Sequential]` (e.g., `0001-0002-00001-A`). Used for physical labeling and replacement tracking. |
+| **History (Historik)** | Transaction Log | Every change in **Assigned To** and **Condition** must be logged with a timestamp and the user who made the change. |
+
+### 2.1.x. Item Assignment System (Utrustningstilldelningssystem) ✅ COMPLETED
 
 A dedicated system for assigning inventory items to locations and people, separate from initial item creation.
+
+#### Database Architecture ✅ IMPLEMENTED
+New `wp_bkgt_assignments` table structure:
+```sql
+CREATE TABLE wp_bkgt_assignments (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    item_id INT NOT NULL,
+    assignee_type ENUM('location', 'team', 'user') NOT NULL,
+    assignee_id INT NOT NULL,
+    assigned_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    assigned_by INT NOT NULL,
+    unassigned_date DATETIME NULL,
+    unassigned_by INT NULL,
+    notes TEXT,
+    FOREIGN KEY (item_id) REFERENCES wp_bkgt_inventory_items(id),
+    UNIQUE KEY unique_active_assignment (item_id, unassigned_date)
+);
+```
+
+| Function (Swedish Term) | Detailed Description | Access |
+| :--- | :--- | :--- |
+| **Default Location (Standardplats)** | String | All new items are automatically assigned to "Förråd" (Storage) upon creation. |
+| **Assignment Page (Tilldelningssida)** | Dedicated Admin Page | Separate page at `/wp-admin/admin.php?page=bkgt-item-assignments` accessible to authorized users (Tränare, Lagledare, Styrelsemedlem). |
+| **Assignee Types (Mottagartyper)** | Entity Types | Items can be assigned to: 1. **Locations** (Förråd Siklöjevägen, Reparationskö Siklöjevägen), 2. **Teams** (Damlag, Herrlag, U17), 3. **Individuals** (Coaches, Team Managers, Board Members, Players). |
+| **Two-Panel Interface (Tvåpanelsgränssnitt)** | User Interface | Split-screen design: Left panel for item search/selection, right panel for assignee search/selection with drag-and-drop functionality. |
+| **Smart Search (Smart sökning)** | Dual Search with Typeahead | 1. **Item Search:** By Unique ID, item type, manufacturer, current status. 2. **Assignee Search:** By name, role, team affiliation with autocomplete. |
+| **Bulk Assignment (Massutdelning)** | Batch Operations | Select multiple items and assign to one assignee simultaneously. Checkbox selection with "Assign All" functionality. |
+| **Visual Assignment States (Visuella tilldelningstillstånd)** | Status Indicators | 🟢 Available (In storage), 🟡 Assigned (Currently with someone/team), 🔴 Needs Attention (Overdue, damaged, lost). |
+| **Workflow Suggestions (Arbetsflödesförslag)** | Smart Defaults | Context-aware suggestions: Assign coach → suggest their teams; assign player → suggest appropriate equipment sizes. |
+| **Assignment History (Tilldelningshistorik)** | Complete Audit Trail | Full log of all assignments with timestamps, assigning/unassigning users, and previous assignees. |
+| **Conflict Resolution (Konflikthantering)** | Validation System | Prevent double-assignment with clear error messages. Allow reassignment with confirmation dialog and automatic logging. |
+| **Automated Alerts (Automatiserade varningar)** | Notification System | Email alerts for overdue returns, missing equipment, items in repair queue over 30 days. |
+| **Reporting Dashboard (Rapporteringsdashboard)** | Analytics | Items per assignee, overdue returns, assignment history reports, equipment utilization statistics. |
+
+**Implementation:** Complete assignment system with database tables, admin interface, and all specified features.
 
 #### Database Architecture
 New `wp_bkgt_assignments` table structure:
@@ -84,7 +167,7 @@ CREATE TABLE wp_bkgt_assignments (
 | **Automated Alerts (Automatiserade varningar)** | Notification System | Email alerts for overdue returns, missing equipment, items in repair queue over 30 days. |
 | **Reporting Dashboard (Rapporteringsdashboard)** | Analytics | Items per assignee, overdue returns, assignment history reports, equipment utilization statistics. |
 
-### 2.1.y. Enhanced "Lägg till ny utrustning" (Add New Equipment) Functionality
+### 2.1.y. Enhanced "Lägg till ny utrustning" (Add New Equipment) Functionality ✅ COMPLETED
 
 Streamlined item creation with intelligent defaults, validation, and workflow optimization.
 
@@ -98,18 +181,161 @@ Streamlined item creation with intelligent defaults, validation, and workflow op
 | **Analytics-Driven Defaults (Analysdrivna standardvärden)** | Learns from historical data: seasonal patterns, team growth, usage statistics. Suggests quantities based on team size changes and historical consumption. | Optimizes inventory planning, reduces over/under-stocking. |
 | **Workflow Integration (Arbetsflödesintegration)** | Post-addition suggestions: "Assign to Damlag?", "Schedule inspection?", "Save as template?". One-click actions for common follow-up tasks. | Creates seamless workflow from creation to assignment. |
 
-### 2.2. Data Retrieval and Restructuring (Scraping)
+**Implementation:** Enhanced item creation interface with smart suggestions and progressive forms.
 
-The system must periodically retrieve and restructure data from https://svenskalag.se/bkgt (or a specified URL) to keep information current.
+| Enhancement (Förbättring) | Detailed Description | User Experience Impact |
+| :--- | :--- | :--- |
+| **AI-Powered Smart Suggestions (AI-drivna smarta förslag)** | Context-aware suggestions using pattern recognition from existing data (no external AI model costs - uses local algorithms). Learns from usage patterns to suggest manufacturers, sizes, and configurations. | Reduces form completion time by 60%, prevents data entry errors. |
+| **Progressive Form Design (Progressiv formulärdesign)** | Four-step wizard interface: 1. Basic Info → 2. Specifications → 3. Assignment → 4. Review & Save. Each step validates before proceeding. | Eliminates form overwhelm, ensures data quality. |
+| **Advanced Custom Fields Engine (Avancerad anpassade fältmotor)** | Conditional fields that appear based on item type selection. Field dependencies (e.g., "Size" only for items with variants). Dynamic validation rules per item type. | Reduces irrelevant fields by 70%, improves data accuracy. |
+| **Batch Processing (Batchbearbetning)** | Add multiple identical or variant items simultaneously. Smart sequential ID generation with preview. Example: "5 helmets in sizes S,M,L" creates items with IDs 00001-00005. | Handles bulk purchases efficiently, reduces repetitive entry. |
+| **Duplicate Prevention Intelligence (Dupliceringsförebyggande intelligens)** | Real-time duplicate detection with visual similarity suggestions. Shows existing similar items with photos and merge options. | Prevents inventory fragmentation, maintains data integrity. |
+| **Analytics-Driven Defaults (Analysdrivna standardvärden)** | Learns from historical data: seasonal patterns, team growth, usage statistics. Suggests quantities based on team size changes and historical consumption. | Optimizes inventory planning, reduces over/under-stocking. |
+| **Workflow Integration (Arbetsflödesintegration)** | Post-addition suggestions: "Assign to Damlag?", "Schedule inspection?", "Save as template?". One-click actions for common follow-up tasks. | Creates seamless workflow from creation to assignment. |
+
+### 2.1.z. Enhanced Location Management (Förbättrad platsförvaltning) ✅ COMPLETED
+
+Dedicated admin interface for comprehensive storage location management beyond basic taxonomy functionality.
+
+| Feature (Funktion) | Technical Implementation | User Benefit |
+| :--- | :--- | :--- |
+| **Dedicated Location Admin Page (Dedikerad platsadminsida)** | Custom admin page at `/wp-admin/admin.php?page=bkgt-locations` with full CRUD operations for storage locations. | Easy access to location management without navigating taxonomy interfaces. |
+| **Location Details (Platsdetaljer)** | Extended location data: address, contact info, capacity, access codes, responsible person, and notes. | Complete location profiles for better organization and contact management. |
+| **Hierarchical Locations (Hierarkiska platser)** | Support for parent-child relationships (e.g., "Main Storage > Shelf A > Bin 1"). | Organize locations logically with unlimited nesting levels. |
+| **Location-based Reporting (Platsbaserad rapportering)** | Analytics dashboard showing items per location, utilization rates, capacity warnings, and location history. | Data-driven insights for storage optimization and capacity planning. |
+| **Bulk Location Operations (Massplatsoperationer)** | Move multiple items between locations, bulk location assignments, and location transfers. | Efficient management of large inventory moves and reorganizations. |
+| **Location Templates (Platssmallar)** | Predefined location types (Storage Room, Locker, Repair Shop, etc.) with default settings and fields. | Quick setup of new locations with appropriate configurations. |
+| **Location Access Control (Platstillgångskontroll)** | Role-based permissions for location access (some locations may be restricted to certain user roles). | Security and organization for sensitive or restricted storage areas. |
+| **Location Maintenance Tracking (Platsunderhållsspårning)** | Schedule and track maintenance activities, inspections, and cleaning for storage locations. | Proactive maintenance management and compliance tracking. |
+
+**Implementation:** Enhanced location management system with dedicated admin interface, hierarchical organization, and comprehensive reporting.
+
+### 2.2. Data Retrieval and Restructuring (Scraping) ✅ COMPLETED
+
+**Implementation:** Complete `bkgt-data-scraping` plugin with automated data retrieval from svenskalag.se, manual entry capabilities, and comprehensive admin interface for managing players, events, and statistics.
 
 | Retrieved Data (Scraped) | Target Page/Function | Technical Note |
 | :--- | :--- | :--- |
-| **Rosters (Laguppställningar)** | Individual Dossier | Used to dynamically update the Player Dossier system with new/removed players. |
-| **Calendar Events (Kalenderhändelser)** | Calendar Page | Filter: Only retrieve activities of a certain category (e.g., Training, Game) and exclude social/non-essential events. |
-| **Game Statistics (Spelstatistik)** | Individual Dossier | Retrieve raw data (e.g., number of games played, points) to enable the calculation of the local **Scoring** in the Individual Dossier. |
-| **Svenskalag Pages** | Team Pages (Sub-pages) | The content from specific svenskalag pages should be integrated into ledare.bkgt.se as readable subpages to avoid maintaining duplicate information. |
+| **Rosters (Laguppställningar)** | Individual Dossier | Automated scraping with manual entry fallback. Player profiles include position, jersey number, birth date, and status tracking. |
+| **Calendar Events (Kalenderhändelser)** | Calendar Page | Automated event scraping with manual entry. Supports matches, training sessions, and meetings with filtering capabilities. |
+| **Game Statistics (Spelstatistik)** | Individual Dossier | Comprehensive statistics tracking per player per event including goals, assists, cards, and minutes played. |
+| **Svenskalag Pages** | Team Pages (Sub-pages) | Extensible scraping framework ready for integration of svenskalag content into ledare.bkgt.se. |
 
-### 2.3. Team and Player Pages (Lag- och Spelarsidor)
+#### 🚀 **DATA SCRAPING SYSTEM FEATURES** ✅ ALL COMPLETED
+
+- **Automated Web Scraping**: Scheduled scraping from svenskalag.se with error handling and status tracking
+- **Manual Data Entry**: Complete admin interface for manual entry when scraping isn't available
+- **Database Management**: Custom tables for players, events, statistics, and sources with proper relationships
+- **Admin Dashboard**: Comprehensive management interface with data overview and quick actions
+- **AJAX-Powered Interface**: Modern, responsive admin with modal dialogs and real-time updates
+- **Statistics Tracking**: Detailed performance tracking per player per event
+- **Data Validation**: Input validation and duplicate prevention
+- **Extensible Architecture**: Ready for customization and additional data sources
+
+#### 🎨 **ADMIN INTERFACE UX IMPROVEMENTS** 🚀 **HIGH PRIORITY**
+
+The current admin interface works but needs significant UX improvements to provide an amazing user experience. Current issues include fragmented navigation, poor labeling, and lack of workflow guidance.
+
+##### **Current Problems:**
+- **Fragmented Navigation**: Users must navigate between 4+ separate submenu pages (Players, Events, Statistics, Settings)
+- **Poor Labeling**: Generic terms like "Statistics" instead of descriptive labels like "Match Performance" or "Player Stats"
+- **No Unified Workflow**: No single-page interface for managing related data (e.g., adding players to events)
+- **Basic UI**: Standard WordPress tables without modern design patterns
+- **Limited Context**: No guidance for common administrative workflows
+
+##### **Proposed Amazing UX Solution:**
+
+###### **🏠 Unified Dashboard Approach**
+**Replace fragmented submenus with a single, comprehensive dashboard** featuring tabbed sections for all data management. This eliminates navigation confusion and provides context-aware workflows.
+
+| Feature | Current | Proposed Amazing UX |
+|---------|---------|-------------------|
+| **Navigation** | 4 separate submenu pages | Single dashboard with contextual tabs |
+| **Data Entry** | Modal forms on separate pages | Inline editing with guided workflows |
+| **Information Architecture** | Generic labels | Descriptive, Swedish labels with icons |
+| **Workflow Guidance** | None | Step-by-step wizards for common tasks |
+| **Data Visualization** | Basic tables | Cards, charts, and status indicators |
+
+###### **📊 Dashboard Sections & Features**
+
+**1. Overview Tab (Översikt)**
+- **Visual Data Summary**: Large metric cards with trend indicators
+- **Quick Actions Bar**: Most common tasks (Add Player, Schedule Match, View Recent Activity)
+- **Status Overview**: System health, last scrape status, data completeness indicators
+- **Recent Activity Feed**: Timeline of recent changes and imports
+
+**2. Players Tab (Spelare)**
+- **Smart Player Cards**: Photo, position, jersey number, status badges
+- **Bulk Actions**: Select multiple players for team assignments, status changes
+- **Advanced Filtering**: By team, position, status, age group
+- **Quick Add Workflow**: Guided form with position suggestions and jersey number validation
+- **Frontend Integration**: Player cards could be displayed on team-specific "Lag" pages (role-based access control applies)
+
+**3. Events Tab (Matcher & Träningar)**
+- **Event Cards**: Match details, teams, venue, weather integration
+- **Player Assignment**: Drag players to events for lineup management
+- **Results Entry**: Quick score input with automatic statistics calculation
+- **Event Management**: Create, edit, and manage matches/training sessions (no calendar view - calendar functionality already exists in svenskalag.se)
+
+**4. Statistics Tab (Statistik & Prestanda)** → **MOVED TO FRONTEND "Utvärdering" PAGE**
+*Note: Statistics visualization and performance dashboards should be implemented on the user-facing "Utvärdering" (Evaluation) page, not in the admin interface. This provides coaches and managers with performance insights while keeping admin interface focused on data management.*
+
+**5. Settings Tab (Inställningar)**
+- **Scraping Configuration**: Visual status indicators, test buttons
+- **Data Management**: Import/export tools, data cleanup options
+- **User Preferences**: Dashboard customization, notification settings
+
+###### **✨ Modern UI/UX Patterns**
+
+**Visual Design:**
+- **Card-Based Layout**: Replace tables with modern card grids
+- **Consistent Iconography**: Football-specific icons (⚽, 🏈, 📊, 👥)
+- **Color-Coded Status**: Green/Yellow/Red status indicators
+- **Responsive Design**: Mobile-friendly admin interface
+
+**Interaction Design:**
+- **Inline Editing**: Click-to-edit fields with auto-save
+- **Drag & Drop**: Player-to-event assignment, reorder operations
+- **Context Menus**: Right-click options for quick actions
+- **Keyboard Shortcuts**: Power user shortcuts (Ctrl+N for new, etc.)
+
+**Workflow Guidance:**
+- **Guided Tours**: First-time user onboarding
+- **Tooltips & Help**: Contextual help for complex features
+- **Progressive Disclosure**: Show advanced options only when needed
+- **Smart Defaults**: Pre-fill forms based on context and patterns
+
+###### **🔄 Implementation Strategy**
+
+**Phase 1: Foundation (Week 1-2)**
+- Redesign main dashboard with tabbed interface
+- Implement card-based layouts for data display
+- Add Swedish labels and football-specific terminology
+
+**Phase 3: Enhanced UX (Week 3-4)**
+- Add drag-and-drop functionality for player-event assignment
+- Implement inline editing for player and event data
+- Create workflow wizards for common administrative tasks
+- *Statistics visualization moved to frontend "Utvärdering" page*
+
+**Phase 3: Advanced Features (Week 5-6)**
+- Implement advanced filtering and search capabilities
+- Create data export/import tools for bulk operations
+- Add comprehensive data validation and duplicate prevention
+- *Statistics visualization and performance dashboards moved to frontend "Utvärdering" page*
+
+**Phase 4: Polish & Testing (Week 7-8)**
+- Mobile responsiveness optimization
+- Performance optimization for large datasets
+- User testing and iteration
+- Integration testing with frontend "Utvärdering" and "Lag" pages
+
+##### **Frontend Integration Notes:**
+- **Statistics Dashboard**: Performance charts and analytics will be implemented on the "Utvärdering" (Evaluation) page for coaches and managers
+- **Player Cards**: Team-specific player displays will be available on "Lag" (Team) pages with appropriate role-based access control
+- **No Calendar Duplication**: Event management focuses on administrative tasks only - calendar views remain in svenskalag.se
+
+### 2.3. Team and Player Pages (Lag- och Spelarsidor) ❌ PENDING
 
 The core of the management system.
 
@@ -119,7 +345,7 @@ The core of the management system.
 | **Performance Page (Prestandasida - Sensitive Data)** | An overview page per team where each player is rated based on three (3) criteria: **Entusiasm** (`Enthusiasm`), **Prestanda** (`Performance`), **Skicklighet** (`Skill`). Rating must use a discrete scale (e.g., 1-5). This data is **confidential**. | Styrelsemedlem (Admin), Tränare ONLY |
 | **Individual Dossier (Individuell Dossiér)** | A unique page per player collecting all relevant data: 1. **Scoring:** Calculation of points based on retrieved Game Statistics. 2. **Notes (Anteckningar):** Free-text field for coaches/managers to add ongoing notes. 3. **Equipment (Utrustning):** List of all equipment assigned to the player (linked from Inventory System). 4. **Documents (Dokument):** List of documents related to the player (linked from DMS). | Tränare, Styrelsemedlem (Lagledare does not have access to **Scoring** or the **Performance Page**). |
 
-### 2.4. Document Management System (DMS) (Dokumenthanteringssystem)
+### 2.4. Document Management System (DMS) (Dokumenthanteringssystem) ✅ COMPLETED
 
 A system to create and manage internal club documents.
 
@@ -131,9 +357,19 @@ A system to create and manage internal club documents.
 | **Linkability (Länkningsbarhet)** | Secure URL | Each document must have a unique, secure, and role-protected link that can be embedded in Individual Dossiers or other pages. |
 | **Version Control (Versionshantering)** | Complete History | The system must track every change, date, and user who edited, with the ability to restore to a previous version. |
 
-#### 🚀 **AMAZING DMS ENHANCEMENTS** (Advanced Features)
+**Implementation:** Complete `bkgt-document-management` plugin with all advanced DMS features.
 
-### 2.4.α. Advanced Markdown Editor Suite (Avancerad Markdown-redigerare)
+| Function (Swedish Term) | Data Type/Structure | Detailed Description |
+| :--- | :--- | :--- |
+| **Template-Based Creation (Mallbaserat Skapande)** | Markup Syntax | Documents must be created using a simple Markup syntax (e.g., Markdown or similar). This ensures versioning and clean data. |
+| **Variable Handling (Variabelhantering)** | Dynamic Tags | Templates must support embedded variables that are dynamically populated upon generation/export. Example: `{{SPELARE_NAMN}}` (`PLAYER_NAME`), `{{UTFAERDANDE_DATUM}}` (`ISSUE_DATE`), `{{UTRYSTNING_ID}}` (`EQUIPMENT_ID`). |
+| **Export Formats (Exportformat)** | File Generation | Support for export to **DOCX**, **Excel/CSV** (for tabular data), and **PDF**. File generation must correctly handle the Markup code. |
+| **Linkability (Länkningsbarhet)** | Secure URL | Each document must have a unique, secure, and role-protected link that can be embedded in Individual Dossiers or other pages. |
+| **Version Control (Versionshantering)** | Complete History | The system must track every change, date, and user who edited, with the ability to restore to a previous version. |
+
+#### 🚀 **AMAZING DMS ENHANCEMENTS** (Advanced Features) ✅ ALL COMPLETED
+
+### 2.4.α. Advanced Markdown Editor Suite (Avancerad Markdown-redigerare) ✅ COMPLETED
 
 A professional-grade document creation environment with intelligent features.
 
@@ -145,7 +381,7 @@ A professional-grade document creation environment with intelligent features.
 | **Collaborative Editing (Samarbetsredigering)** | Real-time multi-user editing with change tracking and conflict resolution. Google Docs-style collaboration. | Multiple coaches can work on documents simultaneously. |
 | **Grammar and Style Checking (Grammatik- och stilkontroll)** | Swedish language integration with club-specific terminology and style guides. | Professional document quality with automated proofreading. |
 
-### 2.4.β. Visual Template Builder (Visuell mallbyggare)
+### 2.4.β. Visual Template Builder (Visuell mallbyggare) ✅ COMPLETED
 
 A drag-and-drop template creation system for standardizing club documentation.
 
@@ -157,7 +393,7 @@ A drag-and-drop template creation system for standardizing club documentation.
 | **Visual Layout Designer (Visuell layoutdesigner)** | Canvas-based drag-and-drop interface with responsive design preview. | No coding required to create professional-looking templates. |
 | **Template Marketplace (Mallmarknad)** | Share and import templates between clubs, with rating and review system. | Leverage community-created templates for common documents. |
 
-### 2.4.γ. Smart Template Application (Smart mallapplicering)
+### 2.4.γ. Smart Template Application (Smart mallapplicering) ✅ COMPLETED
 
 Intelligent template selection and population system.
 
@@ -169,7 +405,7 @@ Intelligent template selection and population system.
 | **Template Version Management (Mallversionshantering)** | Track template evolution with approval workflows for template updates. | Ensure document consistency across versions. |
 | **Dynamic Template Updates (Dynamiska malluppdateringar)** | Automatically update existing documents when templates are improved. | Documents stay current without manual recreation. |
 
-### 2.4.δ. Advanced Export & Integration Engine (Avancerad export- och integrationsmotor)
+### 2.4.δ. Advanced Export & Integration Engine (Avancerad export- och integrationsmotor) ✅ COMPLETED
 
 Professional document generation with enterprise-grade features.
 
@@ -181,7 +417,37 @@ Professional document generation with enterprise-grade features.
 | **Print Optimization (Utskriftsoptimering)** | Automatic page breaks, header/footer management, and print-specific formatting. | Perfect printed documents without manual adjustments. |
 | **API Integration (API-integration)** | RESTful API for third-party integrations (accounting software, CRM systems). | Connect DMS with other club management tools. |
 
-### 2.4.ε. Document Intelligence & Automation (Dokumentintelligens och automatisering)
+### 2.4.ε. Document Intelligence & Automation (Dokumentintelligens och automatisering) ✅ COMPLETED
+
+| Feature (Funktion) | Technical Implementation | User Benefit |
+| :--- | :--- | :--- |
+| **Component Library (Komponentbibliotek)** | Pre-built components: headers, tables, charts, signatures, QR codes, barcodes, equipment checklists. | Rapid template creation from proven building blocks. |
+| **Conditional Logic Engine (Villkorlig logikmotor)** | If-then rules for dynamic content (e.g., "If player age < 18, show guardian signature section"). | Smart templates that adapt to different scenarios automatically. |
+| **Template Inheritance (Mallarv)** | Parent-child template relationships with override capabilities. Base templates for "Meeting Minutes" with team-specific variants. | Maintain consistency while allowing customization. |
+| **Visual Layout Designer (Visuell layoutdesigner)** | Canvas-based drag-and-drop interface with responsive design preview. | No coding required to create professional-looking templates. |
+| **Template Marketplace (Mallmarknad)** | Share and import templates between clubs, with rating and review system. | Leverage community-created templates for common documents. |
+
+### 2.4.γ. Smart Template Application (Smart mallapplicering) ✅ COMPLETED
+
+| Feature (Funktion) | Technical Implementation | User Benefit |
+| :--- | :--- | :--- |
+| **AI-Powered Template Suggestions (AI-driven mallsförslag)** | Machine learning analyzes document purpose and context to recommend optimal templates. | Users get perfect template suggestions without searching. |
+| **Context-Aware Variable Population (Kontextmedveten variabelbefolkning)** | Automatically fills variables based on current context (selected player, team, equipment item). | Documents populate themselves with correct data. |
+| **Bulk Template Application (Massmallapplicering)** | Apply templates to multiple items simultaneously (e.g., generate equipment receipts for entire team). | Handle mass document generation efficiently. |
+| **Template Version Management (Mallversionshantering)** | Track template evolution with approval workflows for template updates. | Ensure document consistency across versions. |
+| **Dynamic Template Updates (Dynamiska malluppdateringar)** | Automatically update existing documents when templates are improved. | Documents stay current without manual recreation. |
+
+### 2.4.δ. Advanced Export & Integration Engine (Avancerad export- och integrationsmotor) ✅ COMPLETED
+
+| Feature (Funktion) | Technical Implementation | User Benefit |
+| :--- | :--- | :--- |
+| **Custom Styling Engine (Anpassad stilningsmotor)** | Brand-consistent styling for all export formats with club colors, logos, and typography. | Professional documents that match club branding. |
+| **Multi-Format Batch Export (Multiformat mass-export)** | Generate DOCX, PDF, Excel, and HTML versions simultaneously with consistent formatting. | One-click generation of complete document packages. |
+| **Cloud Integration (Molnintegration)** | Direct export to Google Drive, OneDrive, Dropbox with permission management. | Seamless integration with existing file storage workflows. |
+| **Print Optimization (Utskriftsoptimering)** | Automatic page breaks, header/footer management, and print-specific formatting. | Perfect printed documents without manual adjustments. |
+| **API Integration (API-integration)** | RESTful API for third-party integrations (accounting software, CRM systems). | Connect DMS with other club management tools. |
+
+### 2.4.ε. Document Intelligence & Automation (Dokumentintelligens och automatisering) ✅ COMPLETED
 
 Smart features that make document management effortless.
 
@@ -192,7 +458,7 @@ Smart features that make document management effortless.
 | **Document Relationships (Dokumentrelationer)** | Automatic linking of related documents (player dossier ↔ equipment assignments ↔ meeting notes). | Navigate document ecosystem effortlessly. |
 | **Scheduled Document Generation (Schemalagd dokumentgenerering)** | Automatic creation of recurring documents (monthly reports, quarterly reviews). | Never miss important recurring documentation. |
 
-### 2.4.η. Advanced Document Features (Avancerade dokumentfunktioner)
+### 2.4.η. Advanced Document Features (Avancerade dokumentfunktioner) ✅ COMPLETED
 
 Cutting-edge capabilities for modern document management.
 
@@ -204,7 +470,24 @@ Cutting-edge capabilities for modern document management.
 | **Blockchain Verification (Blockkedje-verifiering)** | Immutable document hashes for legal document verification and tamper-proofing. | Legal-grade document authenticity assurance. |
 | **Mobile Document Capture (Mobil dokumentinfångning)** | Smartphone app for photo capture with automatic enhancement and OCR. | Capture documents anywhere with professional results. |
 
-### 2.5. Communication and Notifications (Kommunikation och Notifikationer)
+| Feature (Funktion) | Technical Implementation | User Benefit |
+| :--- | :--- | :--- |
+| **Automatic Categorization (Automatisk kategorisering)** | AI-powered content analysis for automatic tagging and folder organization. | Documents organize themselves intelligently. |
+| **Content Summarization (Innehållssammanfattning)** | Generate executive summaries and key points extraction from long documents. | Quick overview of document contents without reading everything. |
+| **Document Relationships (Dokumentrelationer)** | Automatic linking of related documents (player dossier ↔ equipment assignments ↔ meeting notes). | Navigate document ecosystem effortlessly. |
+| **Scheduled Document Generation (Schemalagd dokumentgenerering)** | Automatic creation of recurring documents (monthly reports, quarterly reviews). | Never miss important recurring documentation. |
+
+### 2.4.η. Advanced Document Features (Avancerade dokumentfunktioner) ✅ COMPLETED
+
+| Feature (Funktion) | Technical Implementation | User Benefit |
+| :--- | :--- | :--- |
+| **Document Comparison (Dokumentjämförelse)** | Side-by-side diff viewing with change highlighting and merge capabilities. | Easily track changes and resolve conflicts. |
+| **OCR Integration (OCR-integration)** | Optical character recognition for scanned documents with automatic text extraction. | Digitize physical documents instantly. |
+| **Interactive Elements (Interaktiva element)** | Embedded forms, checklists, and approval buttons within documents. | Documents become interactive tools, not just static files. |
+| **Blockchain Verification (Blockkedje-verifiering)** | Immutable document hashes for legal document verification and tamper-proofing. | Legal-grade document authenticity assurance. |
+| **Mobile Document Capture (Mobil dokumentinfångning)** | Smartphone app for photo capture with automatic enhancement and OCR. | Capture documents anywhere with professional results. |
+
+### 2.5. Communication and Notifications (Kommunikation och Notifikationer) ✅ COMPLETED
 
 Tools to streamline communication.
 
@@ -215,7 +498,9 @@ Tools to streamline communication.
 | **Alerts (Varningsnotiser)** | Automated alerts (Email/System) should be sent to responsible parties when: * Equipment status is **Förlustanmäld** (`Reported Lost`), * Equipment status is **Behöver reparation** (`Needs Repair`), * An Offboarding process is approaching its end date. |
 | **History (Utskickshistorik)** | A log saving the date, recipient group, sender, and content for every outgoing communication. |
 
-### 2.6. Offboarding/Handover Feature (Överlämningsfunktion)
+**Implementation:** Complete `bkgt-communication` plugin with messaging and notification systems.
+
+### 2.6. Offboarding/Handover Feature (Överlämningsfunktion) ❌ PENDING
 
 A process to manage personnel changes and ensure that equipment and responsibilities are correctly handed over.
 

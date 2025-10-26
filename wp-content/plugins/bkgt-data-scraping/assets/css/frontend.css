@@ -1,0 +1,445 @@
+/**
+ * Frontend CSS for BKGT Data Scraping plugin
+ */
+
+/* Players Grid */
+.bkgt-players-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.bkgt-player-card {
+    background: #fff;
+    border: 1px solid #e1e1e1;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.bkgt-player-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.bkgt-player-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 15px;
+    font-size: 24px;
+    color: #666;
+}
+
+.bkgt-player-name {
+    font-size: 18px;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 5px;
+    color: #1d2327;
+}
+
+.bkgt-player-position {
+    text-align: center;
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 10px;
+}
+
+.bkgt-player-number {
+    display: inline-block;
+    background: #2271b1;
+    color: #fff;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.bkgt-player-stats {
+    display: flex;
+    justify-content: space-around;
+    text-align: center;
+}
+
+.bkgt-player-stat {
+    flex: 1;
+}
+
+.bkgt-player-stat-value {
+    font-size: 18px;
+    font-weight: 600;
+    color: #2271b1;
+    display: block;
+}
+
+.bkgt-player-stat-label {
+    font-size: 12px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Players List Layout */
+.bkgt-players-list .bkgt-player-card {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.bkgt-players-list .bkgt-player-avatar {
+    width: 60px;
+    height: 60px;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.bkgt-players-list .bkgt-player-info {
+    flex: 1;
+}
+
+.bkgt-players-list .bkgt-player-name {
+    text-align: left;
+    margin-bottom: 2px;
+}
+
+.bkgt-players-list .bkgt-player-position {
+    text-align: left;
+    margin-bottom: 5px;
+}
+
+.bkgt-players-list .bkgt-player-stats {
+    justify-content: flex-start;
+    gap: 20px;
+}
+
+/* Events */
+.bkgt-events-list {
+    margin: 20px 0;
+}
+
+.bkgt-event-item {
+    background: #fff;
+    border: 1px solid #e1e1e1;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.bkgt-event-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+}
+
+.bkgt-event-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1d2327;
+    margin: 0;
+}
+
+.bkgt-event-type {
+    background: #f0f0f0;
+    color: #666;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.bkgt-event-meta {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+    color: #666;
+    font-size: 14px;
+}
+
+.bkgt-event-date,
+.bkgt-event-location {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.bkgt-event-players {
+    margin-top: 15px;
+}
+
+.bkgt-event-players h4 {
+    font-size: 16px;
+    margin-bottom: 10px;
+    color: #1d2327;
+}
+
+.bkgt-players-assigned {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.bkgt-player-tag {
+    background: #e6f3ff;
+    color: #2271b1;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* Team Overview */
+.bkgt-team-overview {
+    margin: 20px 0;
+}
+
+.bkgt-overview-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.bkgt-stat-card {
+    background: #fff;
+    border: 1px solid #e1e1e1;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.bkgt-stat-value {
+    font-size: 36px;
+    font-weight: 700;
+    color: #2271b1;
+    display: block;
+    margin-bottom: 5px;
+}
+
+.bkgt-stat-label {
+    font-size: 14px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.bkgt-upcoming-events {
+    background: #fff;
+    border: 1px solid #e1e1e1;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.bkgt-upcoming-events h3 {
+    margin-top: 0;
+    color: #1d2327;
+}
+
+/* Player Profile */
+.bkgt-player-profile {
+    max-width: 800px;
+    margin: 20px auto;
+}
+
+.bkgt-profile-header {
+    background: #fff;
+    border: 1px solid #e1e1e1;
+    border-radius: 8px;
+    padding: 30px;
+    text-align: center;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.bkgt-profile-avatar {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    font-size: 36px;
+    color: #666;
+}
+
+.bkgt-profile-name {
+    font-size: 28px;
+    font-weight: 700;
+    color: #1d2327;
+    margin-bottom: 5px;
+}
+
+.bkgt-profile-position {
+    font-size: 16px;
+    color: #666;
+    margin-bottom: 15px;
+}
+
+.bkgt-profile-number {
+    display: inline-block;
+    background: #2271b1;
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.bkgt-profile-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.bkgt-profile-section {
+    background: #fff;
+    border: 1px solid #e1e1e1;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.bkgt-profile-section h3 {
+    margin-top: 0;
+    color: #1d2327;
+    border-bottom: 1px solid #e1e1e1;
+    padding-bottom: 10px;
+}
+
+.bkgt-stats-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.bkgt-stats-table th,
+.bkgt-stats-table td {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.bkgt-stats-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #1d2327;
+}
+
+/* Loading States */
+.bkgt-loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px;
+}
+
+.bkgt-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f4f5;
+    border-top: 4px solid #2271b1;
+    border-radius: 50%;
+    animation: bkgt-spin 1s linear infinite;
+}
+
+@keyframes bkgt-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Error States */
+.bkgt-error {
+    background: #fff5f5;
+    border: 1px solid #fca5a5;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    color: #dc2626;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .bkgt-players-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+
+    .bkgt-player-card {
+        padding: 15px;
+    }
+
+    .bkgt-players-list .bkgt-player-card {
+        padding: 15px;
+    }
+
+    .bkgt-event-header {
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-start;
+    }
+
+    .bkgt-event-meta {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .bkgt-overview-stats {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+
+    .bkgt-profile-details {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+
+    .bkgt-profile-header {
+        padding: 20px;
+    }
+
+    .bkgt-profile-name {
+        font-size: 24px;
+    }
+}
+
+@media (max-width: 480px) {
+    .bkgt-overview-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .bkgt-stat-card {
+        padding: 15px;
+    }
+
+    .bkgt-stat-value {
+        font-size: 28px;
+    }
+
+    .bkgt-player-stats {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .bkgt-players-assigned {
+        gap: 6px;
+    }
+
+    .bkgt-player-tag {
+        font-size: 11px;
+        padding: 3px 6px;
+    }
+}

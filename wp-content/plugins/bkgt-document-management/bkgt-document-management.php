@@ -30,6 +30,8 @@ require_once BKGT_DOC_PLUGIN_DIR . 'includes/class-category.php';
 require_once BKGT_DOC_PLUGIN_DIR . 'includes/class-version.php';
 require_once BKGT_DOC_PLUGIN_DIR . 'includes/class-access.php';
 require_once BKGT_DOC_PLUGIN_DIR . 'admin/class-admin.php';
+require_once BKGT_DOC_PLUGIN_DIR . 'admin/class-smart-templates.php';
+require_once BKGT_DOC_PLUGIN_DIR . 'admin/class-export-engine.php';
 
 /**
  * Main Plugin Class
@@ -200,6 +202,42 @@ class BKGT_Document_Management {
             'has_archive'         => false,
             'hierarchical'        => false,
             'supports'            => array('title', 'editor', 'author', 'thumbnail'),
+            'show_in_rest'        => false,
+        ));
+
+        // Document template post type
+        register_post_type('bkgt_template', array(
+            'labels' => array(
+                'name'               => __('Mall', 'bkgt-document-management'),
+                'singular_name'      => __('Mall', 'bkgt-document-management'),
+                'menu_name'          => __('Mallar', 'bkgt-document-management'),
+                'add_new'            => __('Lägg till ny', 'bkgt-document-management'),
+                'add_new_item'       => __('Lägg till ny mall', 'bkgt-document-management'),
+                'edit_item'          => __('Redigera mall', 'bkgt-document-management'),
+                'new_item'           => __('Ny mall', 'bkgt-document-management'),
+                'view_item'          => __('Visa mall', 'bkgt-document-management'),
+                'search_items'       => __('Sök mallar', 'bkgt-document-management'),
+                'not_found'          => __('Inga mallar hittades', 'bkgt-document-management'),
+                'not_found_in_trash' => __('Inga mallar i papperskorgen', 'bkgt-document-management'),
+            ),
+            'public'              => false,
+            'publicly_queryable'  => false,
+            'show_ui'             => true,
+            'show_in_menu'        => false, // Hidden from main menu, accessed via submenu
+            'menu_icon'           => 'dashicons-layout',
+            'capability_type'     => 'post',
+            'capabilities'        => array(
+                'edit_post'          => 'manage_documents',
+                'read_post'          => 'read_document',
+                'delete_post'        => 'delete_document',
+                'edit_posts'         => 'manage_documents',
+                'edit_others_posts'  => 'manage_documents',
+                'publish_posts'      => 'manage_documents',
+                'read_private_posts' => 'read_document',
+            ),
+            'has_archive'         => false,
+            'hierarchical'        => false,
+            'supports'            => array('title', 'editor', 'author'),
             'show_in_rest'        => false,
         ));
     }
@@ -523,4 +561,6 @@ bkgt_document_management();
 // Initialize admin classes
 if (is_admin()) {
     new BKGT_Document_Admin();
+    new BKGT_Smart_Template_Application();
+    new BKGT_Advanced_Export_Engine();
 }

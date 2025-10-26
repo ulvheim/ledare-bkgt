@@ -29,6 +29,7 @@ class BKGT_Document_Admin {
         add_action('wp_ajax_bkgt_get_document_versions', array($this, 'ajax_get_document_versions'));
         add_action('wp_ajax_bkgt_restore_version', array($this, 'ajax_restore_version'));
         add_action('wp_ajax_bkgt_manage_access', array($this, 'ajax_manage_access'));
+        add_action('wp_ajax_bkgt_save_template', array($this, 'ajax_save_template'));
     }
 
     /**
@@ -76,6 +77,15 @@ class BKGT_Document_Admin {
             'manage_options',
             'bkgt-document-settings',
             array($this, 'settings_page')
+        );
+
+        add_submenu_page(
+            'bkgt-documents',
+            __('Mallbyggare', 'bkgt-document-management'),
+            __('Mallbyggare', 'bkgt-document-management'),
+            'edit_documents',
+            'bkgt-template-builder',
+            array($this, 'template_builder_page')
         );
     }
 
@@ -526,7 +536,7 @@ class BKGT_Document_Admin {
                         if (function_exists('bkgt_get_teams')) {
                             $teams = bkgt_get_teams();
                             foreach ($teams as $team) {
-                                echo '<option value="' . esc_attr($team->id) . '">' . esc_html($team->name) . '</option>';
+                                echo '<option value="' . esc_attr($team->id) . '">' . esc_html($team->name . ' (' . $team->id . ')') . '</option>';
                             }
                         }
                         ?>
@@ -871,4 +881,1399 @@ class BKGT_Document_Admin {
             ));
         }
     }
+
+    /**
+     * Template Builder Page - OLD VERSION DISABLED
+     */
+    public function template_builder_page_old() {
+        ?>
+        <div class="wrap">
+            <h1><?php _e('Mallbyggare', 'bkgt-document-management'); ?></h1>
+
+            <div class="bkgt-template-builder">
+                        <div class="bkgt-component-palette">
+                            <div class="bkgt-component" data-type="text" draggable="true">
+                                <i class="dashicons dashicons-text"></i>
+                                <span><?php _e('Text', 'bkgt-document-management'); ?></span>
+                            </div>
+                            <div class="bkgt-component" data-type="heading" draggable="true">
+                                <i class="dashicons dashicons-editor-bold"></i>
+                                <span><?php _e('Rubrik', 'bkgt-document-management'); ?></span>
+                            </div>
+                            <div class="bkgt-component" data-type="variable" draggable="true">
+                                <i class="dashicons dashicons-admin-generic"></i>
+                                <span><?php _e('Variabel', 'bkgt-document-management'); ?></span>
+                            </div>
+                            <div class="bkgt-component" data-type="list" draggable="true">
+                                <i class="dashicons dashicons-editor-ul"></i>
+                                <span><?php _e('Lista', 'bkgt-document-management'); ?></span>
+                            </div>
+                            <div class="bkgt-component" data-type="table" draggable="true">
+                                <i class="dashicons dashicons-editor-table"></i>
+                                <span><?php _e('Tabell', 'bkgt-document-management'); ?></span>
+                            </div>
+                            <div class="bkgt-component" data-type="image" draggable="true">
+                                <i class="dashicons dashicons-format-image"></i>
+                                <span><?php _e('Bild', 'bkgt-document-management'); ?></span>
+                            </div>
+                            <div class="bkgt-component" data-type="divider" draggable="true">
+                                <i class="dashicons dashicons-minus"></i>
+                                <span><?php _e('Avdelare', 'bkgt-document-management'); ?></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bkgt-toolbar-section">
+                        <h3><?php _e('Egenskaper', 'bkgt-document-management'); ?></h3>
+                        <div class="bkgt-properties-panel" id="bkgt-properties-panel">
+                            <p><?php _e('Välj en komponent för att redigera dess egenskaper.', 'bkgt-document-management'); ?></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Canvas -->
+                <div class="bkgt-builder-canvas">
+                    <div class="bkgt-canvas-header">
+                        <div class="bkgt-template-info">
+                            <input type="text" id="bkgt-template-title" placeholder="<?php _e('Mallnamn', 'bkgt-document-management'); ?>" class="regular-text">
+                            <textarea id="bkgt-template-description" placeholder="<?php _e('Beskrivning', 'bkgt-document-management'); ?>" rows="2" class="large-text"></textarea>
+                        </div>
+                        <div class="bkgt-canvas-actions">
+                            <button id="bkgt-save-template" class="button button-primary">
+                                <i class="dashicons dashicons-saved"></i>
+                                <?php _e('Spara Mall', 'bkgt-document-management'); ?>
+                            </button>
+                            <button id="bkgt-preview-template" class="button">
+                                <i class="dashicons dashicons-visibility"></i>
+                                <?php _e('Förhandsgranska', 'bkgt-document-management'); ?>
+                            </button>
+                            <button id="bkgt-clear-canvas" class="button">
+                                <i class="dashicons dashicons-trash"></i>
+                                <?php _e('Rensa', 'bkgt-document-management'); ?>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bkgt-canvas-content" id="bkgt-canvas-content">
+                        <div class="bkgt-canvas-placeholder">
+                            <i class="dashicons dashicons-plus-alt"></i>
+                            <p><?php _e('Dra komponenter hit för att börja bygga din mall', 'bkgt-document-management'); ?></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preview Modal -->
+                <div id="bkgt-template-preview-modal" class="bkgt-modal" style="display: none;">
+                    <div class="bkgt-modal-content">
+                        <div class="bkgt-modal-header">
+                            <h2><?php _e('Förhandsgranskning', 'bkgt-document-management'); ?></h2>
+                            <span class="bkgt-modal-close">&times;</span>
+                        </div>
+                        <div class="bkgt-modal-body">
+                            <div id="bkgt-preview-content"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <style>
+        .bkgt-template-builder {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .bkgt-builder-toolbar {
+            width: 300px;
+            flex-shrink: 0;
+        }
+
+        .bkgt-toolbar-section {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .bkgt-toolbar-section h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 16px;
+            color: #23282d;
+        }
+
+        .bkgt-component-palette {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .bkgt-component {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            cursor: grab;
+            transition: all 0.2s ease;
+        }
+
+        .bkgt-component:hover {
+            background: #e9ecef;
+            border-color: #007cba;
+        }
+
+        .bkgt-component:active {
+            cursor: grabbing;
+        }
+
+        .bkgt-component i {
+            color: #007cba;
+            font-size: 18px;
+        }
+
+        .bkgt-builder-canvas {
+            flex: 1;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .bkgt-canvas-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .bkgt-template-info {
+            flex: 1;
+            margin-right: 20px;
+        }
+
+        .bkgt-template-info input,
+        .bkgt-template-info textarea {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .bkgt-canvas-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .bkgt-canvas-content {
+            min-height: 600px;
+            padding: 20px;
+            position: relative;
+        }
+
+        .bkgt-canvas-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 400px;
+            color: #6c757d;
+            border: 2px dashed #dee2e6;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+
+        .bkgt-canvas-placeholder i {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .bkgt-canvas-placeholder p {
+            margin: 0;
+            font-size: 16px;
+        }
+
+        .bkgt-canvas-component {
+            margin-bottom: 15px;
+            padding: 15px;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            background: #fff;
+            position: relative;
+            cursor: move;
+        }
+
+        .bkgt-canvas-component:hover {
+            border-color: #007cba;
+            box-shadow: 0 2px 8px rgba(0,123,186,0.1);
+        }
+
+        .bkgt-canvas-component.selected {
+            border-color: #007cba;
+            box-shadow: 0 0 0 2px rgba(0,123,186,0.2);
+        }
+
+        .bkgt-component-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .bkgt-component-type {
+            font-weight: 600;
+            color: #495057;
+            text-transform: capitalize;
+        }
+
+        .bkgt-component-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .bkgt-component-actions button {
+            padding: 4px 8px;
+            font-size: 12px;
+            line-height: 1;
+        }
+
+        .bkgt-component-content {
+            color: #495057;
+        }
+
+        .bkgt-component-content textarea {
+            width: 100%;
+            min-height: 60px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            padding: 8px;
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        .bkgt-component-content input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+        }
+
+        .bkgt-properties-panel {
+            min-height: 200px;
+        }
+
+        .bkgt-property-group {
+            margin-bottom: 15px;
+        }
+
+        .bkgt-property-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #495057;
+        }
+
+        .bkgt-property-group input,
+        .bkgt-property-group select,
+        .bkgt-property-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+        }
+
+        .bkgt-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .bkgt-modal-content {
+            background: #fff;
+            border-radius: 8px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .bkgt-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .bkgt-modal-header h2 {
+            margin: 0;
+            color: #23282d;
+        }
+
+        .bkgt-modal-close {
+            font-size: 28px;
+            cursor: pointer;
+            color: #6c757d;
+        }
+
+        .bkgt-modal-close:hover {
+            color: #23282d;
+        }
+
+        .bkgt-modal-body {
+            padding: 20px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        /* Drag and drop states */
+        .bkgt-canvas-component.drag-over {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+
+        .bkgt-component.dragging {
+            opacity: 0.5;
+            transform: rotate(5deg);
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .bkgt-template-builder {
+                flex-direction: column;
+            }
+
+            .bkgt-builder-toolbar {
+                width: 100%;
+                order: 2;
+            }
+
+            .bkgt-builder-canvas {
+                order: 1;
+            }
+        }
+        </style>
+
+        <script>
+        jQuery(document).ready(function($) {
+            let selectedComponent = null;
+            let componentCounter = 0;
+
+            // Component drag and drop
+            $('.bkgt-component').on('dragstart', function(e) {
+                e.originalEvent.dataTransfer.setData('text/plain', $(this).data('type'));
+                $(this).addClass('dragging');
+            });
+
+            $('.bkgt-component').on('dragend', function(e) {
+                $(this).removeClass('dragging');
+            });
+
+            // Canvas drop zones
+            $('#bkgt-canvas-content').on('dragover', function(e) {
+                e.preventDefault();
+                $(this).addClass('drag-over');
+            });
+
+            $('#bkgt-canvas-content').on('dragleave', function(e) {
+                $(this).removeClass('drag-over');
+            });
+
+            $('#bkgt-canvas-content').on('drop', function(e) {
+                e.preventDefault();
+                $(this).removeClass('drag-over');
+
+                const componentType = e.originalEvent.dataTransfer.getData('text/plain');
+                if (componentType) {
+                    addComponentToCanvas(componentType, e.originalEvent);
+                }
+            });
+
+            // Component selection
+            $(document).on('click', '.bkgt-canvas-component', function(e) {
+                if (!$(e.target).is('button, input, textarea, select')) {
+                    selectComponent($(this));
+                }
+            });
+
+            // Component editing
+            $(document).on('input', '.bkgt-component-content textarea, .bkgt-component-content input', function() {
+                updateComponentPreview($(this).closest('.bkgt-canvas-component'));
+            });
+
+            // Component actions
+            $(document).on('click', '.bkgt-delete-component', function(e) {
+                e.stopPropagation();
+                $(this).closest('.bkgt-canvas-component').remove();
+                if (selectedComponent && selectedComponent.is($(this).closest('.bkgt-canvas-component'))) {
+                    selectedComponent = null;
+                    updatePropertiesPanel();
+                }
+            });
+
+            $(document).on('click', '.bkgt-duplicate-component', function(e) {
+                e.stopPropagation();
+                const component = $(this).closest('.bkgt-canvas-component');
+                const newComponent = component.clone();
+                newComponent.find('.bkgt-component-id').val('');
+                component.after(newComponent);
+                selectComponent(newComponent);
+            });
+
+            // Toolbar actions
+            $('#bkgt-save-template').on('click', saveTemplate);
+            $('#bkgt-preview-template').on('click', previewTemplate);
+            $('#bkgt-clear-canvas').on('click', clearCanvas);
+
+            // Modal close
+            $('.bkgt-modal-close').on('click', function() {
+                $(this).closest('.bkgt-modal').hide();
+            });
+
+            $(window).on('click', function(e) {
+                if ($(e.target).hasClass('bkgt-modal')) {
+                    $('.bkgt-modal').hide();
+                }
+            });
+
+            function addComponentToCanvas(type, event) {
+                componentCounter++;
+                const componentId = 'component_' + componentCounter;
+                const componentHtml = createComponentHtml(type, componentId);
+
+                if (event) {
+                    // Insert at drop position
+                    const rect = $('#bkgt-canvas-content')[0].getBoundingClientRect();
+                    const y = event.clientY - rect.top;
+
+                    let insertBefore = null;
+                    $('.bkgt-canvas-component').each(function() {
+                        const componentRect = this.getBoundingClientRect();
+                        const componentY = componentRect.top - rect.top + componentRect.height / 2;
+                        if (y < componentY) {
+                            insertBefore = this;
+                            return false;
+                        }
+                    });
+
+                    if (insertBefore) {
+                        $(insertBefore).before(componentHtml);
+                    } else {
+                        $('#bkgt-canvas-content').append(componentHtml);
+                    }
+                } else {
+                    $('#bkgt-canvas-content').append(componentHtml);
+                }
+
+                $('.bkgt-canvas-placeholder').hide();
+                const newComponent = $('#bkgt-canvas-content .bkgt-canvas-component').last();
+                selectComponent(newComponent);
+            }
+
+            function createComponentHtml(type, id) {
+                const baseHtml = `
+                    <div class="bkgt-canvas-component" data-type="${type}" data-id="${id}">
+                        <div class="bkgt-component-header">
+                            <span class="bkgt-component-type">${getComponentLabel(type)}</span>
+                            <div class="bkgt-component-actions">
+                                <button class="button button-small bkgt-duplicate-component" title="Duplicera">
+                                    <i class="dashicons dashicons-admin-page"></i>
+                                </button>
+                                <button class="button button-small bkgt-delete-component" title="Ta bort">
+                                    <i class="dashicons dashicons-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="bkgt-component-content">
+                            ${getComponentContentHtml(type, id)}
+                        </div>
+                    </div>
+                `;
+                return baseHtml;
+            }
+
+            function getComponentLabel(type) {
+                const labels = {
+                    'text': '<?php _e('Text', 'bkgt-document-management'); ?>',
+                    'heading': '<?php _e('Rubrik', 'bkgt-document-management'); ?>',
+                    'variable': '<?php _e('Variabel', 'bkgt-document-management'); ?>',
+                    'list': '<?php _e('Lista', 'bkgt-document-management'); ?>',
+                    'table': '<?php _e('Tabell', 'bkgt-document-management'); ?>',
+                    'image': '<?php _e('Bild', 'bkgt-document-management'); ?>',
+                    'divider': '<?php _e('Avdelare', 'bkgt-document-management'); ?>'
+                };
+                return labels[type] || type;
+            }
+
+            function getComponentContentHtml(type, id) {
+                switch (type) {
+                    case 'text':
+                        return `<textarea placeholder="<?php _e('Ange textinnehåll här...', 'bkgt-document-management'); ?>" data-property="content"></textarea>`;
+                    case 'heading':
+                        return `
+                            <select data-property="level">
+                                <option value="1"><?php _e('Rubrik 1', 'bkgt-document-management'); ?></option>
+                                <option value="2"><?php _e('Rubrik 2', 'bkgt-document-management'); ?></option>
+                                <option value="3"><?php _e('Rubrik 3', 'bkgt-document-management'); ?></option>
+                            </select>
+                            <input type="text" placeholder="<?php _e('Rubriktext', 'bkgt-document-management'); ?>" data-property="content">
+                        `;
+                    case 'variable':
+                        return `
+                            <select data-property="variable">
+                                <option value=""><?php _e('Välj variabel', 'bkgt-document-management'); ?></option>
+                                <option value="{{current_date}}"><?php _e('Aktuellt datum', 'bkgt-document-management'); ?></option>
+                                <option value="{{author_name}}"><?php _e('Författarens namn', 'bkgt-document-management'); ?></option>
+                                <option value="{{document_title}}"><?php _e('Dokumenttitel', 'bkgt-document-management'); ?></option>
+                                <option value="{{team_name}}"><?php _e('Lagnamn', 'bkgt-document-management'); ?></option>
+                                <option value="{{player_name}}"><?php _e('Spelares namn', 'bkgt-document-management'); ?></option>
+                            </select>
+                        `;
+                    case 'list':
+                        return `
+                            <textarea placeholder="<?php _e('Ange listobjekt, ett per rad...', 'bkgt-document-management'); ?>" data-property="content"></textarea>
+                            <select data-property="type">
+                                <option value="unordered"><?php _e('Punktlista', 'bkgt-document-management'); ?></option>
+                                <option value="ordered"><?php _e('Numrerad lista', 'bkgt-document-management'); ?></option>
+                            </select>
+                        `;
+                    case 'table':
+                        return `
+                            <input type="number" placeholder="<?php _e('Antal kolumner', 'bkgt-document-management'); ?>" min="1" max="10" data-property="columns" value="3">
+                            <input type="number" placeholder="<?php _e('Antal rader', 'bkgt-document-management'); ?>" min="1" max="20" data-property="rows" value="3">
+                            <div class="bkgt-table-preview" style="margin-top: 10px; padding: 10px; border: 1px solid #ddd; background: #f9f9f9;">
+                                <p><?php _e('Tabellförhandsgranskning kommer här...', 'bkgt-document-management'); ?></p>
+                            </div>
+                        `;
+                    case 'image':
+                        return `
+                            <input type="text" placeholder="<?php _e('Bild-URL eller ladda upp...', 'bkgt-document-management'); ?>" data-property="src">
+                            <input type="text" placeholder="<?php _e('Alt-text', 'bkgt-document-management'); ?>" data-property="alt">
+                            <button class="button bkgt-upload-image"><?php _e('Ladda upp bild', 'bkgt-document-management'); ?></button>
+                        `;
+                    case 'divider':
+                        return `<hr style="border: none; border-top: 2px solid #007cba; margin: 20px 0;">`;
+                    default:
+                        return `<p><?php _e('Okänd komponenttyp', 'bkgt-document-management'); ?></p>`;
+                }
+            }
+
+            function selectComponent(component) {
+                $('.bkgt-canvas-component').removeClass('selected');
+                component.addClass('selected');
+                selectedComponent = component;
+                updatePropertiesPanel();
+            }
+
+            function updatePropertiesPanel() {
+                const panel = $('#bkgt-properties-panel');
+
+                if (!selectedComponent) {
+                    panel.html('<p><?php _e('Välj en komponent för att redigera dess egenskaper.', 'bkgt-document-management'); ?></p>');
+                    return;
+                }
+
+                const type = selectedComponent.data('type');
+                const properties = getComponentProperties(type);
+
+                let html = `<h4>${getComponentLabel(type)} - <?php _e('Egenskaper', 'bkgt-document-management'); ?></h4>`;
+
+                properties.forEach(prop => {
+                    const currentValue = selectedComponent.find(`[data-property="${prop.name}"]`).val() || '';
+                    html += `
+                        <div class="bkgt-property-group">
+                            <label for="prop_${prop.name}">${prop.label}</label>
+                            ${prop.type === 'textarea' ?
+                                `<textarea id="prop_${prop.name}" data-property="${prop.name}" rows="3">${currentValue}</textarea>` :
+                                `<input type="${prop.type}" id="prop_${prop.name}" data-property="${prop.name}" value="${currentValue}" ${prop.options ? '' : ''}>`
+                            }
+                            ${prop.options ? `<select id="prop_${prop.name}" data-property="${prop.name}">${prop.options.map(opt => `<option value="${opt.value}" ${opt.value === currentValue ? 'selected' : ''}>${opt.label}</option>`).join('')}</select>` : ''}
+                        </div>
+                    `;
+                });
+
+                panel.html(html);
+
+                // Bind property changes
+                panel.find('input, textarea, select').on('input change', function() {
+                    const property = $(this).data('property');
+                    const value = $(this).val();
+                    selectedComponent.find(`[data-property="${property}"]`).val(value);
+                    updateComponentPreview(selectedComponent);
+                });
+            }
+
+            function getComponentProperties(type) {
+                const baseProps = [
+                    { name: 'id', label: '<?php _e('ID', 'bkgt-document-management'); ?>', type: 'text' },
+                    { name: 'class', label: '<?php _e('CSS-klass', 'bkgt-document-management'); ?>', type: 'text' }
+                ];
+
+                const typeProps = {
+                    'text': [
+                        { name: 'content', label: '<?php _e('Innehåll', 'bkgt-document-management'); ?>', type: 'textarea' }
+                    ],
+                    'heading': [
+                        { name: 'level', label: '<?php _e('Nivå', 'bkgt-document-management'); ?>', type: 'select', options: [
+                            { value: '1', label: 'H1' }, { value: '2', label: 'H2' }, { value: '3', label: 'H3' }
+                        ]},
+                        { name: 'content', label: '<?php _e('Text', 'bkgt-document-management'); ?>', type: 'text' }
+                    ],
+                    'variable': [
+                        { name: 'variable', label: '<?php _e('Variabel', 'bkgt-document-management'); ?>', type: 'select', options: [
+                            { value: '{{current_date}}', label: '<?php _e('Aktuellt datum', 'bkgt-document-management'); ?>' },
+                            { value: '{{author_name}}', label: '<?php _e('Författarens namn', 'bkgt-document-management'); ?>' },
+                            { value: '{{document_title}}', label: '<?php _e('Dokumenttitel', 'bkgt-document-management'); ?>' },
+                            { value: '{{team_name}}', label: '<?php _e('Lagnamn', 'bkgt-document-management'); ?>' },
+                            { value: '{{player_name}}', label: '<?php _e('Spelares namn', 'bkgt-document-management'); ?>' }
+                        ]}
+                    ],
+                    'list': [
+                        { name: 'content', label: '<?php _e('Objekt', 'bkgt-document-management'); ?>', type: 'textarea' },
+                        { name: 'type', label: '<?php _e('Typ', 'bkgt-document-management'); ?>', type: 'select', options: [
+                            { value: 'unordered', label: '<?php _e('Punktlista', 'bkgt-document-management'); ?>' },
+                            { value: 'ordered', label: '<?php _e('Numrerad lista', 'bkgt-document-management'); ?>' }
+                        ]}
+                    ],
+                    'table': [
+                        { name: 'columns', label: '<?php _e('Kolumner', 'bkgt-document-management'); ?>', type: 'number' },
+                        { name: 'rows', label: '<?php _e('Rader', 'bkgt-document-management'); ?>', type: 'number' }
+                    ],
+                    'image': [
+                        { name: 'src', label: '<?php _e('Bildkälla', 'bkgt-document-management'); ?>', type: 'text' },
+                        { name: 'alt', label: '<?php _e('Alt-text', 'bkgt-document-management'); ?>', type: 'text' },
+                        { name: 'width', label: '<?php _e('Bredd', 'bkgt-document-management'); ?>', type: 'number' },
+                        { name: 'height', label: '<?php _e('Höjd', 'bkgt-document-management'); ?>', type: 'number' }
+                    ]
+                };
+
+                return [...(typeProps[type] || []), ...baseProps];
+            }
+
+            function updateComponentPreview(component) {
+                // Update visual preview if needed
+                const type = component.data('type');
+                if (type === 'table') {
+                    const columns = parseInt(component.find('[data-property="columns"]').val()) || 3;
+                    const rows = parseInt(component.find('[data-property="rows"]').val()) || 3;
+
+                    let tableHtml = '<table border="1" style="width: 100%; border-collapse: collapse;">';
+                    for (let i = 0; i < rows; i++) {
+                        tableHtml += '<tr>';
+                        for (let j = 0; j < columns; j++) {
+                            tableHtml += `<td style="padding: 8px;">${i === 0 ? '<?php _e('Kolumn', 'bkgt-document-management'); ?> ' + (j + 1) : ''}</td>`;
+                        }
+                        tableHtml += '</tr>';
+                    }
+                    tableHtml += '</table>';
+
+                    component.find('.bkgt-table-preview').html(tableHtml);
+                }
+            }
+
+            function saveTemplate() {
+                const title = $('#bkgt-template-title').val();
+                const description = $('#bkgt-template-description').val();
+
+                if (!title) {
+                    alert('<?php _e('Ange ett namn för mallen.', 'bkgt-document-management'); ?>');
+                    return;
+                }
+
+                const components = [];
+                $('.bkgt-canvas-component').each(function() {
+                    const component = $(this);
+                    const type = component.data('type');
+                    const properties = {};
+
+                    component.find('[data-property]').each(function() {
+                        const propName = $(this).data('property');
+                        const propValue = $(this).val();
+                        if (propValue) {
+                            properties[propName] = propValue;
+                        }
+                    });
+
+                    components.push({
+                        type: type,
+                        properties: properties
+                    });
+                });
+
+                const templateData = {
+                    title: title,
+                    description: description,
+                    components: components
+                };
+
+                // Save via AJAX
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: 'bkgt_save_template',
+                        nonce: '<?php echo wp_create_nonce('bkgt-template-nonce'); ?>',
+                        template: JSON.stringify(templateData)
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            alert('<?php _e('Mallen har sparats!', 'bkgt-document-management'); ?>');
+                        } else {
+                            alert(response.data || '<?php _e('Ett fel uppstod när mallen skulle sparas.', 'bkgt-document-management'); ?>');
+                        }
+                    }
+                });
+            }
+
+            function previewTemplate() {
+                const components = $('.bkgt-canvas-component');
+                let previewHtml = '';
+
+                components.each(function() {
+                    const component = $(this);
+                    const type = component.data('type');
+                    previewHtml += generateComponentPreview(component, type);
+                });
+
+                $('#bkgt-preview-content').html(previewHtml);
+                $('#bkgt-template-preview-modal').show();
+            }
+
+            function generateComponentPreview(component, type) {
+                const properties = {};
+                component.find('[data-property]').each(function() {
+                    properties[$(this).data('property')] = $(this).val();
+                });
+
+                switch (type) {
+                    case 'text':
+                        return `<p>${properties.content || '<?php _e('Textinnehåll', 'bkgt-document-management'); ?>'}</p>`;
+                    case 'heading':
+                        const level = properties.level || 1;
+                        return `<h${level}>${properties.content || '<?php _e('Rubrik', 'bkgt-document-management'); ?>'}</h${level}>`;
+                    case 'variable':
+                        return `<span class="bkgt-variable">${properties.variable || '{{variable}}'}</span>`;
+                    case 'list':
+                        const items = (properties.content || '').split('\n').filter(item => item.trim());
+                        const listType = properties.type === 'ordered' ? 'ol' : 'ul';
+                        const listItems = items.map(item => `<li>${item.trim()}</li>`).join('');
+                        return `<${listType}>${listItems}</${listType}>`;
+                    case 'table':
+                        const cols = parseInt(properties.columns) || 3;
+                        const rows = parseInt(properties.rows) || 3;
+                        let table = '<table border="1" style="width: 100%; border-collapse: collapse;">';
+                        for (let i = 0; i < rows; i++) {
+                            table += '<tr>';
+                            for (let j = 0; j < cols; j++) {
+                                table += '<td style="padding: 8px;">&nbsp;</td>';
+                            }
+                            table += '</tr>';
+                        }
+                        table += '</table>';
+                        return table;
+                    case 'image':
+                        return `<img src="${properties.src || ''}" alt="${properties.alt || ''}" style="max-width: 100%; height: auto;">`;
+                    case 'divider':
+                        return '<hr style="border: none; border-top: 2px solid #007cba; margin: 20px 0;">';
+                    default:
+                        return `<div><?php _e('Okänd komponent', 'bkgt-document-management'); ?>: ${type}</div>`;
+                }
+            }
+
+            function clearCanvas() {
+                if (confirm('<?php _e('Är du säker på att du vill rensa arbetsytan? Alla osparade ändringar kommer att gå förlorade.', 'bkgt-document-management'); ?>')) {
+                    $('#bkgt-canvas-content').html(`
+                        <div class="bkgt-canvas-placeholder">
+                            <i class="dashicons dashicons-plus-alt"></i>
+                            <p><?php _e('Dra komponenter hit för att börja bygga din mall', 'bkgt-document-management'); ?></p>
+                        </div>
+                    `);
+                    selectedComponent = null;
+                    updatePropertiesPanel();
+                }
+            }
+        });
+        </script>
+        <?php
+    }
+
+    /**
+     * Template Builder Page
+     */
+    public function template_builder_page() {
+        ?>
+        <div class="wrap">
+            <h1><?php _e('Mallbyggare', 'bkgt-document-management'); ?></h1>
+
+            <div class="bkgt-template-builder">
+                <!-- Toolbar -->
+                <div class="bkgt-builder-toolbar">
+                    <div class="bkgt-toolbar-left">
+                        <input type="text" id="bkgt-template-title" placeholder="<?php _e('Mallnamn', 'bkgt-document-management'); ?>" class="regular-text">
+                        <input type="text" id="bkgt-template-description" placeholder="<?php _e('Beskrivning (valfritt)', 'bkgt-document-management'); ?>" class="regular-text">
+                    </div>
+                    <div class="bkgt-toolbar-right">
+                        <button id="bkgt-preview-template" class="button">
+                            <i class="dashicons dashicons-visibility"></i>
+                            <?php _e('Förhandsgranska', 'bkgt-document-management'); ?>
+                        </button>
+                        <button id="bkgt-save-template" class="button button-primary">
+                            <i class="dashicons dashicons-save"></i>
+                            <?php _e('Spara mall', 'bkgt-document-management'); ?>
+                        </button>
+                        <button id="bkgt-clear-canvas" class="button">
+                            <i class="dashicons dashicons-trash"></i>
+                            <?php _e('Rensa', 'bkgt-document-management'); ?>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bkgt-builder-content">
+                    <!-- Component Library -->
+                    <div class="bkgt-component-library">
+                        <h3><?php _e('Komponenter', 'bkgt-document-management'); ?></h3>
+                        <div class="bkgt-component-list">
+                            <div class="bkgt-component-item" draggable="true" data-type="heading">
+                                <i class="dashicons dashicons-editor-bold"></i>
+                                <span><?php _e('Rubrik', 'bkgt-document-management'); ?></span>
+                            </div>
+                            <div class="bkgt-component-item" draggable="true" data-type="text">
+                                <i class="dashicons dashicons-editor-paragraph"></i>
+                                <span><?php _e('Text', 'bkgt-document-management'); ?></span>
+                            </div>
+                            <div class="bkgt-component-item" draggable="true" data-type="variable">
+                                <i class="dashicons dashicons-admin-generic"></i>
+                                <span><?php _e('Variabel', 'bkgt-document-management'); ?></span>
+                            </div>
+                            <div class="bkgt-component-item" draggable="true" data-type="list">
+                                <i class="dashicons dashicons-editor-ul"></i>
+                                <span><?php _e('Lista', 'bkgt-document-management'); ?></span>
+                            </div>
+                            <div class="bkgt-component-item" draggable="true" data-type="table">
+                                <i class="dashicons dashicons-editor-table"></i>
+                                <span><?php _e('Tabell', 'bkgt-document-management'); ?></span>
+                            </div>
+                            <div class="bkgt-component-item" draggable="true" data-type="image">
+                                <i class="dashicons dashicons-format-image"></i>
+                                <span><?php _e('Bild', 'bkgt-document-management'); ?></span>
+                            </div>
+                            <div class="bkgt-component-item" draggable="true" data-type="divider">
+                                <i class="dashicons dashicons-minus"></i>
+                                <span><?php _e('Avdelare', 'bkgt-document-management'); ?></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Canvas -->
+                    <div class="bkgt-canvas">
+                        <div class="bkgt-canvas-header">
+                            <h3><?php _e('Arbetsyta', 'bkgt-document-management'); ?></h3>
+                        </div>
+                        <div id="bkgt-canvas-content" class="bkgt-canvas-content">
+                            <div class="bkgt-canvas-placeholder">
+                                <i class="dashicons dashicons-plus-alt"></i>
+                                <p><?php _e('Dra komponenter hit för att börja bygga din mall', 'bkgt-document-management'); ?></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Properties Panel -->
+                    <div class="bkgt-properties-panel">
+                        <h3><?php _e('Egenskaper', 'bkgt-document-management'); ?></h3>
+                        <div id="bkgt-properties-content">
+                            <p class="bkgt-no-selection"><?php _e('Välj en komponent för att redigera dess egenskaper', 'bkgt-document-management'); ?></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Preview Modal -->
+            <div id="bkgt-preview-modal" class="bkgt-modal">
+                <div class="bkgt-modal-content">
+                    <div class="bkgt-modal-header">
+                        <h2><?php _e('Förhandsgranskning', 'bkgt-document-management'); ?></h2>
+                        <button class="bkgt-modal-close">&times;</button>
+                    </div>
+                    <div class="bkgt-modal-body">
+                        <div id="bkgt-preview-content"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script type="text/javascript">
+        jQuery(document).ready(function($) {
+            let selectedComponent = null;
+            let componentCounter = 0;
+
+            // Component library drag start
+            $('.bkgt-component-item').on('dragstart', function(e) {
+                e.originalEvent.dataTransfer.setData('text/plain', $(this).data('type'));
+                $(this).addClass('dragging');
+            });
+
+            $('.bkgt-component-item').on('dragend', function(e) {
+                $(this).removeClass('dragging');
+            });
+
+            // Canvas drag over
+            $('#bkgt-canvas-content').on('dragover', function(e) {
+                e.preventDefault();
+                $(this).addClass('drag-over');
+            });
+
+            $('#bkgt-canvas-content').on('dragleave', function(e) {
+                $(this).removeClass('drag-over');
+            });
+
+            // Canvas drop
+            $('#bkgt-canvas-content').on('drop', function(e) {
+                e.preventDefault();
+                $(this).removeClass('drag-over');
+
+                const componentType = e.originalEvent.dataTransfer.getData('text/plain');
+                if (componentType) {
+                    addComponentToCanvas(componentType, e.originalEvent);
+                }
+            });
+
+            // Component selection
+            $(document).on('click', '.bkgt-canvas-component', function(e) {
+                if (!$(e.target).is('button, input, textarea, select')) {
+                    selectComponent($(this));
+                }
+            });
+
+            // Component editing
+            $(document).on('input', '.bkgt-component-content textarea, .bkgt-component-content input', function() {
+                updateComponentPreview($(this).closest('.bkgt-canvas-component'));
+            });
+
+            // Component actions
+            $(document).on('click', '.bkgt-delete-component', function(e) {
+                e.stopPropagation();
+                $(this).closest('.bkgt-canvas-component').remove();
+                if (selectedComponent && selectedComponent.is($(this).closest('.bkgt-canvas-component'))) {
+                    selectedComponent = null;
+                    updatePropertiesPanel();
+                }
+            });
+
+            $(document).on('click', '.bkgt-duplicate-component', function(e) {
+                e.stopPropagation();
+                const component = $(this).closest('.bkgt-canvas-component');
+                const newComponent = component.clone();
+                newComponent.find('.bkgt-component-id').val('');
+                component.after(newComponent);
+                selectComponent(newComponent);
+            });
+
+            // Toolbar actions
+            $('#bkgt-save-template').on('click', saveTemplate);
+            $('#bkgt-preview-template').on('click', previewTemplate);
+            $('#bkgt-clear-canvas').on('click', clearCanvas);
+
+            // Modal close
+            $('.bkgt-modal-close').on('click', function() {
+                $(this).closest('.bkgt-modal').hide();
+            });
+
+            $(window).on('click', function(e) {
+                if ($(e.target).hasClass('bkgt-modal')) {
+                    $('.bkgt-modal').hide();
+                }
+            });
+
+            function addComponentToCanvas(type, event) {
+                componentCounter++;
+                const componentId = 'component_' + componentCounter;
+                const componentHtml = createComponentHtml(type, componentId);
+
+                if (event) {
+                    // Insert at drop position
+                    const rect = $('#bkgt-canvas-content')[0].getBoundingClientRect();
+                    const y = event.clientY - rect.top;
+
+                    let insertBefore = null;
+                    $('.bkgt-canvas-component').each(function() {
+                        const componentRect = this.getBoundingClientRect();
+                        const componentY = componentRect.top - rect.top + componentRect.height / 2;
+                        if (y < componentY) {
+                            insertBefore = this;
+                            return false;
+                        }
+                    });
+
+                    if (insertBefore) {
+                        $(insertBefore).before(componentHtml);
+                    } else {
+                        $('#bkgt-canvas-content').append(componentHtml);
+                    }
+                } else {
+                    $('#bkgt-canvas-content').append(componentHtml);
+                }
+
+                $('.bkgt-canvas-placeholder').hide();
+                const newComponent = $('#bkgt-canvas-content .bkgt-canvas-component').last();
+                selectComponent(newComponent);
+            }
+
+            function createComponentHtml(type, id) {
+                const baseHtml = `
+                    <div class="bkgt-canvas-component" data-type="${type}" data-id="${id}">
+                        <div class="bkgt-component-header">
+                            <span class="bkgt-component-type">${getComponentLabel(type)}</span>
+                            <div class="bkgt-component-actions">
+                                <button class="button button-small bkgt-duplicate-component" title="Duplicera">
+                                    <i class="dashicons dashicons-admin-page"></i>
+                                </button>
+                                <button class="button button-small bkgt-delete-component" title="Ta bort">
+                                    <i class="dashicons dashicons-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="bkgt-component-content">
+                            ${getComponentContentHtml(type, id)}
+                        </div>
+                    </div>
+                `;
+                return baseHtml;
+            }
+
+            function getComponentLabel(type) {
+                const labels = {
+                    'heading': '<?php _e('Rubrik', 'bkgt-document-management'); ?>',
+                    'text': '<?php _e('Text', 'bkgt-document-management'); ?>',
+                    'variable': '<?php _e('Variabel', 'bkgt-document-management'); ?>',
+                    'list': '<?php _e('Lista', 'bkgt-document-management'); ?>',
+                    'table': '<?php _e('Tabell', 'bkgt-document-management'); ?>',
+                    'image': '<?php _e('Bild', 'bkgt-document-management'); ?>',
+                    'divider': '<?php _e('Avdelare', 'bkgt-document-management'); ?>'
+                };
+                return labels[type] || type;
+            }
+
+            function getComponentContentHtml(type, id) {
+                switch (type) {
+                    case 'heading':
+                        return `
+                            <select class="bkgt-heading-level">
+                                <option value="h1">H1</option>
+                                <option value="h2">H2</option>
+                                <option value="h3" selected>H3</option>
+                                <option value="h4">H4</option>
+                                <option value="h5">H5</option>
+                                <option value="h6">H6</option>
+                            </select>
+                            <input type="text" placeholder="<?php _e('Rubriktext', 'bkgt-document-management'); ?>" class="bkgt-heading-text">
+                        `;
+                    case 'text':
+                        return `<textarea placeholder="<?php _e('Skriv din text här...', 'bkgt-document-management'); ?>" rows="3"></textarea>`;
+                    case 'variable':
+                        return `
+                            <input type="text" placeholder="<?php _e('Variabelnamn (t.ex. {{namn}})', 'bkgt-document-management'); ?>" class="bkgt-variable-name">
+                            <input type="text" placeholder="<?php _e('Beskrivning', 'bkgt-document-management'); ?>" class="bkgt-variable-description">
+                        `;
+                    case 'list':
+                        return `
+                            <select class="bkgt-list-type">
+                                <option value="ul"><?php _e('Punktlista', 'bkgt-document-management'); ?></option>
+                                <option value="ol"><?php _e('Numrerad lista', 'bkgt-document-management'); ?></option>
+                            </select>
+                            <textarea placeholder="<?php _e('En rad per listobjekt...', 'bkgt-document-management'); ?>" rows="3" class="bkgt-list-items"></textarea>
+                        `;
+                    case 'table':
+                        return `
+                            <input type="number" placeholder="<?php _e('Kolumner', 'bkgt-document-management'); ?>" class="bkgt-table-cols" min="1" max="10" value="3">
+                            <input type="number" placeholder="<?php _e('Rader', 'bkgt-document-management'); ?>" class="bkgt-table-rows" min="1" max="20" value="2">
+                            <button class="button bkgt-create-table"><?php _e('Skapa tabell', 'bkgt-document-management'); ?></button>
+                            <div class="bkgt-table-preview" style="display:none;"></div>
+                        `;
+                    case 'image':
+                        return `
+                            <input type="url" placeholder="<?php _e('Bild-URL', 'bkgt-document-management'); ?>" class="bkgt-image-url">
+                            <input type="text" placeholder="<?php _e('Alt-text', 'bkgt-document-management'); ?>" class="bkgt-image-alt">
+                            <button class="button bkgt-select-image"><?php _e('Välj bild', 'bkgt-document-management'); ?></button>
+                        `;
+                    case 'divider':
+                        return `<hr style="border: 1px solid #ddd; margin: 10px 0;">`;
+                    default:
+                        return '';
+                }
+            }
+
+            function selectComponent(component) {
+                $('.bkgt-canvas-component').removeClass('selected');
+                component.addClass('selected');
+                selectedComponent = component;
+                updatePropertiesPanel();
+            }
+
+            function updatePropertiesPanel() {
+                if (!selectedComponent) {
+                    $('#bkgt-properties-content').html('<p class="bkgt-no-selection"><?php _e('Välj en komponent för att redigera dess egenskaper', 'bkgt-document-management'); ?></p>');
+                    return;
+                }
+
+                const type = selectedComponent.data('type');
+                const id = selectedComponent.data('id');
+                let propertiesHtml = `<h4>${getComponentLabel(type)} - Egenskaper</h4>`;
+
+                switch (type) {
+                    case 'heading':
+                        const level = selectedComponent.find('.bkgt-heading-level').val();
+                        const text = selectedComponent.find('.bkgt-heading-text').val();
+                        propertiesHtml += `
+                            <div class="bkgt-property-group">
+                                <label><?php _e('Rubriknivå:', 'bkgt-document-management'); ?></label>
+                                <select class="bkgt-prop-heading-level" data-target=".bkgt-heading-level">
+                                    <option value="h1" ${level === 'h1' ? 'selected' : ''}>H1</option>
+                                    <option value="h2" ${level === 'h2' ? 'selected' : ''}>H2</option>
+                                    <option value="h3" ${level === 'h3' ? 'selected' : ''}>H3</option>
+                                    <option value="h4" ${level === 'h4' ? 'selected' : ''}>H4</option>
+                                    <option value="h5" ${level === 'h5' ? 'selected' : ''}>H5</option>
+                                    <option value="h6" ${level === 'h6' ? 'selected' : ''}>H6</option>
+                                </select>
+                            </div>
+                            <div class="bkgt-property-group">
+                                <label><?php _e('Text:', 'bkgt-document-management'); ?></label>
+                                <input type="text" class="bkgt-prop-heading-text" data-target=".bkgt-heading-text" value="${text}">
+                            </div>
+                        `;
+                        break;
+                    case 'text':
+                        const textContent = selectedComponent.find('textarea').val();
+                        propertiesHtml += `
+                            <div class="bkgt-property-group">
+                                <label><?php _e('Innehåll:', 'bkgt-document-management'); ?></label>
+                                <textarea class="bkgt-prop-text-content" data-target="textarea" rows="5">${textContent}</textarea>
+                            </div>
+                        `;
+                        break;
+                    case 'variable':
+                        const varName = selectedComponent.find('.bkgt-variable-name').val();
+                        const varDesc = selectedComponent.find('.bkgt-variable-description').val();
+                        propertiesHtml += `
+                            <div class="bkgt-property-group">
+                                <label><?php _e('Variabelnamn:', 'bkgt-document-management'); ?></label>
+                                <input type="text" class="bkgt-prop-variable-name" data-target=".bkgt-variable-name" value="${varName}" placeholder="{{namn}}">
+                            </div>
+                            <div class="bkgt-property-group">
+                                <label><?php _e('Beskrivning:', 'bkgt-document-management'); ?></label>
+                                <input type="text" class="bkgt-prop-variable-desc" data-target=".bkgt-variable-description" value="${varDesc}">
+                            </div>
+                        `;
+                        break;
+                }
+
+                $('#bkgt-properties-content').html(propertiesHtml);
+
+                // Bind property changes
+                $('#bkgt-properties-content input, #bkgt-properties-content textarea, #bkgt-properties-content select').on('input change', function() {
+                    const target = $(this).data('target');
+                    const value = $(this).val();
+                    selectedComponent.find(target).val(value);
+                    updateComponentPreview(selectedComponent);
+                });
+            }
+
+            function updateComponentPreview(component) {
+                const type = component.data('type');
+                // Update preview based on component type
+                // This would be expanded for each component type
+            }
+
+            function saveTemplate() {
+                const title = $('#bkgt-template-title').val().trim();
+                if (!title) {
+                    alert('<?php _e('Ange ett namn för mallen.', 'bkgt-document-management'); ?>');
+                    return;
+                }
+
+                const components = [];
+                $('.bkgt-canvas-component').each(function() {
+                    const component = $(this);
+                    const type = component.data('type');
+                    const id = component.data('id');
+                    let data = { type, id };
+
+                    switch (type) {
+                        case 'heading':
+                            data.level = component.find('.bkgt-heading-level').val();
+                            data.text = component.find('.bkgt-heading-text').val();
+                            break;
+                        case 'text':
+                            data.content = component.find('textarea').val();
+                            break;
+                        case 'variable':
+                            data.name = component.find('.bkgt-variable-name').val();
+                            data.description = component.find('.bkgt-variable-description').val();
+                            break;
+                        case 'list':
+                            data.listType = component.find('.bkgt-list-type').val();
+                            data.items = component.find('.bkgt-list-items').val().split('\n').filter(item => item.trim());
+                            break;
+                        case 'image':
+                            data.url = component.find('.bkgt-image-url').val();
+                            data.alt = component.find('.bkgt-image-alt').val();
+                            break;
+                    }
+
+                    components.push(data);
+                });
+
+                const templateData = {
+                    title: title,
+                    description: $('#bkgt-template-description').val().trim(),
+                    components: components
+                };
+
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: 'bkgt_save_template',
+                        template: JSON.stringify(templateData),
+                        nonce: '<?php echo wp_create_nonce('bkgt-template-nonce'); ?>'
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            alert(response.data.message);
+                        } else {
+                            alert('<?php _e('Ett fel uppstod när mallen skulle sparas.', 'bkgt-document-management'); ?>');
+                        }
+                    },
+                    error: function() {
+                        alert('<?php _e('Ett fel uppstod när mallen skulle sparas.', 'bkgt-document-management'); ?>');
+                    }
+                });
+            }
+
+            function previewTemplate() {
+                const components = [];
+                $('.bkgt-canvas-component').each(function() {
+                    const component = $(this);
+                    const type = component.data('type');
+                    let preview = '';
+
+                    switch (type) {
+                        case 'heading':
+                            const level = component.find('.bkgt-heading-level').val();
+                            const text = component.find('.bkgt-heading-text').val() || '<?php _e('[Rubrik]', 'bkgt-document-management'); ?>';
+                            preview = `<${level}>${text}</${level}>`;
+                            break;
+                        case 'text':
+                            const content = component.find('textarea').val() || '<?php _e('[Textinnehåll]', 'bkgt-document-management'); ?>';
+                            preview = `<p>${content.replace(/\n/g, '<br>')}</p>`;
+                            break;
+                        case 'variable':
+                            const varName = component.find('.bkgt-variable-name').val() || '{{variabel}}';
+                            preview = `<span class="bkgt-variable">${varName}</span>`;
+                            break;
+                        case 'list':
+                            const listType = component.find('.bkgt-list-type').val();
+                            const items = component.find('.bkgt-list-items').val().split('\n').filter(item => item.trim());
+                            if (items.length > 0) {
+                                preview = `<${listType}>${items.map(item => `<li>${item}</li>`).join('')}</${listType}>`;
+                            } else {
+                                preview = `<${listType}><li><?php _e('[Listobjekt]', 'bkgt-document-management'); ?></li></${listType}>`;
+                            }
+                            break;
+                        case 'image':
+                            const url = component.find('.bkgt-image-url').val();
+                            const alt = component.find('.bkgt-image-alt').val() || '';
+                            preview = url ? `<img src="${url}" alt="${alt}" style="max-width:100%;">` : '<div style="border:2px dashed #ccc;padding:20px;text-align:center;">[<?php _e('Bild', 'bkgt-document-management'); ?>]</div>';
+                            break;
+                        case 'divider':
+                            preview = '<hr>';
+                            break;
+                    }
+
+                    components.push(preview);
+                });
+
+                $('#bkgt-preview-content').html(components.join(''));
+                $('#bkgt-preview-modal').show();
+            }
+
+            function clearCanvas() {
+                if (confirm('<?php _e('Är du säker på att du vill rensa arbetsytan? Alla osparade ändringar kommer att gå förlorade.', 'bkgt-document-management'); ?>')) {
+                    $('#bkgt-canvas-content').html(`
+                        <div class="bkgt-canvas-placeholder">
+                            <i class="dashicons dashicons-plus-alt"></i>
+                            <p><?php _e('Dra komponenter hit för att börja bygga din mall', 'bkgt-document-management'); ?></p>
+                        </div>
+                    `);
+                    selectedComponent = null;
+                    updatePropertiesPanel();
+                }
+            }
+        });
+        </script>
+        <?php
+    }
+
+    /**
+     * AJAX: Save Template - TEMPORARILY DISABLED DUE TO DUPLICATE
+     */
+    /*
+    public function ajax_save_template() {
+        check_ajax_referer('bkgt-template-nonce', 'nonce');
+
+        $template_data = json_decode(stripslashes($_POST['template']), true);
+
+        if (!$template_data || !isset($template_data['title'])) {
+            wp_send_json_error(__('Ogiltig malldata.', 'bkgt-document-management'));
+        }
+
+        // Create or update template post
+        $template_args = array(
+            'post_title' => sanitize_text_field($template_data['title']),
+            'post_content' => wp_json_encode($template_data['components']),
+            'post_excerpt' => sanitize_text_field($template_data['description']),
+            'post_type' => 'bkgt_template',
+            'post_status' => 'publish',
+            'meta_input' => array(
+                '_bkgt_template_data' => $template_data
+            )
+        );
+
+        // Check if template already exists (by title)
+        $existing_template = get_posts(array(
+            'post_type' => 'bkgt_template',
+            'title' => $template_data['title'],
+            'posts_per_page' => 1
+        ));
+
+        if (!empty($existing_template)) {
+            $template_args['ID'] = $existing_template[0]->ID;
+            $template_id = wp_update_post($template_args);
+        } else {
+            $template_id = wp_insert_post($template_args);
+        }
+
+        if (is_wp_error($template_id)) {
+            wp_send_json_error(__('Kunde inte spara mallen.', 'bkgt-document-management'));
+        }
+
+        wp_send_json_success(array(
+            'template_id' => $template_id,
+            'message' => __('Mallen har sparats framgångsrikt.', 'bkgt-document-management')
+        ));
+    }
+    */
 }

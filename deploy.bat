@@ -1,8 +1,19 @@
 @echo off
-REM BKGT Ledare Deployment Script (Windows Batch)
+setlocal enabledelayedexpansion
+
+REM BKGT Ledare Deployment Script (Windows Batch) - Enhanced with Timeout Handling
 REM Run this from the project root directory
 
 echo === BKGT Ledare Deployment Script ===
+echo Enhanced with timeout protection to prevent hangs
+echo ==================================================
+
+REM Check if .env file exists
+if not exist ".env" (
+    echo ✗ .env file not found! Please create it with deployment configuration.
+    echo   Required variables: SSH_HOST, SSH_USER, SSH_KEY_PATH, REMOTE_FOLDER
+    exit /b 1
+)
 
 REM Load environment variables from .env file
 for /f "tokens=1,2 delims==" %%a in (.env) do (
@@ -34,7 +45,7 @@ if %errorlevel%==0 (
     set USE_RSYNC=0
 )
 
-REM Test SSH connection
+REM Test SSH connection with timeout
 echo Testing SSH connection...
 ssh -i "%SSH_KEY_PATH%" -o StrictHostKeyChecking=no -o ConnectTimeout=10 %SSH_USER%@%SSH_HOST% "echo 'SSH OK'"
 if errorlevel 1 (
@@ -56,9 +67,9 @@ if %USE_RSYNC%==1 (
 )
 
 :deploy_rsync
-REM Deploy using rsync (efficient incremental sync)
-echo Deploying files using rsync...
-rsync -avz --delete --no-perms --no-owner --no-group --exclude=".git" --exclude=".gitignore" --exclude=".env" --exclude="node_modules" --exclude=".DS_Store" --exclude="*.log" --exclude="deploy.sh" --exclude="deploy.bat" --exclude="README.md" --exclude=".vscode" --exclude="*.tmp" --exclude="wp-config-sample.php" -e "ssh -i %SSH_KEY_PATH% -o StrictHostKeyChecking=no" "./" "%SSH_USER%@%SSH_HOST%:%REMOTE_FOLDER%/"
+REM Deploy using rsync (efficient incremental sync) with timeout
+echo Deploying files using rsync (this may take a few minutes)...
+rsync -avz --delete --no-perms --no-owner --no-group --exclude=".git" --exclude=".gitignore" --exclude=".env" --exclude="node_modules" --exclude=".DS_Store" --exclude="*.log" --exclude="deploy.sh" --exclude="deploy.bat" --exclude="README.md" --exclude=".vscode" --exclude="*.tmp" --exclude="wp-config-sample.php" --timeout=300 -e "ssh -i %SSH_KEY_PATH% -o StrictHostKeyChecking=no -o ConnectTimeout=30" "./" "%SSH_USER%@%SSH_HOST%:%REMOTE_FOLDER%/"
 if errorlevel 1 (
     echo ✗ rsync deployment failed
     exit /b 1
@@ -67,26 +78,30 @@ echo ✓ Files deployed successfully using rsync
 goto :post_deploy
 
 :deploy_scp
-REM Deploy full WordPress installation (excluding sensitive files) using SCP
+REM Deploy full WordPress installation (excluding sensitive files) using SCP with timeout
 echo Deploying WordPress core files...
-scp -i "%SSH_KEY_PATH%" -o StrictHostKeyChecking=no -r "wp-admin" "%SSH_USER%@%SSH_HOST%:%REMOTE_FOLDER%/"
-scp -i "%SSH_KEY_PATH%" -o StrictHostKeyChecking=no -r "wp-includes" "%SSH_USER%@%SSH_HOST%:%REMOTE_FOLDER%/"
-scp -i "%SSH_KEY_PATH%" -o StrictHostKeyChecking=no "index.php" "%SSH_USER%@%SSH_HOST%:%REMOTE_FOLDER%/"
-scp -i "%SSH_KEY_PATH%" -o StrictHostKeyChecking=no "wp-*.php" "%SSH_USER%@%SSH_HOST%:%REMOTE_FOLDER%/"
+scp -i "%SSH_KEY_PATH%" -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=30 "wp-admin" "%SSH_USER%@%SSH_HOST%:%REMOTE_FOLDER%/"
+scp -i "%SSH_KEY_PATH%" -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=30 "wp-includes" "%SSH_USER%@%SSH_HOST%:%REMOTE_FOLDER%/"
+scp -i "%SSH_KEY_PATH%" -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=30 "index.php" "%SSH_USER%@%SSH_HOST%:%REMOTE_FOLDER%/"
+scp -i "%SSH_KEY_PATH%" -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=30 "wp-*.php" "%SSH_USER%@%SSH_HOST%:%REMOTE_FOLDER%/"
+if errorlevel 1 (
+    echo ✗ WordPress core deployment failed
+    exit /b 1
+)
 echo ✓ WordPress core deployed successfully
 
-REM Deploy theme
+REM Deploy theme with timeout
 echo Deploying theme...
-scp -i "%SSH_KEY_PATH%" -o StrictHostKeyChecking=no -r "wp-content/themes/bkgt-ledare" "%SSH_USER%@%SSH_HOST%:%REMOTE_FOLDER%/wp-content/themes/"
+scp -i "%SSH_KEY_PATH%" -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=30 -r "wp-content/themes/bkgt-ledare" "%SSH_USER%@%SSH_HOST%:%REMOTE_FOLDER%/wp-content/themes/"
 if errorlevel 1 (
     echo ✗ Theme deployment failed
     exit /b 1
 )
 echo ✓ Theme deployed successfully
 
-REM Deploy plugins
+REM Deploy plugins with timeout
 echo Deploying plugins...
-scp -i "%SSH_KEY_PATH%" -o StrictHostKeyChecking=no -r "wp-content/plugins" "%SSH_USER%@%SSH_HOST%:%REMOTE_FOLDER%/wp-content/"
+scp -i "%SSH_KEY_PATH%" -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=30 -r "wp-content/plugins" "%SSH_USER%@%SSH_HOST%:%REMOTE_FOLDER%/wp-content/"
 if errorlevel 1 (
     echo ✗ Plugins deployment failed
     exit /b 1
@@ -95,18 +110,18 @@ echo ✓ Plugins deployed successfully
 
 :post_deploy
 
-REM Set permissions
-echo Setting file permissions...
-ssh -i "%SSH_KEY_PATH%" %SSH_USER%@%SSH_HOST% "find %REMOTE_FOLDER%/wp-content -type f -exec chmod 644 {} \;"
-ssh -i "%SSH_KEY_PATH%" %SSH_USER%@%SSH_HOST% "find %REMOTE_FOLDER%/wp-content -type d -exec chmod 755 {} \;"
-ssh -i "%SSH_KEY_PATH%" %SSH_USER%@%SSH_HOST% "chmod 755 %REMOTE_FOLDER%/wp-content"
+REM Set permissions with timeout protection
+echo Setting file permissions (this may take a moment)...
+ssh -i "%SSH_KEY_PATH%" -o ConnectTimeout=30 -o ServerAliveInterval=30 %SSH_USER%@%SSH_HOST% "find %REMOTE_FOLDER%/wp-content -type f -exec chmod 644 {} \; 2>/dev/null && echo 'File permissions set'"
+ssh -i "%SSH_KEY_PATH%" -o ConnectTimeout=30 -o ServerAliveInterval=30 %SSH_USER%@%SSH_HOST% "find %REMOTE_FOLDER%/wp-content -type d -exec chmod 755 {} \; 2>/dev/null && echo 'Directory permissions set'"
+ssh -i "%SSH_KEY_PATH%" -o ConnectTimeout=30 -o ServerAliveInterval=30 %SSH_USER%@%SSH_HOST% "chmod 755 %REMOTE_FOLDER%/wp-content 2>/dev/null && echo 'Content directory permissions set'"
 echo ✓ File permissions set correctly
 
-REM Clear cache
+REM Clear cache with timeout
 echo Clearing WordPress cache...
-ssh -i "%SSH_KEY_PATH%" %SSH_USER%@%SSH_HOST% "wp cache flush --path=%REMOTE_FOLDER%" 2>nul
+ssh -i "%SSH_KEY_PATH%" -o ConnectTimeout=30 -o ServerAliveInterval=30 %SSH_USER%@%SSH_HOST% "timeout 60 wp cache flush --path=%REMOTE_FOLDER% 2>/dev/null && echo 'Cache cleared'" 2>nul
 if errorlevel 1 (
-    echo ⚠ Cache clearing failed (may not be critical)
+    echo ⚠ Cache clearing failed (may not be critical - WP-CLI may not be available)
 ) else (
     echo ✓ WordPress cache cleared
 )

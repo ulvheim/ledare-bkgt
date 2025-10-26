@@ -31,6 +31,7 @@ require_once BKGT_INV_PLUGIN_DIR . 'includes/class-item-type.php';
 require_once BKGT_INV_PLUGIN_DIR . 'includes/class-inventory-item.php';
 require_once BKGT_INV_PLUGIN_DIR . 'includes/class-assignment.php';
 require_once BKGT_INV_PLUGIN_DIR . 'includes/class-history.php';
+require_once BKGT_INV_PLUGIN_DIR . 'includes/class-location.php';
 require_once BKGT_INV_PLUGIN_DIR . 'admin/class-admin.php';
 require_once BKGT_INV_PLUGIN_DIR . 'admin/class-item-admin.php';
 
@@ -822,6 +823,9 @@ class BKGT_Inventory {
         // Create default data
         $this->create_default_data();
         
+        // Migrate existing taxonomy terms to locations table
+        BKGT_Location::migrate_taxonomy_terms();
+        
         // Set plugin version
         update_option('bkgt_inv_version', BKGT_INV_VERSION);
     }
@@ -976,15 +980,25 @@ class BKGT_Inventory {
             }
         }
         
-        // Create default storage locations
-        $locations = array(
-            'klubbförråd' => __('Klubbförråd', 'bkgt-inventory'),
-            'containern-tyresövallen' => __('Containern, Tyresövallen', 'bkgt-inventory'),
+        // Create default storage locations in locations table
+        $default_locations = array(
+            array(
+                'name' => __('Klubbförråd', 'bkgt-inventory'),
+                'slug' => 'klubbförråd',
+                'location_type' => BKGT_Location::TYPE_STORAGE,
+                'notes' => __('Huvudförråd för klubbens utrustning', 'bkgt-inventory')
+            ),
+            array(
+                'name' => __('Containern, Tyresövallen', 'bkgt-inventory'),
+                'slug' => 'containern-tyresövallen',
+                'location_type' => BKGT_Location::TYPE_STORAGE,
+                'notes' => __('Tillfällig förvaring vid Tyresövallen', 'bkgt-inventory')
+            )
         );
         
-        foreach ($locations as $slug => $name) {
-            if (!term_exists($slug, 'bkgt_storage_location')) {
-                wp_insert_term($name, 'bkgt_storage_location', array('slug' => $slug));
+        foreach ($default_locations as $location_data) {
+            if (!BKGT_Location::slug_exists($location_data['slug'])) {
+                BKGT_Location::create_location($location_data);
             }
         }
         
@@ -1177,20 +1191,16 @@ class BKGT_Inventory {
         
         switch ($type) {
             case 'location':
-                // For locations, we'll use predefined storage locations
-                $locations = array(
-                    1 => __('Förråd Siklöjevägen', 'bkgt-inventory'),
-                    2 => __('Containern, Tyresövallen', 'bkgt-inventory'),
-                    3 => __('Klubblokalen', 'bkgt-inventory'),
-                    4 => __('Träningsplan', 'bkgt-inventory')
-                );
+                // Use locations from the new locations table
+                $locations = BKGT_Location::get_all_locations(true); // Include inactive for search
                 
-                foreach ($locations as $id => $name) {
-                    if (empty($query) || stripos($name, $query) !== false) {
+                foreach ($locations as $location) {
+                    if (empty($query) || stripos($location['name'], $query) !== false) {
                         $assignees[] = array(
-                            'id' => $id,
-                            'name' => $name,
-                            'type' => 'location'
+                            'id' => $location['id'],
+                            'name' => $location['name'],
+                            'type' => 'location',
+                            'location_type' => $location['location_type']
                         );
                     }
                 }
