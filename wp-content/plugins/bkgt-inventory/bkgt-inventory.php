@@ -4,7 +4,7 @@
  * Plugin URI: https://ledare.bkgt.se
  * Description: Utrustningssystem för BKGTS Ledarsystem. Hanterar utrustning, tilldelningar och lagerhållning.
  * Version: 1.0.0
- * Author: BKGTS American Football
+ * Author: BKGT Amerikansk Fotboll
  * Author URI: https://bkgt.se
  * Text Domain: bkgt-inventory
  * Domain Path: /languages

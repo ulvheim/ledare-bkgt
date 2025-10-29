@@ -4,7 +4,7 @@
  * Plugin URI: https://bkgt.se
  * Description: Team pages, player dossiers, and performance management for BKGTS.
  * Version: 1.0.0
- * Author: BKGT Development Team
+ * Author: BKGT Amerikansk Fotboll
  * License: GPL v2 or later
  * Text Domain: bkgt-team-player
  */

@@ -4,7 +4,7 @@
  * Plugin URI: https://bkgt.se
  * Description: Secure document management system for BKGTS.
  * Version: 1.0.0
- * Author: BKGT Development Team
+ * Author: BKGT Amerikansk Fotboll
  * License: GPL v2 or later
  * Text Domain: bkgt-document-management
  */

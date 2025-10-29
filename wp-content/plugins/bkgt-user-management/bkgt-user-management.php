@@ -4,7 +4,7 @@
  * Plugin URI: https://ledare.bkgt.se
  * Description: Användarhantering och laghantering för BKGTS Ledarsystem. Hanterar roller, behörigheter och laguppdelningar.
  * Version: 1.0.0
- * Author: BKGTS American Football
+ * Author: BKGT Amerikansk Fotboll
  * Author URI: https://bkgt.se
  * Text Domain: bkgt-user-management
  * Domain Path: /languages

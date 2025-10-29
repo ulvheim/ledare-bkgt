@@ -4,7 +4,7 @@
  * Plugin URI: https://ledare.bkgt.se
  * Description: Kommunikationssystem för BKGTS Ledarsystem. Hanterar meddelanden, notifikationer och kommunikation med medlemmar.
  * Version: 1.0.0
- * Author: BKGTS American Football
+ * Author: BKGT Amerikansk Fotboll
  * Author URI: https://bkgt.se
  * Text Domain: bkgt-communication
  * Domain Path: /languages

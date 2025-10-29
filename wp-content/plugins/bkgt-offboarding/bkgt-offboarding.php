@@ -4,7 +4,7 @@
  * Plugin URI: https://bkgt.se
  * Description: Personnel transition management system for equipment handover and access control.
  * Version: 1.0.0
- * Author: BKGT Development Team
+ * Author: BKGT Amerikansk Fotboll
  * License: GPL v2 or later
  * Text Domain: bkgt-offboarding
  */

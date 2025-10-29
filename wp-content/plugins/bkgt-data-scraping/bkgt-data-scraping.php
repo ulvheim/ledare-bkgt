@@ -1,28 +1,16 @@
-<?php<?php
+<?php
+/**
+ * Plugin Name: BKGT Data Scraping & Management
+ * Plugin URI: https://github.com/your-repo/bkgt-data-scraping
+ * Description: Automated data retrieval and manual entry system for BKGT football club management.
+ * Version: 1.0.0
+ * Author: BKGT Amerikansk Fotboll
+ * License: GPL v2 or later
+ * Text Domain: bkgt-data-scraping
+ */
 
-/**/**
-
- * Plugin Name: BKGT Data Scraping & Management * Plugin Name: BKGT Data Scraping & Management
-
- * Plugin URI: https://github.com/your-repo/bkgt-data-scraping * Plugin URI: https://github.com/your-repo/bkgt-data-scraping
-
- * Description: Automated data retrieval and manual entry system for BKGT football club management. * Description: Automated data retrieval and manual entry system for BKGT football club management.
-
- * Version: 1.0.0 * Version: 1.0.0
-
- * Author: BKGT Development Team * Author: BKGT Development Team
-
- * License: GPL v2 or later * License: GPL v2 or later
-
- * Text Domain: bkgt-data-scraping * Text Domain: bkgt-data-scraping
-
- */ */
-
-
-
-// Prevent direct access// Prevent direct access
-
-if (!defined('ABSPATH')) {if (!defined('ABSPATH')) {
+// Prevent direct access
+if (!defined('ABSPATH')) {
 
     exit;    exit;
 
