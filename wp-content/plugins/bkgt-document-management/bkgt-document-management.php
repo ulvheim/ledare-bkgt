@@ -66,17 +66,14 @@ class BKGT_Document_Management {
         // Add shortcodes
         add_shortcode('bkgt_documents', array($this, 'documents_shortcode'));
 
-        // AJAX handlers
+        // AJAX handlers (authenticated users only)
         add_action('wp_ajax_bkgt_load_dms_content', array($this, 'ajax_load_dms_content'));
-        add_action('wp_ajax_nopriv_bkgt_load_dms_content', array($this, 'ajax_load_dms_content'));
 
         // Handle document uploads
         add_action('wp_ajax_bkgt_upload_document', array($this, 'ajax_upload_document'));
-        add_action('wp_ajax_nopriv_bkgt_upload_document', array($this, 'ajax_upload_document'));
 
         // Handle document search
         add_action('wp_ajax_bkgt_search_documents', array($this, 'ajax_search_documents'));
-        add_action('wp_ajax_nopriv_bkgt_search_documents', array($this, 'ajax_search_documents'));
 
         // Admin hooks
         if (is_admin()) {
@@ -1089,6 +1086,16 @@ class BKGT_Document_Management {
      * AJAX handler for loading DMS content
      */
     public function ajax_load_dms_content() {
+        // Verify nonce for security
+        if (!wp_verify_nonce($_POST['bkgt_dms_nonce'], 'bkgt_load_dms_content')) {
+            wp_send_json_error(array('message' => __('Security check failed.', 'bkgt-document-management')));
+        }
+
+        // Check user permissions
+        if (!current_user_can('read')) {
+            wp_send_json_error(array('message' => __('You do not have permission to access documents.', 'bkgt-document-management')));
+        }
+
         $tab = isset($_POST['tab']) ? sanitize_text_field($_POST['tab']) : 'browse';
         $category = isset($_POST['category']) ? sanitize_text_field($_POST['category']) : '';
         $limit = isset($_POST['limit']) ? intval($_POST['limit']) : 10;
@@ -1203,6 +1210,16 @@ class BKGT_Document_Management {
      * AJAX handler for document search
      */
     public function ajax_search_documents() {
+        // Verify nonce for security
+        if (!wp_verify_nonce($_POST['bkgt_search_nonce'], 'bkgt_search_documents')) {
+            wp_send_json_error(array('message' => __('Security check failed.', 'bkgt-document-management')));
+        }
+
+        // Check user permissions
+        if (!current_user_can('read')) {
+            wp_send_json_error(array('message' => __('You do not have permission to search documents.', 'bkgt-document-management')));
+        }
+
         $query = isset($_POST['query']) ? sanitize_text_field($_POST['query']) : '';
         $category = isset($_POST['category']) ? sanitize_text_field($_POST['category']) : '';
 

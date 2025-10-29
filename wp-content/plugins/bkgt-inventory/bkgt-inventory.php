@@ -55,24 +55,57 @@ function bkgt_inventory_register_shortcodes() {
  */
 function bkgt_inventory_shortcode($atts) {
     global $wpdb;
-    
+
     $atts = shortcode_atts(array(
         'limit' => -1,
         'show_filters' => 'true',
         'layout' => 'table'
     ), $atts);
-    
-    // For now, create sample data on the fly since table creation had issues
-    $sample_items = array(
-        array('HELM001', 'Schutt F7 VTD', 'Schutt', 'Hjälm', 'Lager A1', 'normal'),
-        array('HELM002', 'Riddell SpeedFlex', 'Riddell', 'Hjälm', 'Lager A1', 'normal'),
-        array('SHIRT001', 'Nike Vapor Tröja', 'Nike', 'Tröja', 'Lager B2', 'normal'),
-        array('SHIRT002', 'Under Armour Tröja', 'Under Armour', 'Tröja', 'Lager B2', 'needs_repair'),
-        array('PANTS001', 'Nike Vapor Byxor', 'Nike', 'Byxor', 'Lager B3', 'normal'),
-        array('SHOES001', 'Nike Vapor Skor', 'Nike', 'Skor', 'Lager C1', 'normal')
-    );
-    
-    if (empty($sample_items)) {
+
+    // Query real inventory data from database
+    $inventory_db = new BKGT_Inventory_Database();
+
+    $query = "SELECT
+        i.*,
+        m.name as manufacturer_name,
+        t.name as item_type_name
+        FROM {$inventory_db->inventory_items_table} i
+        LEFT JOIN {$inventory_db->manufacturers_table} m ON i.manufacturer_id = m.id
+        LEFT JOIN {$inventory_db->item_types_table} t ON i.item_type_id = t.id
+        ORDER BY i.created_at DESC";
+
+    if ($atts['limit'] > 0) {
+        $query .= $wpdb->prepare(" LIMIT %d", intval($atts['limit']));
+    }
+
+    $inventory_items = $wpdb->get_results($query);
+
+    // If no items in database, show sample data for demonstration
+    if (empty($inventory_items)) {
+        $sample_items = array(
+            array('HELM001', 'Schutt F7 VTD', 'Schutt', 'Hjälm', 'Lager A1', 'normal'),
+            array('HELM002', 'Riddell SpeedFlex', 'Riddell', 'Hjälm', 'Lager A1', 'normal'),
+            array('SHIRT001', 'Nike Vapor Tröja', 'Nike', 'Tröja', 'Lager B2', 'normal'),
+            array('SHIRT002', 'Under Armour Tröja', 'Under Armour', 'Tröja', 'Lager B2', 'needs_repair'),
+            array('PANTS001', 'Nike Vapor Byxor', 'Nike', 'Byxor', 'Lager B3', 'normal'),
+            array('SHOES001', 'Nike Vapor Skor', 'Nike', 'Skor', 'Lager C1', 'normal')
+        );
+
+        // Convert sample data to objects for consistent processing
+        $inventory_items = array();
+        foreach ($sample_items as $item) {
+            $inventory_items[] = (object) array(
+                'unique_identifier' => $item[0],
+                'title' => $item[1],
+                'manufacturer_name' => $item[2],
+                'item_type_name' => $item[3],
+                'storage_location' => $item[4],
+                'condition_status' => $item[5]
+            );
+        }
+    }
+
+    if (empty($inventory_items)) {
         return '<p>Ingen utrustning registrerad ännu.</p>';
     }
     
@@ -86,10 +119,10 @@ function bkgt_inventory_shortcode($atts) {
         <?php endif; ?>
         
         <div class="bkgt-inventory-grid">
-            <?php foreach ($sample_items as $item): 
+            <?php foreach ($inventory_items as $item): 
                 // Determine icon based on item type
                 $icon_class = 'dashicons-admin-tools'; // default
-                switch (strtolower($item[3])) {
+                switch (strtolower($item->item_type_name ?? '')) {
                     case 'hjälm':
                         $icon_class = 'dashicons-shield';
                         break;
@@ -106,7 +139,7 @@ function bkgt_inventory_shortcode($atts) {
                 
                 // Determine status color
                 $status_class = '';
-                switch ($item[5]) {
+                switch ($item->condition_status ?? 'normal') {
                     case 'normal':
                         $status_class = 'status-normal';
                         break;
@@ -122,23 +155,23 @@ function bkgt_inventory_shortcode($atts) {
                         break;
                 }
             ?>
-            <div class="bkgt-inventory-item" data-title="<?php echo esc_attr(strtolower($item[1])); ?>">
+            <div class="bkgt-inventory-item" data-title="<?php echo esc_attr(strtolower($item->title ?? '')); ?>">
                 <div class="inventory-item-header">
                     <div class="inventory-icon">
                         <span class="dashicons <?php echo esc_attr($icon_class); ?>"></span>
                     </div>
                     <div class="inventory-content">
-                        <h4><?php echo esc_html($item[1]); ?></h4>
+                        <h4><?php echo esc_html($item->title ?? ''); ?></h4>
                         <div class="inventory-meta">
-                            <span class="meta-item"><strong>ID:</strong> <?php echo esc_html($item[0]); ?></span>
-                            <span class="meta-item"><strong>Tillverkare:</strong> <?php echo esc_html($item[2]); ?></span>
-                            <span class="meta-item"><strong>Typ:</strong> <?php echo esc_html($item[3]); ?></span>
-                            <span class="meta-item"><strong>Lagring:</strong> <?php echo esc_html($item[4]); ?></span>
+                            <span class="meta-item"><strong>ID:</strong> <?php echo esc_html($item->unique_identifier ?? ''); ?></span>
+                            <span class="meta-item"><strong>Tillverkare:</strong> <?php echo esc_html($item->manufacturer_name ?? ''); ?></span>
+                            <span class="meta-item"><strong>Typ:</strong> <?php echo esc_html($item->item_type_name ?? ''); ?></span>
+                            <span class="meta-item"><strong>Lagring:</strong> <?php echo esc_html($item->storage_location ?? ''); ?></span>
                         </div>
                     </div>
                     <div class="inventory-status">
                         <span class="status-text <?php echo esc_attr($status_class); ?>">
-                            <?php echo esc_html(ucfirst($item[5])); ?>
+                            <?php echo esc_html(ucfirst($item->condition_status ?? 'normal')); ?>
                         </span>
                     </div>
                 </div>
