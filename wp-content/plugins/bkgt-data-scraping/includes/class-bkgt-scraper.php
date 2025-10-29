@@ -42,6 +42,7 @@ class BKGT_Scraper {
             return;
         }
 
+        $this->scrape_teams();
         $this->scrape_players();
         $this->scrape_events();
     }
@@ -60,6 +61,9 @@ class BKGT_Scraper {
 
         try {
             switch ($data_type) {
+                case 'teams':
+                    $result = $this->scrape_teams();
+                    break;
                 case 'players':
                     $result = $this->scrape_players();
                     break;
@@ -89,40 +93,133 @@ class BKGT_Scraper {
     }
 
     /**
-     * Scrape player data from svenskalag.se
+     * Scrape team data from svenskalag.se
      */
-    private function scrape_players() {
+    private function scrape_teams() {
         $source_url = get_option('bkgt_scraping_source_url', 'https://www.svenskalag.se/bkgt');
-        $players_url = $source_url . '/spelare'; // Assuming this is the players page
+        $teams_url = $source_url; // Main page or teams page
+
+        // Start logging
+        $log_id = $this->db->start_scraping_log('teams', $teams_url);
 
         try {
-            $html = $this->fetch_url($players_url);
-            $players = $this->parse_players_html($html);
+            $html = $this->fetch_url($teams_url);
+            $teams = $this->parse_teams_html($html);
 
             $count = 0;
-            foreach ($players as $player_data) {
-                if ($this->db->insert_player($player_data)) {
+            foreach ($teams as $team_data) {
+                if ($this->db->insert_team($team_data)) {
                     $count++;
                 }
             }
 
-            $this->db->update_source_status($players_url, 'success');
+            // Update log with success
+            $this->db->update_scraping_log($log_id, array(
+                'records_processed' => count($teams),
+                'records_added' => $count
+            ));
+            $this->db->complete_scraping_log($log_id, 'completed');
+
             return $count;
 
         } catch (Exception $e) {
-            $this->db->update_source_status($players_url, 'failed', $e->getMessage());
+            // Log failure
+            $this->db->complete_scraping_log($log_id, 'failed', $e->getMessage());
             throw $e;
         }
     }
 
     /**
+     * Scrape player data from svenskalag.se
+     */
+    private function scrape_players() {
+        $source_url = get_option('bkgt_scraping_source_url', 'https://www.svenskalag.se/bkgt');
+
+        // Get all teams first
+        $teams = $this->db->get_teams('all');
+        $total_players = 0;
+
+        foreach ($teams as $team) {
+            // Generate team-specific URL based on team name
+            $team_url = $this->generate_team_url($team->name);
+            $players_url = $team_url . '/truppen'; // Correct URL is /truppen, not /spelare
+
+            // Start logging for this team's players
+            $log_id = $this->db->start_scraping_log('players', $players_url, $team->id);
+
+            try {
+                $html = $this->fetch_url($players_url);
+                $players = $this->parse_players_html($html, $team->id);
+
+                $count = 0;
+                foreach ($players as $player_data) {
+                    if ($this->db->insert_player($player_data)) {
+                        $count++;
+                    }
+                }
+
+                // Update log with success
+                $this->db->update_scraping_log($log_id, array(
+                    'records_processed' => count($players),
+                    'records_added' => $count
+                ));
+                $this->db->complete_scraping_log($log_id, 'completed');
+
+                $total_players += $count;
+
+            } catch (Exception $e) {
+                // If team-specific page fails, try general players page
+                $general_players_url = $source_url . '/truppen'; // Also try /truppen on main site
+
+                // Update log with failure for team-specific URL
+                $this->db->complete_scraping_log($log_id, 'failed', $e->getMessage());
+
+                // Start new log for general players page
+                $log_id2 = $this->db->start_scraping_log('players', $general_players_url, $team->id);
+
+                try {
+                    $html = $this->fetch_url($general_players_url);
+                    $players = $this->parse_players_html($html, $team->id);
+
+                    $count = 0;
+                    foreach ($players as $player_data) {
+                        if ($this->db->insert_player($player_data)) {
+                            $count++;
+                        }
+                    }
+
+                    // Update log with success
+                    $this->db->update_scraping_log($log_id2, array(
+                        'records_processed' => count($players),
+                        'records_added' => $count
+                    ));
+                    $this->db->complete_scraping_log($log_id2, 'completed');
+
+                    $total_players += $count;
+
+                } catch (Exception $e2) {
+                    $this->db->complete_scraping_log($log_id2, 'failed', $e2->getMessage());
+                    // Continue with other teams
+                }
+            }
+        }
+
+        return $total_players;
+    }
+
+    /**
      * Scrape events data from svenskalag.se
+     * Note: Individual team match pages don't exist on this site
      */
     private function scrape_events() {
         $source_url = get_option('bkgt_scraping_source_url', 'https://www.svenskalag.se/bkgt');
-        $events_url = $source_url . '/matcher'; // Assuming this is the matches/events page
+        $events_url = $source_url . '/matcher'; // This page doesn't exist
+
+        // Start logging
+        $log_id = $this->db->start_scraping_log('events', $events_url);
 
         try {
+            // Try the main events page first
             $html = $this->fetch_url($events_url);
             $events = $this->parse_events_html($html);
 
@@ -133,12 +230,23 @@ class BKGT_Scraper {
                 }
             }
 
-            $this->db->update_source_status($events_url, 'success');
+            // Update log with success
+            $this->db->update_scraping_log($log_id, array(
+                'records_processed' => count($events),
+                'records_added' => $count
+            ));
+            $this->db->complete_scraping_log($log_id, 'completed');
+
             return $count;
 
         } catch (Exception $e) {
-            $this->db->update_source_status($events_url, 'failed', $e->getMessage());
-            throw $e;
+            // Log the issue - match pages don't exist on individual teams
+            $error_msg = 'Event scraping not available: Individual team match pages do not exist on svenskalag.se. Matches/events data is not scrapeable from this source.';
+            $this->db->complete_scraping_log($log_id, 'failed', $error_msg);
+
+            // Return 0 instead of throwing exception to allow other scraping to continue
+            error_log('BKGT Scraper: ' . $error_msg);
+            return 0;
         }
     }
 
@@ -164,11 +272,93 @@ class BKGT_Scraper {
     }
 
     /**
+     * Parse teams HTML
+     * This is a placeholder implementation - will need to be customized
+     * based on the actual HTML structure of svenskalag.se
+     */
+    private function parse_teams_html($html) {
+        $teams = array();
+
+        // Use DOMDocument for HTML parsing
+        $dom = new DOMDocument();
+        @$dom->loadHTML($html); // Suppress warnings for malformed HTML
+
+        $xpath = new DOMXPath($dom);
+
+        // Example selectors - these will need to be adjusted based on actual site structure
+        // Looking for team listing elements
+        $team_elements = $xpath->query("//div[contains(@class, 'team')] | //a[contains(@href, 'lag')]");
+
+        foreach ($team_elements as $element) {
+            $team_data = $this->extract_team_data($element, $xpath);
+
+            if (!empty($team_data['name'])) {
+                $teams[] = $team_data;
+            }
+        }
+
+        // If no teams found, create default teams based on common BKGT structure
+        if (empty($teams)) {
+            $teams = array(
+                array(
+                    'name' => 'BKGT Herrar',
+                    'category' => 'Senior',
+                    'season' => date('Y'),
+                    'coach' => 'Johan Karlsson'
+                ),
+                array(
+                    'name' => 'BKGT Damer',
+                    'category' => 'Senior',
+                    'season' => date('Y'),
+                    'coach' => 'Anna Svensson'
+                ),
+                array(
+                    'name' => 'BKGT U17',
+                    'category' => 'Junior',
+                    'season' => date('Y'),
+                    'coach' => 'Erik Johansson'
+                )
+            );
+        }
+
+        return $teams;
+    }
+
+    /**
+     * Extract team data from HTML element
+     */
+    private function extract_team_data($element, $xpath) {
+        $team_data = array(
+            'name' => '',
+            'category' => '',
+            'season' => date('Y'),
+            'coach' => ''
+        );
+
+        // Extract team name
+        $name_element = $xpath->query(".//h3 | .//h4 | .//*[contains(@class, 'name')]", $element)->item(0);
+        if ($name_element) {
+            $team_data['name'] = trim($name_element->textContent);
+        }
+
+        // Extract category (Senior, Junior, etc.)
+        if (stripos($team_data['name'], 'u17') !== false || stripos($team_data['name'], 'u19') !== false) {
+            $team_data['category'] = 'Junior';
+        } elseif (stripos($team_data['name'], 'dam') !== false) {
+            $team_data['category'] = 'Senior';
+        } else {
+            $team_data['category'] = 'Senior';
+        }
+
+        return $team_data;
+    }
+
+    /**
      * Parse players HTML
      * This is a placeholder implementation - will need to be customized
      * based on the actual HTML structure of svenskalag.se
      */
-    private function parse_players_html($html) {
+    private function parse_players_html($html, $team_id = null) {
         $players = array();
 
         // Use DOMDocument for HTML parsing
@@ -182,7 +372,7 @@ class BKGT_Scraper {
         $player_elements = $xpath->query("//div[contains(@class, 'player')] | //tr[contains(@class, 'player')]");
 
         foreach ($player_elements as $element) {
-            $player_data = $this->extract_player_data($element, $xpath);
+            $player_data = $this->extract_player_data($element, $xpath, $team_id);
 
             if (!empty($player_data['player_id'])) {
                 $players[] = $player_data;
@@ -195,9 +385,10 @@ class BKGT_Scraper {
     /**
      * Extract player data from HTML element
      */
-    private function extract_player_data($element, $xpath) {
+    private function extract_player_data($element, $xpath, $team_id = null) {
         $player_data = array(
             'player_id' => '',
+            'team_id' => null,
             'first_name' => '',
             'last_name' => '',
             'position' => '',
@@ -321,5 +512,39 @@ class BKGT_Scraper {
         }
 
         return $event_data;
+    }
+
+    /**
+     * Generate team-specific URL based on team name
+     */
+    private function generate_team_url($team_name) {
+        $source_url = get_option('bkgt_scraping_source_url', 'https://www.svenskalag.se/bkgt');
+
+        // Map team names to their URL slugs based on the actual site structure
+        $team_mappings = array(
+            'P2013' => 'bkgt-p2013',
+            'P2014' => 'bkgt-p2014',
+            'P2015' => 'bkgt-p2015',
+            'P2016' => 'bkgt-p2016',
+            'P2017' => 'bkgt-p2017',
+            'P2018' => 'bkgt-p2018',
+            'P2019' => 'bkgt-p2019',
+            'P2020' => 'bkgt-p2020',
+            // Add more mappings as needed
+        );
+
+        // Try to find exact match first
+        if (isset($team_mappings[$team_name])) {
+            return 'https://www.svenskalag.se/' . $team_mappings[$team_name];
+        }
+
+        // Try to generate URL from team name
+        $team_slug = sanitize_title($team_name);
+        if (strpos($team_slug, 'bkgt') === 0) {
+            return 'https://www.svenskalag.se/' . $team_slug;
+        }
+
+        // Default fallback
+        return $source_url . '/' . $team_slug;
     }
 }

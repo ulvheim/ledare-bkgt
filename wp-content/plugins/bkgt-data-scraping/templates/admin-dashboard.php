@@ -25,9 +25,9 @@ if (!defined('ABSPATH')) {
             <span class="dashicons dashicons-groups" aria-hidden="true"></span>
             <?php _e('Spelare', 'bkgt-data-scraping'); ?>
         </button>
-        <button class="bkgt-tab-button" data-tab="events" role="tab" aria-selected="false" aria-controls="bkgt-tab-events" id="bkgt-tab-events-btn">
-            <span class="dashicons dashicons-calendar-alt" aria-hidden="true"></span>
-            <?php _e('Matcher & Träningar', 'bkgt-data-scraping'); ?>
+        <button class="bkgt-tab-button" data-tab="scraper" role="tab" aria-selected="false" aria-controls="bkgt-tab-scraper" id="bkgt-tab-scraper-btn">
+            <span class="dashicons dashicons-update" aria-hidden="true"></span>
+            <?php _e('Skrapning', 'bkgt-data-scraping'); ?>
         </button>
         <button class="bkgt-tab-button" data-tab="settings" role="tab" aria-selected="false" aria-controls="bkgt-tab-settings" id="bkgt-tab-settings-btn">
             <span class="dashicons dashicons-admin-settings" aria-hidden="true"></span>
@@ -428,6 +428,136 @@ if (!defined('ABSPATH')) {
                     <?php
                 }
                 ?>
+            </div>
+        </div>
+
+        <!-- Scraper Tab -->
+        <div id="bkgt-tab-scraper" class="bkgt-tab-panel" role="tabpanel" aria-labelledby="bkgt-tab-scraper-btn" tabindex="0" hidden>
+            <div class="bkgt-tab-header">
+                <h2><?php _e('Dataskrapning', 'bkgt-data-scraping'); ?> <span class="dashicons dashicons-update"></span></h2>
+            </div>
+
+            <div class="bkgt-scraper-dashboard">
+                <!-- Scraper Status Overview -->
+                <div class="bkgt-dashboard-card bkgt-scraper-status-card">
+                    <h3><?php _e('Skrapningsstatus', 'bkgt-data-scraping'); ?> <span class="dashicons dashicons-chart-line"></span></h3>
+                    <div class="bkgt-scraper-stats">
+                        <?php
+                        $scraper_stats = $db->get_scraping_stats();
+                        $last_run = $scraper_stats['last_run'] ? date_i18n('Y-m-d H:i:s', strtotime($scraper_stats['last_run'])) : __('Aldrig', 'bkgt-data-scraping');
+                        $success_rate = $scraper_stats['total_runs'] > 0 ? round(($scraper_stats['successful_runs'] / $scraper_stats['total_runs']) * 100, 1) : 0;
+                        ?>
+                        <div class="bkgt-scraper-stat">
+                            <span class="bkgt-stat-label"><?php _e('Senaste körning:', 'bkgt-data-scraping'); ?></span>
+                            <span class="bkgt-stat-value"><?php echo esc_html($last_run); ?></span>
+                        </div>
+                        <div class="bkgt-scraper-stat">
+                            <span class="bkgt-stat-label"><?php _e('Lyckades:', 'bkgt-data-scraping'); ?></span>
+                            <span class="bkgt-stat-value"><?php echo esc_html($scraper_stats['successful_runs']); ?>/<?php echo esc_html($scraper_stats['total_runs']); ?> (<?php echo esc_html($success_rate); ?>%)</span>
+                        </div>
+                        <div class="bkgt-scraper-stat">
+                            <span class="bkgt-stat-label"><?php _e('Totalt processade:', 'bkgt-data-scraping'); ?></span>
+                            <span class="bkgt-stat-value"><?php echo esc_html($scraper_stats['total_records']); ?></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Manual Scraping Controls -->
+                <div class="bkgt-dashboard-card bkgt-scraper-controls-card">
+                    <h3><?php _e('Manuell Skrapning', 'bkgt-data-scraping'); ?> <span class="dashicons dashicons-admin-tools"></span></h3>
+                    <div class="bkgt-scraper-controls">
+                        <button type="button" class="button button-primary bkgt-scrape-btn" id="bkgt-scrape-all" data-type="all">
+                            <span class="dashicons dashicons-download"></span>
+                            <?php _e('Skrapa Allt', 'bkgt-data-scraping'); ?>
+                        </button>
+                        <button type="button" class="button button-secondary bkgt-scrape-btn" id="bkgt-scrape-teams" data-type="teams">
+                            <span class="dashicons dashicons-groups"></span>
+                            <?php _e('Skrapa Lag', 'bkgt-data-scraping'); ?>
+                        </button>
+                        <button type="button" class="button button-secondary bkgt-scrape-btn" id="bkgt-scrape-players" data-type="players">
+                            <span class="dashicons dashicons-admin-users"></span>
+                            <?php _e('Skrapa Spelare', 'bkgt-data-scraping'); ?>
+                        </button>
+                        <button type="button" class="button button-secondary bkgt-scrape-btn" id="bkgt-scrape-events" data-type="events">
+                            <span class="dashicons dashicons-calendar"></span>
+                            <?php _e('Skrapa Matcher', 'bkgt-data-scraping'); ?>
+                        </button>
+                    </div>
+                    <div id="bkgt-scraper-progress" class="bkgt-scraper-progress" style="display: none;">
+                        <div class="bkgt-progress-bar">
+                            <div class="bkgt-progress-fill" id="bkgt-progress-fill" style="width: 0%;"></div>
+                        </div>
+                        <div class="bkgt-progress-text" id="bkgt-progress-text"><?php _e('Förbereder skrapning...', 'bkgt-data-scraping'); ?></div>
+                    </div>
+                </div>
+
+                <!-- Scheduling Settings -->
+                <div class="bkgt-dashboard-card bkgt-scraper-schedule-card">
+                    <h3><?php _e('Automatisk Schemaläggning', 'bkgt-data-scraping'); ?> <span class="dashicons dashicons-clock"></span></h3>
+                    <form method="post" action="" class="bkgt-schedule-form">
+                        <?php wp_nonce_field('bkgt_schedule_nonce'); ?>
+                        <div class="bkgt-form-row">
+                            <label for="bkgt_auto_scraping_enabled">
+                                <input type="checkbox" id="bkgt_auto_scraping_enabled" name="bkgt_auto_scraping_enabled" value="yes" <?php checked(get_option('bkgt_auto_scraping_enabled'), 'yes'); ?> />
+                                <?php _e('Aktivera automatisk skrapning', 'bkgt-data-scraping'); ?>
+                            </label>
+                        </div>
+                        <div class="bkgt-form-row">
+                            <label for="bkgt_scraping_schedule"><?php _e('Schemaläggning:', 'bkgt-data-scraping'); ?></label>
+                            <select id="bkgt_scraping_schedule" name="bkgt_scraping_schedule">
+                                <option value="daily" <?php selected(get_option('bkgt_scraping_schedule'), 'daily'); ?>><?php _e('Dagligen', 'bkgt-data-scraping'); ?></option>
+                                <option value="weekly" <?php selected(get_option('bkgt_scraping_schedule'), 'weekly'); ?>><?php _e('Veckovis', 'bkgt-data-scraping'); ?></option>
+                                <option value="monthly" <?php selected(get_option('bkgt_scraping_schedule'), 'monthly'); ?>><?php _e('Månadsvis', 'bkgt-data-scraping'); ?></option>
+                            </select>
+                        </div>
+                        <div class="bkgt-form-row">
+                            <label for="bkgt_scraping_time"><?php _e('Tid:', 'bkgt-data-scraping'); ?></label>
+                            <input type="time" id="bkgt_scraping_time" name="bkgt_scraping_time" value="<?php echo esc_attr(get_option('bkgt_scraping_time', '02:00')); ?>" />
+                        </div>
+                        <div class="bkgt-form-row">
+                            <input type="submit" name="bkgt_save_schedule" class="button button-primary" value="<?php _e('Spara Schemaläggning', 'bkgt-data-scraping'); ?>" />
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Recent Scraping Logs -->
+                <div class="bkgt-dashboard-card bkgt-scraper-logs-card">
+                    <h3><?php _e('Senaste Skrapningsloggar', 'bkgt-data-scraping'); ?> <span class="dashicons dashicons-list-view"></span></h3>
+                    <div class="bkgt-logs-container">
+                        <?php
+                        $recent_logs = $db->get_scraping_logs(10);
+                        if (!empty($recent_logs)) {
+                            echo '<div class="bkgt-logs-list">';
+                            foreach ($recent_logs as $log) {
+                                $status_class = $log->status === 'completed' ? 'success' : ($log->status === 'failed' ? 'error' : 'warning');
+                                $status_icon = $log->status === 'completed' ? 'yes' : ($log->status === 'failed' ? 'no' : 'clock');
+                                $duration = $log->duration ? gmdate('H:i:s', $log->duration) : '-';
+                                echo '<div class="bkgt-log-item bkgt-log-' . esc_attr($status_class) . '">';
+                                echo '<div class="bkgt-log-header">';
+                                echo '<span class="dashicons dashicons-' . esc_attr($status_icon) . '"></span>';
+                                echo '<strong>' . esc_html(ucfirst($log->data_type)) . '</strong>';
+                                echo '<span class="bkgt-log-date">' . esc_html(date_i18n('Y-m-d H:i:s', strtotime($log->started_at))) . '</span>';
+                                echo '</div>';
+                                echo '<div class="bkgt-log-details">';
+                                echo '<span>' . esc_html($log->records_processed) . ' ' . __('processade', 'bkgt-data-scraping') . '</span>';
+                                echo '<span>' . esc_html($log->records_added) . ' ' . __('tillagda', 'bkgt-data-scraping') . '</span>';
+                                echo '<span>' . __('Tid:', 'bkgt-data-scraping') . ' ' . esc_html($duration) . '</span>';
+                                if ($log->error_message) {
+                                    echo '<div class="bkgt-log-error">' . esc_html($log->error_message) . '</div>';
+                                }
+                                echo '</div>';
+                                echo '</div>';
+                            }
+                            echo '</div>';
+                        } else {
+                            echo '<div class="bkgt-empty-state">';
+                            echo '<span class="dashicons dashicons-list-view"></span>';
+                            echo '<p>' . __('Inga skrapningsloggar hittades än. Kör en skrapning för att se aktivitet här.', 'bkgt-data-scraping') . '</p>';
+                            echo '</div>';
+                        }
+                        ?>
+                    </div>
+                </div>
             </div>
         </div>
 

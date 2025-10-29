@@ -72,13 +72,34 @@ $pages_created[] = create_bkgt_page(
     'Statistik och översikt över BKGT laget.'
 );
 
+$pages_created[] = create_bkgt_page(
+    'Dokument',
+    'dokument',
+    'Klubbens dokument och viktiga filer.'
+);
+
+$pages_created[] = create_bkgt_page(
+    'Kommunikation',
+    'kommunikation',
+    'Intern kommunikation och meddelanden.'
+);
+
+$pages_created[] = create_bkgt_page(
+    'Utrustning',
+    'utrustning',
+    'Hantering av klubbens utrustning och inventarier.'
+);
+
 echo "\n=== Setup Complete ===\n";
 echo "Pages created/updated:\n";
 
 $page_data = array(
     array('title' => 'Spelare', 'slug' => 'spelare'),
     array('title' => 'Matcher & Event', 'slug' => 'matcher'),
-    array('title' => 'Lagöversikt', 'slug' => 'lagoversikt')
+    array('title' => 'Lagöversikt', 'slug' => 'lagoversikt'),
+    array('title' => 'Dokument', 'slug' => 'dokument'),
+    array('title' => 'Kommunikation', 'slug' => 'kommunikation'),
+    array('title' => 'Utrustning', 'slug' => 'utrustning')
 );
 
 $success_count = 0;

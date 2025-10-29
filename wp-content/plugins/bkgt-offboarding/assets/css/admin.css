@@ -1,0 +1,217 @@
+/* BKGT Offboarding System - Admin Styles */
+
+.bkgt-offboarding-admin {
+    margin: 20px 0;
+}
+
+.bkgt-admin-dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.bkgt-admin-section {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.bkgt-admin-section h2 {
+    margin-top: 0;
+    color: #333;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+.bkgt-admin-section .button {
+    margin-top: 15px;
+}
+
+/* Progress bars */
+.bkgt-task-progress {
+    margin-bottom: 20px;
+}
+
+.bkgt-progress-bar {
+    width: 100%;
+    height: 20px;
+    background-color: #f0f0f0;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 5px;
+}
+
+.bkgt-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #007cba 0%, #005a87 100%);
+    border-radius: 10px;
+    transition: width 0.3s ease;
+}
+
+.bkgt-task-progress p {
+    margin: 5px 0 0 0;
+    font-size: 14px;
+    color: #666;
+}
+
+/* Process status indicators */
+.bkgt-process-status {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.bkgt-status-active {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.bkgt-status-completed {
+    background: #d4edda;
+    color: #155724;
+}
+
+.bkgt-status-overdue {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* Task checklist in admin */
+.bkgt-admin-task-list {
+    margin: 15px 0;
+}
+
+.bkgt-admin-task-item {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    margin: 5px 0;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+}
+
+.bkgt-admin-task-item.completed {
+    background: #d4edda;
+    border-color: #c3e6cb;
+}
+
+.bkgt-admin-task-checkbox {
+    margin-right: 10px;
+}
+
+.bkgt-admin-task-content {
+    flex: 1;
+}
+
+.bkgt-admin-task-title {
+    font-weight: 600;
+    color: #333;
+}
+
+.bkgt-admin-task-description {
+    font-size: 12px;
+    color: #666;
+    margin-top: 2px;
+}
+
+/* Equipment return tracking */
+.bkgt-equipment-tracking {
+    margin: 15px 0;
+}
+
+.bkgt-equipment-item {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    margin: 5px 0;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+}
+
+.bkgt-equipment-item.returned {
+    background: #d4edda;
+    border-color: #c3e6cb;
+}
+
+.bkgt-equipment-checkbox {
+    margin-right: 10px;
+}
+
+.bkgt-equipment-info {
+    flex: 1;
+}
+
+.bkgt-equipment-name {
+    font-weight: 600;
+    color: #333;
+}
+
+.bkgt-equipment-details {
+    font-size: 12px;
+    color: #666;
+}
+
+/* Offboarding timeline */
+.bkgt-timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.bkgt-timeline-item {
+    position: relative;
+    padding: 15px 0;
+    border-left: 2px solid #ddd;
+}
+
+.bkgt-timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -6px;
+    top: 20px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #0056b3;
+}
+
+.bkgt-timeline-item.completed::before {
+    background: #28a745;
+}
+
+.bkgt-timeline-date {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.bkgt-timeline-content {
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 4px;
+}
+
+/* Responsive admin styles */
+@media (max-width: 768px) {
+    .bkgt-admin-dashboard {
+        grid-template-columns: 1fr;
+    }
+
+    .bkgt-admin-task-item,
+    .bkgt-equipment-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .bkgt-admin-task-checkbox,
+    .bkgt-equipment-checkbox {
+        margin-bottom: 10px;
+    }
+}

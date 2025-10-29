@@ -34,6 +34,13 @@ class BKGT_Document {
     }
 
     /**
+     * Get document ID
+     */
+    public function get_id() {
+        return $this->document_id;
+    }
+
+    /**
      * Load document data
      */
     private function load_data() {

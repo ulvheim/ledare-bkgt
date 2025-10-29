@@ -91,6 +91,15 @@ class BKGT_Inventory_Admin {
             'bkgt-locations',
             array($this, 'render_locations_page')
         );
+        
+        add_submenu_page(
+            'bkgt-inventory',
+            __('Rapporter', 'bkgt-inventory'),
+            __('Rapporter', 'bkgt-inventory'),
+            'manage_inventory',
+            'bkgt-reports',
+            array($this, 'render_reports_page')
+        );
     }
     
     /**
@@ -102,6 +111,7 @@ class BKGT_Inventory_Admin {
             'utrustning_page_bkgt-manufacturers',
             'utrustning_page_bkgt-item-types',
             'utrustning_page_bkgt-history',
+            'utrustning_page_bkgt-reports',
             'post.php',
             'post-new.php'
         );
@@ -911,6 +921,15 @@ class BKGT_Inventory_Admin {
         $warranty_expiry = get_post_meta($post->ID, '_bkgt_warranty_expiry', true);
         $notes = get_post_meta($post->ID, '_bkgt_notes', true);
         
+        // Get conditional field values
+        $size = get_post_meta($post->ID, '_bkgt_size', true);
+        $color = get_post_meta($post->ID, '_bkgt_color', true);
+        $material = get_post_meta($post->ID, '_bkgt_material', true);
+        $battery_type = get_post_meta($post->ID, '_bkgt_battery_type', true);
+        $voltage = get_post_meta($post->ID, '_bkgt_voltage', true);
+        $weight = get_post_meta($post->ID, '_bkgt_weight', true);
+        $dimensions = get_post_meta($post->ID, '_bkgt_dimensions', true);
+        
         $manufacturers = BKGT_Manufacturer::get_all();
         $item_types = BKGT_Item_Type::get_all();
         
@@ -940,7 +959,7 @@ class BKGT_Inventory_Admin {
                     <select id="bkgt_item_type_id" name="bkgt_item_type_id" required>
                         <option value=""><?php esc_html_e('Välj artikeltyp', 'bkgt-inventory'); ?></option>
                         <?php foreach ($item_types as $item_type): ?>
-                        <option value="<?php echo $item_type->id; ?>" <?php selected($item_type_id, $item_type->id); ?>>
+                        <option value="<?php echo $item_type->id; ?>" <?php selected($item_type_id, $item_type->id); ?> data-type-id="<?php echo esc_attr($item_type->item_type_id); ?>">
                             <?php echo esc_html($item_type->name); ?>
                         </option>
                         <?php endforeach; ?>
@@ -988,6 +1007,96 @@ class BKGT_Inventory_Admin {
                 </td>
             </tr>
             
+            <!-- Conditional Fields based on Item Type -->
+            <tr class="bkgt-conditional-field bkgt-size-field" style="display: none;">
+                <th scope="row">
+                    <label for="bkgt_size"><?php esc_html_e('Storlek', 'bkgt-inventory'); ?></label>
+                </th>
+                <td>
+                    <select id="bkgt_size" name="bkgt_size">
+                        <option value=""><?php esc_html_e('Välj storlek', 'bkgt-inventory'); ?></option>
+                        <option value="XS" <?php selected($size, 'XS'); ?>>XS</option>
+                        <option value="S" <?php selected($size, 'S'); ?>>S</option>
+                        <option value="M" <?php selected($size, 'M'); ?>>M</option>
+                        <option value="L" <?php selected($size, 'L'); ?>>L</option>
+                        <option value="XL" <?php selected($size, 'XL'); ?>>XL</option>
+                        <option value="XXL" <?php selected($size, 'XXL'); ?>>XXL</option>
+                    </select>
+                </td>
+            </tr>
+            
+            <tr class="bkgt-conditional-field bkgt-color-field" style="display: none;">
+                <th scope="row">
+                    <label for="bkgt_color"><?php esc_html_e('Färg', 'bkgt-inventory'); ?></label>
+                </th>
+                <td>
+                    <input type="text" id="bkgt_color" name="bkgt_color" 
+                           value="<?php echo esc_attr($color); ?>" class="regular-text" placeholder="<?php esc_attr_e('t.ex. Svart, Vit, Röd', 'bkgt-inventory'); ?>">
+                </td>
+            </tr>
+            
+            <tr class="bkgt-conditional-field bkgt-material-field" style="display: none;">
+                <th scope="row">
+                    <label for="bkgt_material"><?php esc_html_e('Material', 'bkgt-inventory'); ?></label>
+                </th>
+                <td>
+                    <select id="bkgt_material" name="bkgt_material">
+                        <option value=""><?php esc_html_e('Välj material', 'bkgt-inventory'); ?></option>
+                        <option value="plastic" <?php selected($material, 'plastic'); ?>><?php _e('Plast', 'bkgt-inventory'); ?></option>
+                        <option value="metal" <?php selected($material, 'metal'); ?>><?php _e('Metall', 'bkgt-inventory'); ?></option>
+                        <option value="composite" <?php selected($material, 'composite'); ?>><?php _e('Komposit', 'bkgt-inventory'); ?></option>
+                        <option value="fabric" <?php selected($material, 'fabric'); ?>><?php _e('Tyg', 'bkgt-inventory'); ?></option>
+                        <option value="leather" <?php selected($material, 'leather'); ?>><?php _e('Läder', 'bkgt-inventory'); ?></option>
+                        <option value="rubber" <?php selected($material, 'rubber'); ?>><?php _e('Gummi', 'bkgt-inventory'); ?></option>
+                    </select>
+                </td>
+            </tr>
+            
+            <tr class="bkgt-conditional-field bkgt-battery-field" style="display: none;">
+                <th scope="row">
+                    <label for="bkgt_battery_type"><?php esc_html_e('Batterityp', 'bkgt-inventory'); ?></label>
+                </th>
+                <td>
+                    <select id="bkgt_battery_type" name="bkgt_battery_type">
+                        <option value=""><?php esc_html_e('Välj batterityp', 'bkgt-inventory'); ?></option>
+                        <option value="alkaline" <?php selected($battery_type, 'alkaline'); ?>><?php _e('Alkalisk', 'bkgt-inventory'); ?></option>
+                        <option value="lithium" <?php selected($battery_type, 'lithium'); ?>><?php _e('Litium', 'bkgt-inventory'); ?></option>
+                        <option value="rechargeable" <?php selected($battery_type, 'rechargeable'); ?>><?php _e('Uppladdningsbar', 'bkgt-inventory'); ?></option>
+                        <option value="none" <?php selected($battery_type, 'none'); ?>><?php _e('Ingen batteri', 'bkgt-inventory'); ?></option>
+                    </select>
+                </td>
+            </tr>
+            
+            <tr class="bkgt-conditional-field bkgt-voltage-field" style="display: none;">
+                <th scope="row">
+                    <label for="bkgt_voltage"><?php esc_html_e('Spänning (V)', 'bkgt-inventory'); ?></label>
+                </th>
+                <td>
+                    <input type="number" id="bkgt_voltage" name="bkgt_voltage" 
+                           value="<?php echo esc_attr($voltage); ?>" step="0.1" min="0" placeholder="t.ex. 3.7">
+                </td>
+            </tr>
+            
+            <tr class="bkgt-conditional-field bkgt-weight-field" style="display: none;">
+                <th scope="row">
+                    <label for="bkgt_weight"><?php esc_html_e('Vikt (kg)', 'bkgt-inventory'); ?></label>
+                </th>
+                <td>
+                    <input type="number" id="bkgt_weight" name="bkgt_weight" 
+                           value="<?php echo esc_attr($weight); ?>" step="0.01" min="0" placeholder="t.ex. 0.5">
+                </td>
+            </tr>
+            
+            <tr class="bkgt-conditional-field bkgt-dimensions-field" style="display: none;">
+                <th scope="row">
+                    <label for="bkgt_dimensions"><?php esc_html_e('Dimensioner (LxBxH cm)', 'bkgt-inventory'); ?></label>
+                </th>
+                <td>
+                    <input type="text" id="bkgt_dimensions" name="bkgt_dimensions" 
+                           value="<?php echo esc_attr($dimensions); ?>" class="regular-text" placeholder="t.ex. 30x20x10">
+                </td>
+            </tr>
+            
             <tr>
                 <th scope="row">
                     <label for="bkgt_notes"><?php esc_html_e('Anteckningar', 'bkgt-inventory'); ?></label>
@@ -997,6 +1106,90 @@ class BKGT_Inventory_Admin {
                 </td>
             </tr>
         </table>
+        
+        <script type="text/javascript">
+        jQuery(document).ready(function($) {
+            function toggleConditionalFields() {
+                var selectedOption = $('#bkgt_item_type_id option:selected');
+                var typeId = selectedOption.data('type-id');
+                
+                // Hide all conditional fields first
+                $('.bkgt-conditional-field').hide();
+                
+                // Show fields based on item type
+                if (typeId) {
+                    switch(typeId.toLowerCase()) {
+                        case 'helm': // Helmet
+                        case 'hjlm':
+                            $('.bkgt-size-field, .bkgt-color-field, .bkgt-material-field, .bkgt-weight-field').show();
+                            break;
+                        case 'axsk': // Shoulder pads
+                        case 'bensk': // Knee pads
+                        case 'armsk': // Elbow pads
+                        case 'tröja': // Jersey
+                        case 'byxor': // Pants
+                            $('.bkgt-size-field, .bkgt-color-field, .bkgt-material-field').show();
+                            break;
+                        case 'boll': // Ball
+                        case 'kon': // Cone
+                            $('.bkgt-color-field, .bkgt-material-field, .bkgt-weight-field, .bkgt-dimensions-field').show();
+                            break;
+                        case 'elek': // Electronics
+                        case 'tidt': // Timer
+                        case 'ljus': // Light
+                            $('.bkgt-battery-field, .bkgt-voltage-field, .bkgt-weight-field, .bkgt-dimensions-field').show();
+                            break;
+                        case 'verk': // Tools
+                        case 'repd': // Repair parts
+                            $('.bkgt-material-field, .bkgt-weight-field, .bkgt-dimensions-field').show();
+                            break;
+                        default:
+                            // Show common fields for other types
+                            $('.bkgt-color-field, .bkgt-material-field').show();
+                            break;
+                    }
+                }
+            }
+            
+            // Initial check
+            toggleConditionalFields();
+            
+            // Listen for changes
+            $('#bkgt_item_type_id').on('change', toggleConditionalFields);
+            
+            // Dynamic validation
+            $('#bkgt_voltage').on('input', function() {
+                var voltage = parseFloat($(this).val());
+                if (voltage > 50) {
+                    alert('<?php _e('Varning: Spänning över 50V kan vara farligt!', 'bkgt-inventory'); ?>');
+                }
+            });
+            
+            $('#bkgt_weight').on('input', function() {
+                var weight = parseFloat($(this).val());
+                if (weight > 10) {
+                    $(this).addClass('warning-field');
+                } else {
+                    $(this).removeClass('warning-field');
+                }
+            });
+        });
+        </script>
+        
+        <style>
+        .warning-field {
+            border-color: #ff6b35 !important;
+            background-color: #fff3cd !important;
+        }
+        .bkgt-conditional-field {
+            background-color: #f8f9fa;
+            border-left: 3px solid #007cba;
+        }
+        .bkgt-conditional-field th {
+            font-weight: normal;
+            color: #666;
+        }
+        </style>
         <?php
     }
     
@@ -1172,6 +1365,14 @@ class BKGT_Inventory_Admin {
             'bkgt_notes',
             'bkgt_assignment_type',
             'bkgt_assigned_to',
+            // Conditional fields
+            'bkgt_size',
+            'bkgt_color',
+            'bkgt_material',
+            'bkgt_battery_type',
+            'bkgt_voltage',
+            'bkgt_weight',
+            'bkgt_dimensions',
         );
         
         foreach ($meta_fields as $field) {
@@ -1474,5 +1675,840 @@ class BKGT_Inventory_Admin {
             </div>
         </div>
         <?php
+    }
+    
+    /**
+     * Render reports page
+     */
+    public function render_reports_page() {
+        $report_type = isset($_GET['report']) ? sanitize_text_field($_GET['report']) : 'overview';
+        $date_from = isset($_GET['date_from']) ? sanitize_text_field($_GET['date_from']) : date('Y-m-d', strtotime('-30 days'));
+        $date_to = isset($_GET['date_to']) ? sanitize_text_field($_GET['date_to']) : date('Y-m-d');
+        
+        ?>
+        <div class="wrap">
+            <h1><?php esc_html_e('Utrustning - Rapporter', 'bkgt-inventory'); ?></h1>
+            
+            <!-- Report Filters -->
+            <div class="bkgt-report-filters">
+                <form method="get" action="">
+                    <input type="hidden" name="page" value="bkgt-reports">
+                    
+                    <div class="bkgt-filter-row">
+                        <label for="report"><?php _e('Rapporttyp:', 'bkgt-inventory'); ?></label>
+                        <select name="report" id="report">
+                            <option value="overview" <?php selected($report_type, 'overview'); ?>><?php _e('Översikt', 'bkgt-inventory'); ?></option>
+                            <option value="assignments" <?php selected($report_type, 'assignments'); ?>><?php _e('Tilldelningar', 'bkgt-inventory'); ?></option>
+                            <option value="utilization" <?php selected($report_type, 'utilization'); ?>><?php _e('Användning', 'bkgt-inventory'); ?></option>
+                            <option value="maintenance" <?php selected($report_type, 'maintenance'); ?>><?php _e('Underhåll', 'bkgt-inventory'); ?></option>
+                            <option value="locations" <?php selected($report_type, 'locations'); ?>><?php _e('Platser', 'bkgt-inventory'); ?></option>
+                            <option value="recommendations" <?php selected($report_type, 'recommendations'); ?>><?php _e('Rekommendationer', 'bkgt-inventory'); ?></option>
+                        </select>
+                        
+                        <label for="date_from"><?php _e('Från datum:', 'bkgt-inventory'); ?></label>
+                        <input type="date" name="date_from" id="date_from" value="<?php echo esc_attr($date_from); ?>">
+                        
+                        <label for="date_to"><?php _e('Till datum:', 'bkgt-inventory'); ?></label>
+                        <input type="date" name="date_to" id="date_to" value="<?php echo esc_attr($date_to); ?>">
+                        
+                        <input type="submit" class="button" value="<?php _e('Generera rapport', 'bkgt-inventory'); ?>">
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Report Content -->
+            <div class="bkgt-report-content">
+                <?php
+                switch ($report_type) {
+                    case 'assignments':
+                        $this->render_assignments_report($date_from, $date_to);
+                        break;
+                    case 'utilization':
+                        $this->render_utilization_report($date_from, $date_to);
+                        break;
+                    case 'maintenance':
+                        $this->render_maintenance_report($date_from, $date_to);
+                        break;
+                    case 'locations':
+                        $this->render_locations_report($date_from, $date_to);
+                        break;
+                    case 'recommendations':
+                        $this->render_recommendations_report();
+                        break;
+                    default:
+                        $this->render_overview_report($date_from, $date_to);
+                        break;
+                }
+                ?>
+            </div>
+        </div>
+        
+        <style>
+        .bkgt-report-filters {
+            background: #fff;
+            border: 1px solid #ccd0d4;
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .bkgt-filter-row {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .bkgt-filter-row label {
+            font-weight: 600;
+            margin-right: 5px;
+        }
+        .bkgt-report-content {
+            background: #fff;
+            border: 1px solid #ccd0d4;
+            border-radius: 4px;
+            padding: 20px;
+        }
+        .bkgt-report-section {
+            margin-bottom: 30px;
+        }
+        .bkgt-report-section h3 {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .bkgt-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .bkgt-stat-box {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            text-align: center;
+        }
+        .bkgt-stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007cba;
+            display: block;
+        }
+        .bkgt-stat-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .bkgt-chart-placeholder {
+            background: #f8f9fa;
+            border: 2px dashed #dee2e6;
+            border-radius: 4px;
+            padding: 40px;
+            text-align: center;
+            color: #6c757d;
+            margin: 20px 0;
+        }
+        .bkgt-data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .bkgt-data-table th,
+        .bkgt-data-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .bkgt-data-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+        </style>
+        <?php
+    }
+    
+    /**
+     * Render overview report
+     */
+    private function render_overview_report($date_from, $date_to) {
+        $stats = $this->get_inventory_stats();
+        $recent_assignments = $this->get_recent_assignments(10);
+        $overdue_items = $this->get_overdue_assignments();
+        
+        ?>
+        <div class="bkgt-report-section">
+            <h3><?php _e('Översikt', 'bkgt-inventory'); ?></h3>
+            
+            <div class="bkgt-stats-grid">
+                <div class="bkgt-stat-box">
+                    <span class="bkgt-stat-number"><?php echo $stats['total_items']; ?></span>
+                    <span class="bkgt-stat-label"><?php _e('Totalt antal artiklar', 'bkgt-inventory'); ?></span>
+                </div>
+                <div class="bkgt-stat-box">
+                    <span class="bkgt-stat-number"><?php echo $stats['assigned_items']; ?></span>
+                    <span class="bkgt-stat-label"><?php _e('Tilldelade artiklar', 'bkgt-inventory'); ?></span>
+                </div>
+                <div class="bkgt-stat-box">
+                    <span class="bkgt-stat-number"><?php echo $stats['available_items']; ?></span>
+                    <span class="bkgt-stat-label"><?php _e('Tillgängliga artiklar', 'bkgt-inventory'); ?></span>
+                </div>
+                <div class="bkgt-stat-box">
+                    <span class="bkgt-stat-number"><?php echo $stats['needs_repair']; ?></span>
+                    <span class="bkgt-stat-label"><?php _e('Behöver reparation', 'bkgt-inventory'); ?></span>
+                </div>
+            </div>
+            
+            <div class="bkgt-chart-placeholder">
+                <?php _e('📊 Här kommer ett diagram över artikelanvändning över tid att visas', 'bkgt-inventory'); ?>
+            </div>
+        </div>
+        
+        <div class="bkgt-report-section">
+            <h3><?php _e('Senaste tilldelningar', 'bkgt-inventory'); ?></h3>
+            <table class="bkgt-data-table">
+                <thead>
+                    <tr>
+                        <th><?php _e('Artikel', 'bkgt-inventory'); ?></th>
+                        <th><?php _e('Tilldelad till', 'bkgt-inventory'); ?></th>
+                        <th><?php _e('Datum', 'bkgt-inventory'); ?></th>
+                        <th><?php _e('Status', 'bkgt-inventory'); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($recent_assignments)): ?>
+                        <tr>
+                            <td colspan="4"><?php _e('Inga tilldelningar hittades.', 'bkgt-inventory'); ?></td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($recent_assignments as $assignment): ?>
+                            <tr>
+                                <td><?php echo esc_html($assignment->item_name); ?></td>
+                                <td><?php echo esc_html($assignment->assignee_name); ?></td>
+                                <td><?php echo esc_html(date_i18n(get_option('date_format'), strtotime($assignment->assignment_date))); ?></td>
+                                <td><?php echo esc_html($assignment->status); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="bkgt-report-section">
+            <h3><?php _e('Försenade returer', 'bkgt-inventory'); ?></h3>
+            <table class="bkgt-data-table">
+                <thead>
+                    <tr>
+                        <th><?php _e('Artikel', 'bkgt-inventory'); ?></th>
+                        <th><?php _e('Tilldelad till', 'bkgt-inventory'); ?></th>
+                        <th><?php _e('Förväntat returdatum', 'bkgt-inventory'); ?></th>
+                        <th><?php _e('Dagar försenad', 'bkgt-inventory'); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($overdue_items)): ?>
+                        <tr>
+                            <td colspan="4"><?php _e('Inga försenade returer.', 'bkgt-inventory'); ?></td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($overdue_items as $item): ?>
+                            <tr>
+                                <td><?php echo esc_html($item->item_name); ?></td>
+                                <td><?php echo esc_html($item->assignee_name); ?></td>
+                                <td><?php echo esc_html(date_i18n(get_option('date_format'), strtotime($item->due_date))); ?></td>
+                                <td><?php echo esc_html($item->days_overdue); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php
+    }
+    
+    /**
+     * Render assignments report
+     */
+    private function render_assignments_report($date_from, $date_to) {
+        $assignment_stats = $this->get_assignment_stats($date_from, $date_to);
+        $top_assignees = $this->get_top_assignees($date_from, $date_to);
+        
+        ?>
+        <div class="bkgt-report-section">
+            <h3><?php _e('Tilldelningsstatistik', 'bkgt-inventory'); ?></h3>
+            
+            <div class="bkgt-stats-grid">
+                <div class="bkgt-stat-box">
+                    <span class="bkgt-stat-number"><?php echo $assignment_stats['total_assignments']; ?></span>
+                    <span class="bkgt-stat-label"><?php _e('Totalt tilldelningar', 'bkgt-inventory'); ?></span>
+                </div>
+                <div class="bkgt-stat-box">
+                    <span class="bkgt-stat-number"><?php echo $assignment_stats['active_assignments']; ?></span>
+                    <span class="bkgt-stat-label"><?php _e('Aktiva tilldelningar', 'bkgt-inventory'); ?></span>
+                </div>
+                <div class="bkgt-stat-box">
+                    <span class="bkgt-stat-number"><?php echo $assignment_stats['returned_assignments']; ?></span>
+                    <span class="bkgt-stat-label"><?php _e('Återlämnade', 'bkgt-inventory'); ?></span>
+                </div>
+                <div class="bkgt-stat-box">
+                    <span class="bkgt-stat-number"><?php echo $assignment_stats['avg_assignment_duration']; ?></span>
+                    <span class="bkgt-stat-label"><?php _e('Snittlängd (dagar)', 'bkgt-inventory'); ?></span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bkgt-report-section">
+            <h3><?php _e('Mest tilldelade artiklar', 'bkgt-inventory'); ?></h3>
+            <table class="bkgt-data-table">
+                <thead>
+                    <tr>
+                        <th><?php _e('Artikel', 'bkgt-inventory'); ?></th>
+                        <th><?php _e('Antal tilldelningar', 'bkgt-inventory'); ?></th>
+                        <th><?php _e('Senaste tilldelning', 'bkgt-inventory'); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($top_assignees)): ?>
+                        <tr>
+                            <td colspan="3"><?php _e('Inga tilldelningar hittades.', 'bkgt-inventory'); ?></td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($top_assignees as $assignee): ?>
+                            <tr>
+                                <td><?php echo esc_html($assignee->name); ?></td>
+                                <td><?php echo esc_html($assignee->assignment_count); ?></td>
+                                <td><?php echo esc_html(date_i18n(get_option('date_format'), strtotime($assignee->last_assignment))); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php
+    }
+    
+    /**
+     * Render utilization report
+     */
+    private function render_utilization_report($date_from, $date_to) {
+        $utilization_stats = $this->get_utilization_stats($date_from, $date_to);
+        
+        ?>
+        <div class="bkgt-report-section">
+            <h3><?php _e('Användningsstatistik', 'bkgt-inventory'); ?></h3>
+            
+            <div class="bkgt-stats-grid">
+                <div class="bkgt-stat-box">
+                    <span class="bkgt-stat-number"><?php echo round($utilization_stats['utilization_rate'], 1); ?>%</span>
+                    <span class="bkgt-stat-label"><?php _e('Användningsgrad', 'bkgt-inventory'); ?></span>
+                </div>
+                <div class="bkgt-stat-box">
+                    <span class="bkgt-stat-number"><?php echo $utilization_stats['most_used_category']; ?></span>
+                    <span class="bkgt-stat-label"><?php _e('Mest använda kategori', 'bkgt-inventory'); ?></span>
+                </div>
+                <div class="bkgt-stat-box">
+                    <span class="bkgt-stat-number"><?php echo $utilization_stats['avg_usage_per_item']; ?></span>
+                    <span class="bkgt-stat-label"><?php _e('Snittanvändning per artikel', 'bkgt-inventory'); ?></span>
+                </div>
+                <div class="bkgt-stat-box">
+                    <span class="bkgt-stat-number"><?php echo $utilization_stats['peak_usage_month']; ?></span>
+                    <span class="bkgt-stat-label"><?php _e('Toppanvändningsmånad', 'bkgt-inventory'); ?></span>
+                </div>
+            </div>
+            
+            <div class="bkgt-chart-placeholder">
+                <?php _e('📈 Här kommer ett diagram över användning per kategori att visas', 'bkgt-inventory'); ?>
+            </div>
+        </div>
+        <?php
+    }
+    
+    /**
+     * Render maintenance report
+     */
+    private function render_maintenance_report($date_from, $date_to) {
+        $maintenance_stats = $this->get_maintenance_stats($date_from, $date_to);
+        
+        ?>
+        <div class="bkgt-report-section">
+            <h3><?php _e('Underhållsstatistik', 'bkgt-inventory'); ?></h3>
+            
+            <div class="bkgt-stats-grid">
+                <div class="bkgt-stat-box">
+                    <span class="bkgt-stat-number"><?php echo $maintenance_stats['needs_repair']; ?></span>
+                    <span class="bkgt-stat-label"><?php _e('Behöver reparation', 'bkgt-inventory'); ?></span>
+                </div>
+                <div class="bkgt-stat-box">
+                    <span class="bkgt-stat-number"><?php echo $maintenance_stats['in_repair']; ?></span>
+                    <span class="bkgt-stat-label"><?php _e('Under reparation', 'bkgt-inventory'); ?></span>
+                </div>
+                <div class="bkgt-stat-box">
+                    <span class="bkgt-stat-number"><?php echo $maintenance_stats['repaired']; ?></span>
+                    <span class="bkgt-stat-label"><?php _e('Reparerade', 'bkgt-inventory'); ?></span>
+                </div>
+                <div class="bkgt-stat-box">
+                    <span class="bkgt-stat-number"><?php echo $maintenance_stats['avg_repair_time']; ?></span>
+                    <span class="bkgt-stat-label"><?php _e('Snittreparationstid (dagar)', 'bkgt-inventory'); ?></span>
+                </div>
+            </div>
+            
+            <div class="bkgt-chart-placeholder">
+                <?php _e('🔧 Här kommer ett diagram över reparationshistorik att visas', 'bkgt-inventory'); ?>
+            </div>
+        </div>
+        <?php
+    }
+    
+    /**
+     * Render locations report
+     */
+    private function render_locations_report($date_from, $date_to) {
+        $location_stats = $this->get_location_stats($date_from, $date_to);
+        
+        ?>
+        <div class="bkgt-report-section">
+            <h3><?php _e('Platsstatistik', 'bkgt-inventory'); ?></h3>
+            
+            <div class="bkgt-stats-grid">
+                <div class="bkgt-stat-box">
+                    <span class="bkgt-stat-number"><?php echo $location_stats['total_locations']; ?></span>
+                    <span class="bkgt-stat-label"><?php _e('Totalt antal platser', 'bkgt-inventory'); ?></span>
+                </div>
+                <div class="bkgt-stat-box">
+                    <span class="bkgt-stat-number"><?php echo round($location_stats['avg_utilization'], 1); ?>%</span>
+                    <span class="bkgt-stat-label"><?php _e('Snittutnyttjande', 'bkgt-inventory'); ?></span>
+                </div>
+                <div class="bkgt-stat-box">
+                    <span class="bkgt-stat-number"><?php echo $location_stats['most_used_location']; ?></span>
+                    <span class="bkgt-stat-label"><?php _e('Mest använda plats', 'bkgt-inventory'); ?></span>
+                </div>
+                <div class="bkgt-stat-box">
+                    <span class="bkgt-stat-number"><?php echo $location_stats['underutilized_locations']; ?></span>
+                    <span class="bkgt-stat-label"><?php _e('Underutnyttjade platser', 'bkgt-inventory'); ?></span>
+                </div>
+            </div>
+            
+            <div class="bkgt-chart-placeholder">
+                <?php _e('📍 Här kommer ett diagram över platsutnyttjande att visas', 'bkgt-inventory'); ?>
+            </div>
+        </div>
+        <?php
+    }
+    
+    /**
+     * Render recommendations report
+     */
+    private function render_recommendations_report() {
+        $recommendations = BKGT_Inventory_Analytics::get_quantity_recommendations();
+        $suggestions = BKGT_Inventory_Analytics::get_optimization_suggestions();
+        
+        ?>
+        <div class="bkgt-report-section">
+            <h3><?php _e('📊 AI-drivna Rekommendationer', 'bkgt-inventory'); ?></h3>
+            <p><?php _e('Analysbaserade förslag för lageroptimering baserat på historiska data och användningsmönster.', 'bkgt-inventory'); ?></p>
+            
+            <?php if (!empty($recommendations)): ?>
+            <div class="bkgt-recommendations-grid">
+                <?php foreach ($recommendations as $rec): ?>
+                <div class="bkgt-recommendation-card <?php echo esc_attr($rec['confidence_level']); ?>">
+                    <h4><?php echo esc_html($rec['item_type_name']); ?></h4>
+                    
+                    <div class="bkgt-rec-stats">
+                        <div class="bkgt-stat">
+                            <span class="bkgt-current"><?php echo $rec['current_quantity']; ?></span>
+                            <span class="bkgt-label"><?php _e('Nuvarande', 'bkgt-inventory'); ?></span>
+                        </div>
+                        <div class="bkgt-arrow">→</div>
+                        <div class="bkgt-stat recommended">
+                            <span class="bkgt-recommended"><?php echo $rec['recommended_quantity']; ?></span>
+                            <span class="bkgt-label"><?php _e('Rekommenderat', 'bkgt-inventory'); ?></span>
+                        </div>
+                    </div>
+                    
+                    <div class="bkgt-confidence-level">
+                        <?php
+                        $confidence_text = '';
+                        switch ($rec['confidence_level']) {
+                            case 'high': $confidence_text = __('Hög tillförlitlighet', 'bkgt-inventory'); break;
+                            case 'medium': $confidence_text = __('Medelhög tillförlitlighet', 'bkgt-inventory'); break;
+                            case 'low': $confidence_text = __('Låg tillförlitlighet', 'bkgt-inventory'); break;
+                            default: $confidence_text = __('Mycket låg tillförlitlighet', 'bkgt-inventory'); break;
+                        }
+                        echo esc_html($confidence_text);
+                        ?>
+                    </div>
+                    
+                    <div class="bkgt-reasoning">
+                        <strong><?php _e('Motivering:', 'bkgt-inventory'); ?></strong>
+                        <p><?php echo esc_html($rec['reasoning']); ?></p>
+                    </div>
+                    
+                    <div class="bkgt-additional-info">
+                        <small>
+                            <?php _e('Användningsgrad:', 'bkgt-inventory'); ?> <?php echo $rec['utilization_rate']; ?>% | 
+                            <?php _e('Snittanvändning:', 'bkgt-inventory'); ?> <?php echo $rec['avg_usage_days']; ?> <?php _e('dagar', 'bkgt-inventory'); ?>
+                            <?php if ($rec['seasonal_adjustment'] != 1.0): ?>
+                            | <?php _e('Säsongsjustering:', 'bkgt-inventory'); ?> <?php echo round($rec['seasonal_adjustment'], 1); ?>x
+                            <?php endif; ?>
+                        </small>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php else: ?>
+            <div class="bkgt-no-data">
+                <p><?php _e('Inte tillräckligt med data för att generera rekommendationer. Fortsätt använda systemet för att samla mer användningsdata.', 'bkgt-inventory'); ?></p>
+            </div>
+            <?php endif; ?>
+        </div>
+        
+        <?php if (!empty($suggestions)): ?>
+        <div class="bkgt-report-section">
+            <h3><?php _e('💡 Optimeringförslag', 'bkgt-inventory'); ?></h3>
+            
+            <?php foreach ($suggestions as $suggestion): ?>
+            <div class="bkgt-suggestion-card <?php echo esc_attr($suggestion['type']); ?>">
+                <h4><?php echo esc_html($suggestion['title']); ?></h4>
+                <p><?php echo esc_html($suggestion['description']); ?></p>
+                <div class="bkgt-suggestion-action">
+                    <strong><?php _e('Föreslagen åtgärd:', 'bkgt-inventory'); ?></strong>
+                    <p><?php echo esc_html($suggestion['action']); ?></p>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+        
+        <style>
+        .bkgt-recommendations-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .bkgt-recommendation-card {
+            background: #fff;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .bkgt-recommendation-card.high { border-left: 4px solid #28a745; }
+        .bkgt-recommendation-card.medium { border-left: 4px solid #ffc107; }
+        .bkgt-recommendation-card.low { border-left: 4px solid #fd7e14; }
+        .bkgt-recommendation-card.very_low { border-left: 4px solid #dc3545; }
+        .bkgt-recommendation-card h4 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 18px;
+        }
+        .bkgt-rec-stats {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        .bkgt-stat {
+            text-align: center;
+            flex: 1;
+        }
+        .bkgt-stat span:first-child {
+            display: block;
+            font-size: 32px;
+            font-weight: bold;
+        }
+        .bkgt-current { color: #6c757d; }
+        .bkgt-recommended { color: #007cba; }
+        .bkgt-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            margin-top: 5px;
+        }
+        .bkgt-arrow {
+            font-size: 24px;
+            color: #007cba;
+            margin: 0 15px;
+        }
+        .bkgt-confidence-level {
+            background: #f8f9fa;
+            padding: 8px 12px;
+            border-radius: 4px;
+            text-align: center;
+            font-weight: 600;
+            margin: 15px 0;
+        }
+        .bkgt-reasoning {
+            margin: 15px 0;
+            font-size: 14px;
+        }
+        .bkgt-reasoning p {
+            margin: 5px 0 0 0;
+            color: #666;
+        }
+        .bkgt-additional-info {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e9ecef;
+        }
+        .bkgt-suggestion-card {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+        .bkgt-suggestion-card.overstocked { background: #d1ecf1; border-color: #bee5eb; }
+        .bkgt-suggestion-card.maintenance { background: #f8d7da; border-color: #f5c6cb; }
+        .bkgt-suggestion-card h4 {
+            margin: 0 0 10px 0;
+            color: #856404;
+        }
+        .bkgt-suggestion-card.overstocked h4 { color: #0c5460; }
+        .bkgt-suggestion-card.maintenance h4 { color: #721c24; }
+        .bkgt-suggestion-action {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #ffeaa7;
+        }
+        .bkgt-suggestion-card.overstocked .bkgt-suggestion-action { border-color: #bee5eb; }
+        .bkgt-suggestion-card.maintenance .bkgt-suggestion-action { border-color: #f5c6cb; }
+        .bkgt-no-data {
+            text-align: center;
+            padding: 40px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            color: #6c757d;
+        }
+        </style>
+        <?php
+    }
+
+    /**
+     * Get assignment statistics
+     */
+    private function get_assignment_stats($date_from, $date_to) {
+        global $wpdb;
+        
+        $stats = array(
+            'total_assignments' => 0,
+            'active_assignments' => 0,
+            'returned_assignments' => 0,
+            'avg_assignment_duration' => 0
+        );
+        
+        // Total assignments in date range
+        $stats['total_assignments'] = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_inventory_assignments 
+             WHERE assignment_date BETWEEN %s AND %s",
+            $date_from, $date_to
+        ));
+        
+        // Active assignments
+        $stats['active_assignments'] = $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_inventory_assignments 
+             WHERE return_date IS NULL"
+        );
+        
+        // Returned assignments
+        $stats['returned_assignments'] = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_inventory_assignments 
+             WHERE return_date BETWEEN %s AND %s",
+            $date_from, $date_to
+        ));
+        
+        // Average assignment duration
+        $avg_duration = $wpdb->get_var($wpdb->prepare(
+            "SELECT AVG(DATEDIFF(COALESCE(return_date, CURDATE()), assignment_date)) 
+             FROM {$wpdb->prefix}bkgt_inventory_assignments 
+             WHERE assignment_date BETWEEN %s AND %s AND return_date IS NOT NULL",
+            $date_from, $date_to
+        ));
+        $stats['avg_assignment_duration'] = round($avg_duration ?: 0, 1);
+        
+        return $stats;
+    }
+    
+    /**
+     * Get top assignees
+     */
+    private function get_top_assignees($date_from, $date_to) {
+        global $wpdb;
+        
+        return $wpdb->get_results($wpdb->prepare(
+            "SELECT 
+                COALESCE(u.display_name, a.assignee_name) as name,
+                COUNT(*) as assignment_count,
+                MAX(a.assignment_date) as last_assignment
+             FROM {$wpdb->prefix}bkgt_inventory_assignments a
+             LEFT JOIN {$wpdb->users} u ON a.assignee_id = u.ID
+             WHERE a.assignment_date BETWEEN %s AND %s
+             GROUP BY COALESCE(u.ID, a.assignee_name)
+             ORDER BY assignment_count DESC
+             LIMIT 10",
+            $date_from, $date_to
+        ));
+    }
+    
+    /**
+     * Get utilization statistics
+     */
+    private function get_utilization_stats($date_from, $date_to) {
+        global $wpdb;
+        
+        $stats = array(
+            'utilization_rate' => 0,
+            'most_used_category' => 'N/A',
+            'avg_usage_per_item' => 0,
+            'peak_usage_month' => 'N/A'
+        );
+        
+        // Utilization rate (assigned items / total items)
+        $total_items = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = 'bkgt_inventory_item'");
+        $assigned_items = $wpdb->get_var(
+            "SELECT COUNT(DISTINCT item_id) FROM {$wpdb->prefix}bkgt_inventory_assignments 
+             WHERE return_date IS NULL"
+        );
+        $stats['utilization_rate'] = $total_items > 0 ? round(($assigned_items / $total_items) * 100, 1) : 0;
+        
+        // Most used category
+        $category = $wpdb->get_row(
+            "SELECT t.name, COUNT(a.id) as usage_count
+             FROM {$wpdb->prefix}bkgt_inventory_assignments a
+             JOIN {$wpdb->posts} p ON a.item_id = p.ID
+             JOIN {$wpdb->term_relationships} tr ON p.ID = tr.object_id
+             JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
+             JOIN {$wpdb->terms} t ON tt.term_id = t.term_id
+             WHERE tt.taxonomy = 'bkgt_item_type'
+             GROUP BY t.term_id
+             ORDER BY usage_count DESC
+             LIMIT 1"
+        );
+        $stats['most_used_category'] = $category ? $category->name : 'N/A';
+        
+        // Average usage per item
+        $avg_usage = $wpdb->get_var($wpdb->prepare(
+            "SELECT AVG(assignment_count) FROM (
+                SELECT item_id, COUNT(*) as assignment_count
+                FROM {$wpdb->prefix}bkgt_inventory_assignments
+                WHERE assignment_date BETWEEN %s AND %s
+                GROUP BY item_id
+             ) as item_usage",
+            $date_from, $date_to
+        ));
+        $stats['avg_usage_per_item'] = round($avg_usage ?: 0, 1);
+        
+        return $stats;
+    }
+    
+    /**
+     * Get maintenance statistics
+     */
+    private function get_maintenance_stats($date_from, $date_to) {
+        global $wpdb;
+        
+        $stats = array(
+            'needs_repair' => 0,
+            'in_repair' => 0,
+            'repaired' => 0,
+            'avg_repair_time' => 0
+        );
+        
+        // Items needing repair
+        $stats['needs_repair'] = $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$wpdb->postmeta} 
+             WHERE meta_key = '_bkgt_condition_status' AND meta_value = 'needs_repair'"
+        );
+        
+        // Items in repair (assuming there's a repair status)
+        $stats['in_repair'] = $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$wpdb->postmeta} 
+             WHERE meta_key = '_bkgt_condition_status' AND meta_value = 'in_repair'"
+        );
+        
+        // Repaired items
+        $stats['repaired'] = $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$wpdb->postmeta} 
+             WHERE meta_key = '_bkgt_condition_status' AND meta_value = 'repaired'"
+        );
+        
+        return $stats;
+    }
+    
+    /**
+     * Get location statistics
+     */
+    private function get_location_stats($date_from, $date_to) {
+        global $wpdb;
+        
+        $stats = array(
+            'total_locations' => 0,
+            'avg_utilization' => 0,
+            'most_used_location' => 'N/A',
+            'underutilized_locations' => 0
+        );
+        
+        // Total locations
+        $stats['total_locations'] = $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_inventory_locations WHERE is_active = 1"
+        );
+        
+        // Most used location
+        $location = $wpdb->get_row(
+            "SELECT l.name, COUNT(a.id) as usage_count
+             FROM {$wpdb->prefix}bkgt_inventory_locations l
+             LEFT JOIN {$wpdb->prefix}bkgt_inventory_assignments a ON l.id = a.location_id
+             WHERE l.is_active = 1
+             GROUP BY l.id
+             ORDER BY usage_count DESC
+             LIMIT 1"
+        );
+        $stats['most_used_location'] = $location ? $location->name : 'N/A';
+        
+        return $stats;
+    }
+    
+    /**
+     * Get recent assignments
+     */
+    private function get_recent_assignments($limit = 10) {
+        global $wpdb;
+        
+        return $wpdb->get_results($wpdb->prepare(
+            "SELECT 
+                p.post_title as item_name,
+                COALESCE(u.display_name, a.assignee_name) as assignee_name,
+                a.assignment_date,
+                CASE 
+                    WHEN a.return_date IS NULL THEN 'Aktiv'
+                    ELSE 'Återlämnad'
+                END as status
+             FROM {$wpdb->prefix}bkgt_inventory_assignments a
+             JOIN {$wpdb->posts} p ON a.item_id = p.ID
+             LEFT JOIN {$wpdb->users} u ON a.assignee_id = u.ID
+             ORDER BY a.assignment_date DESC
+             LIMIT %d",
+            $limit
+        ));
+    }
+    
+    /**
+     * Get overdue assignments
+     */
+    private function get_overdue_assignments() {
+        global $wpdb;
+        
+        return $wpdb->get_results(
+            "SELECT 
+                p.post_title as item_name,
+                COALESCE(u.display_name, a.assignee_name) as assignee_name,
+                a.due_date,
+                DATEDIFF(CURDATE(), a.due_date) as days_overdue
+             FROM {$wpdb->prefix}bkgt_inventory_assignments a
+             JOIN {$wpdb->posts} p ON a.item_id = p.ID
+             LEFT JOIN {$wpdb->users} u ON a.assignee_id = u.ID
+             WHERE a.return_date IS NULL 
+             AND a.due_date < CURDATE()
+             ORDER BY a.due_date ASC"
+        );
     }
 }

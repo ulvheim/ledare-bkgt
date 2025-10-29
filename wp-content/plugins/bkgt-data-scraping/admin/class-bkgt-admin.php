@@ -51,21 +51,58 @@ class BKGT_Admin {
         add_action('wp_ajax_bkgt_save_inline_edit', array($this, 'save_inline_edit'));
         add_action('wp_ajax_bkgt_get_bulk_players', array($this, 'get_bulk_players'));
         add_action('wp_ajax_bkgt_get_bulk_events', array($this, 'get_bulk_events'));
+    /**
+     * Initialize hooks
+     */
+    private function init_hooks() {
+        add_action('admin_menu', array($this, 'add_admin_menu'));
+        add_action('admin_enqueue_scripts', array($this, 'enqueue_scripts'));
+        add_action('wp_ajax_bkgt_save_player', array($this, 'save_player'));
+        add_action('wp_ajax_bkgt_delete_player', array($this, 'delete_player'));
+        add_action('wp_ajax_bkgt_save_event', array($this, 'save_event'));
+        add_action('wp_ajax_bkgt_delete_event', array($this, 'delete_event'));
+        add_action('wp_ajax_bkgt_get_player_stats', array($this, 'get_player_stats'));
+        add_action('wp_ajax_bkgt_save_statistics', array($this, 'save_statistics'));
+        add_action('wp_ajax_bkgt_get_players_for_assignment', array($this, 'get_players_for_assignment'));
+        add_action('wp_ajax_bkgt_update_player_assignment', array($this, 'update_player_assignment'));
+        add_action('wp_ajax_bkgt_save_player_assignments', array($this, 'save_player_assignments'));
+        add_action('wp_ajax_bkgt_export_players', array($this, 'export_players'));
+        add_action('wp_ajax_bkgt_export_events', array($this, 'export_events'));
+        add_action('wp_ajax_bkgt_import_players', array($this, 'import_players'));
+        add_action('wp_ajax_bkgt_import_events', array($this, 'import_events'));
+        add_action('wp_ajax_bkgt_check_player_duplicate', array($this, 'check_player_duplicate'));
+        add_action('wp_ajax_bkgt_check_jersey_duplicate', array($this, 'check_jersey_duplicate'));
+        add_action('wp_ajax_bkgt_check_event_duplicate', array($this, 'check_event_duplicate'));
+        add_action('wp_ajax_bkgt_save_inline_edit', array($this, 'save_inline_edit'));
+        add_action('wp_ajax_bkgt_get_bulk_players', array($this, 'get_bulk_players'));
+        add_action('wp_ajax_bkgt_get_bulk_events', array($this, 'get_bulk_events'));
         add_action('wp_ajax_bkgt_perform_bulk_assignment', array($this, 'perform_bulk_assignment'));
+        add_action('wp_ajax_bkgt_run_scraper', array($this, 'run_scraper'));
+        add_action('wp_ajax_bkgt_get_scraper_status', array($this, 'get_scraper_status'));
+        add_action('wp_ajax_bkgt_save_schedule', array($this, 'save_schedule'));
+        add_action('bkgt_auto_scrape', array($this, 'run_auto_scrape'));
     }
 
     /**
      * Add admin menu
      */
     public function add_admin_menu() {
-        add_menu_page(
+        add_submenu_page(
+            'tools.php',
             __('BKGT Datahantering', 'bkgt-data-scraping'),
             __('BKGT Data', 'bkgt-data-scraping'),
             'manage_options',
             'bkgt-data-management',
-            array($this, 'admin_page'),
-            'dashicons-groups',
-            30
+            array($this, 'admin_page')
+        );
+
+        add_submenu_page(
+            'tools.php',
+            __('Skapa BKGT Sidor', 'bkgt-data-scraping'),
+            __('BKGT Skapa Sidor', 'bkgt-data-scraping'),
+            'manage_options',
+            'bkgt-create-pages',
+            array($this, 'create_pages_page')
         );
     }
 
@@ -101,11 +138,16 @@ class BKGT_Admin {
         wp_localize_script('bkgt-admin-js', 'bkgt_ajax', array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('bkgt_admin_nonce'),
+            'scraper_nonce' => wp_create_nonce('bkgt_scraper_nonce'),
             'strings' => array(
                 'confirm_delete' => __('Are you sure you want to delete this item?', 'bkgt-data-scraping'),
                 'saving' => __('Saving...', 'bkgt-data-scraping'),
                 'saved' => __('Saved successfully!', 'bkgt-data-scraping'),
-                'error' => __('An error occurred', 'bkgt-data-scraping')
+                'error' => __('An error occurred', 'bkgt-data-scraping'),
+                'preparing_scrape' => __('Förbereder skrapning...', 'bkgt-data-scraping'),
+                'scrape_completed' => __('Skrapning slutförd!', 'bkgt-data-scraping'),
+                'scrape_success' => __('Skrapning slutförd framgångsrikt!', 'bkgt-data-scraping'),
+                'schedule_saved' => __('Schemaläggning sparad!', 'bkgt-data-scraping')
             )
         ));
     }
@@ -115,6 +157,78 @@ class BKGT_Admin {
      */
     public function admin_page() {
         include BKGT_DATA_SCRAPING_PLUGIN_DIR . 'templates/admin-dashboard.php';
+    }
+
+    /**
+     * Create pages page
+     */
+    public function create_pages_page() {
+        if (isset($_POST['create_pages'])) {
+            $this->create_bkgt_pages();
+            echo '<div class="notice notice-success"><p>' . __('BKGT pages created successfully!', 'bkgt-data-scraping') . '</p></div>';
+        }
+
+        ?>
+        <div class="wrap">
+            <h1><?php _e('Skapa BKGT Sidor', 'bkgt-data-scraping'); ?></h1>
+            <p><?php _e('Klicka på knappen nedan för att skapa de nödvändiga BKGT-sidorna för allmän åtkomst.', 'bkgt-data-scraping'); ?></p>
+
+            <form method="post">
+                <?php wp_nonce_field('bkgt_create_pages_nonce'); ?>
+                <p><?php _e('Följande sidor kommer att skapas:', 'bkgt-data-scraping'); ?></p>
+                <ul style="list-style: disc; margin-left: 20px;">
+                    <li><?php _e('Dokument - För klubbens dokument och filer', 'bkgt-data-scraping'); ?></li>
+                    <li><?php _e('Kommunikation - För intern kommunikation och meddelanden', 'bkgt-data-scraping'); ?></li>
+                    <li><?php _e('Utrustning - För hantering av klubbens utrustning', 'bkgt-data-scraping'); ?></li>
+                </ul>
+                <p><input type="submit" name="create_pages" class="button button-primary" value="<?php _e('Skapa Sidor', 'bkgt-data-scraping'); ?>"></p>
+            </form>
+        </div>
+        <?php
+    }
+
+    /**
+     * Create BKGT pages
+     */
+    private function create_bkgt_pages() {
+        if (!wp_verify_nonce($_POST['_wpnonce'], 'bkgt_create_pages_nonce') ||
+            !current_user_can('manage_options')) {
+            return;
+        }
+
+        $pages = array(
+            array(
+                'title' => 'Dokument',
+                'slug' => 'dokument',
+                'content' => 'Här hittar du klubbens dokument och viktiga filer.'
+            ),
+            array(
+                'title' => 'Kommunikation',
+                'slug' => 'kommunikation',
+                'content' => 'Intern kommunikation och meddelanden.'
+            ),
+            array(
+                'title' => 'Utrustning',
+                'slug' => 'utrustning',
+                'content' => 'Hantering av klubbens utrustning och inventarier.'
+            )
+        );
+
+        foreach ($pages as $page_data) {
+            // Check if page already exists
+            $existing_page = get_page_by_path($page_data['slug']);
+
+            if (!$existing_page) {
+                // Create new page
+                wp_insert_post(array(
+                    'post_title' => $page_data['title'],
+                    'post_name' => $page_data['slug'],
+                    'post_content' => $page_data['content'],
+                    'post_status' => 'publish',
+                    'post_type' => 'page'
+                ));
+            }
+        }
     }
 
     /**
@@ -977,5 +1091,150 @@ class BKGT_Admin {
             'assigned' => $assigned,
             'message' => sprintf(__('Tilldelade %d spelare till evenemang', 'bkgt-data-scraping'), $assigned)
         ));
+    }
+
+    /**
+     * Run scraper via AJAX
+     */
+    public function run_scraper() {
+        check_ajax_referer('bkgt_scraper_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Otillräckliga behörigheter', 'bkgt-data-scraping'));
+        }
+
+        $scrape_type = sanitize_text_field($_POST['scrape_type']);
+        $scraper = bkgt_data_scraping()->scraper;
+
+        try {
+            $result = array();
+
+            switch ($scrape_type) {
+                case 'all':
+                    $result['teams'] = $scraper->scrape_teams();
+                    $result['players'] = $scraper->scrape_players();
+                    $result['events'] = $scraper->scrape_events();
+                    break;
+                case 'teams':
+                    $result['teams'] = $scraper->scrape_teams();
+                    break;
+                case 'players':
+                    $result['players'] = $scraper->scrape_players();
+                    break;
+                case 'events':
+                    $result['events'] = $scraper->scrape_events();
+                    break;
+                default:
+                    throw new Exception(__('Ogiltig skrapningstyp', 'bkgt-data-scraping'));
+            }
+
+            wp_send_json_success(array(
+                'message' => __('Skrapning slutförd', 'bkgt-data-scraping'),
+                'result' => $result
+            ));
+
+        } catch (Exception $e) {
+            wp_send_json_error($e->getMessage());
+        }
+    }
+
+    /**
+     * Get scraper status via AJAX
+     */
+    public function get_scraper_status() {
+        check_ajax_referer('bkgt_scraper_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Otillräckliga behörigheter', 'bkgt-data-scraping'));
+        }
+
+        $stats = $this->db->get_scraping_stats();
+        $recent_logs = $this->db->get_scraping_logs(5);
+
+        wp_send_json_success(array(
+            'stats' => $stats,
+            'recent_logs' => $recent_logs
+        ));
+    }
+
+    /**
+     * Save scraper schedule settings
+     */
+    public function save_schedule() {
+        check_ajax_referer('bkgt_schedule_nonce', 'bkgt_schedule_nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Otillräckliga behörigheter', 'bkgt-data-scraping'));
+        }
+
+        $enabled = isset($_POST['bkgt_auto_scraping_enabled']) ? 'yes' : 'no';
+        $schedule = sanitize_text_field($_POST['bkgt_scraping_schedule']);
+        $time = sanitize_text_field($_POST['bkgt_scraping_time']);
+
+        update_option('bkgt_auto_scraping_enabled', $enabled);
+        update_option('bkgt_scraping_schedule', $schedule);
+        update_option('bkgt_scraping_time', $time);
+
+        // Clear existing schedule
+        wp_clear_scheduled_hook('bkgt_auto_scrape');
+
+        // Schedule new event if enabled
+        if ($enabled === 'yes') {
+            $timestamp = strtotime($time);
+            if ($timestamp) {
+                $next_run = $this->calculate_next_run($schedule, $timestamp);
+                wp_schedule_event($next_run, $schedule, 'bkgt_auto_scrape');
+            }
+        }
+
+        wp_send_json_success(__('Schemaläggning sparad!', 'bkgt-data-scraping'));
+    }
+
+    /**
+     * Calculate next run time based on schedule
+     */
+    private function calculate_next_run($schedule, $base_time) {
+        $now = time();
+        $base_hour = date('H', $base_time);
+        $base_minute = date('i', $base_time);
+
+        switch ($schedule) {
+            case 'daily':
+                $next_run = strtotime("today {$base_hour}:{$base_minute}");
+                if ($next_run <= $now) {
+                    $next_run = strtotime("tomorrow {$base_hour}:{$base_minute}");
+                }
+                break;
+            case 'weekly':
+                $next_run = strtotime("next monday {$base_hour}:{$base_minute}");
+                break;
+            case 'monthly':
+                $next_run = strtotime("first day of next month {$base_hour}:{$base_minute}");
+                break;
+            default:
+                $next_run = $now + 86400; // Default to tomorrow
+        }
+
+        return $next_run;
+    }
+
+    /**
+     * Run automatic scraping via cron
+     */
+    public function run_auto_scrape() {
+        $scraper = bkgt_data_scraping()->scraper;
+
+        try {
+            $scraper->scrape_teams();
+            $scraper->scrape_players();
+            $scraper->scrape_events();
+
+            // Log successful auto-scrape
+            error_log('BKGT Auto-scraping completed successfully');
+
+        } catch (Exception $e) {
+            // Log failed auto-scrape
+            error_log('BKGT Auto-scraping failed: ' . $e->getMessage());
+        }
     }
 }

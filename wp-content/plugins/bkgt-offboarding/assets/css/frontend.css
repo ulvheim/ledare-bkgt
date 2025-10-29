@@ -1,0 +1,232 @@
+/* BKGT Offboarding System - Frontend Styles */
+
+.bkgt-offboarding-dashboard,
+.bkgt-offboarding-process {
+    margin: 20px 0;
+}
+
+.bkgt-offboarding-dashboard h2 {
+    color: #0056b3;
+    border-bottom: 2px solid #0056b3;
+    padding-bottom: 10px;
+}
+
+.bkgt-offboarding-process {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.bkgt-offboarding-process h3 {
+    margin-top: 0;
+    color: #333;
+}
+
+/* Progress bars */
+.bkgt-task-progress {
+    margin-bottom: 20px;
+}
+
+.bkgt-progress-bar {
+    width: 100%;
+    height: 20px;
+    background-color: #f0f0f0;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 5px;
+}
+
+.bkgt-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #007cba 0%, #005a87 100%);
+    border-radius: 10px;
+    transition: width 0.3s ease;
+}
+
+.bkgt-task-progress p {
+    margin: 5px 0 0 0;
+    font-size: 14px;
+    color: #666;
+}
+
+.bkgt-task-list {
+    list-style: none;
+    padding: 0;
+    margin: 15px 0;
+}
+
+.bkgt-task-item {
+    padding: 15px;
+    margin: 8px 0;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+}
+
+.bkgt-task-item.completed {
+    background: #d4edda;
+    border-color: #c3e6cb;
+}
+
+.bkgt-task-item label {
+    display: flex;
+    align-items: flex-start;
+    cursor: pointer;
+    margin: 0;
+}
+
+.bkgt-task-item input[type="checkbox"] {
+    margin-right: 12px;
+    margin-top: 2px;
+    transform: scale(1.2);
+}
+
+.bkgt-task-item strong {
+    color: #333;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.bkgt-task-item small {
+    color: #666;
+    font-style: italic;
+}
+
+.bkgt-equipment-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+    background: #fff;
+}
+
+.bkgt-equipment-table th,
+.bkgt-equipment-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.bkgt-equipment-table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    color: #333;
+}
+
+.bkgt-equipment-table tr:hover {
+    background-color: #f8f9fa;
+}
+
+.bkgt-equipment-returned {
+    margin-right: 8px;
+}
+
+.bkgt-generate-receipt {
+    background: #0056b3;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.bkgt-generate-receipt:hover {
+    background: #003d82;
+}
+
+/* Admin Styles */
+.bkgt-offboarding-dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.bkgt-dashboard-section {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.bkgt-dashboard-section h2 {
+    margin-top: 0;
+    color: #333;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+.bkgt-stat-box {
+    text-align: center;
+    padding: 20px;
+}
+
+.bkgt-stat-number {
+    display: block;
+    font-size: 48px;
+    font-weight: bold;
+    color: #0056b3;
+    line-height: 1;
+}
+
+.bkgt-stat-label {
+    display: block;
+    font-size: 14px;
+    color: #666;
+    margin-top: 8px;
+}
+
+.bkgt-offboarding-form {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.bkgt-offboarding-form .form-table th {
+    width: 200px;
+}
+
+.bkgt-offboarding-form input[type="date"] {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.bkgt-offboarding-form textarea {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    resize: vertical;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .bkgt-offboarding-dashboard {
+        grid-template-columns: 1fr;
+    }
+
+    .bkgt-equipment-table {
+        font-size: 14px;
+    }
+
+    .bkgt-equipment-table th,
+    .bkgt-equipment-table td {
+        padding: 8px;
+    }
+
+    .bkgt-task-item {
+        padding: 12px;
+    }
+}

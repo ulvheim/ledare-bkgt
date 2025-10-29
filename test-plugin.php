@@ -54,4 +54,4 @@ echo "1. Start your WordPress development server\n";
 echo "2. Go to wp-admin/plugins.php\n";
 echo "3. Activate 'BKGT Data Scraping & Management'\n";
 echo "4. Check that database tables are created\n";
-echo "5. Test the admin interface at wp-admin/admin.php?page=bkgt-data-management\n";
+echo "5. Test the admin interface at wp-admin/tools.php?page=bkgt-data-management\n";

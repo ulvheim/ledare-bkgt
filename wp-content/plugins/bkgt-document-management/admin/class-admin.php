@@ -14,9 +14,15 @@ if (!defined('ABSPATH')) {
 class BKGT_Document_Admin {
 
     /**
+     * Template system instance
+     */
+    private $template_system;
+
+    /**
      * Constructor
      */
     public function __construct() {
+        $this->template_system = new BKGT_DM_Template_System();
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
         add_action('add_meta_boxes', array($this, 'add_meta_boxes'));
@@ -25,6 +31,7 @@ class BKGT_Document_Admin {
         add_action('manage_bkgt_document_posts_custom_column', array($this, 'fill_document_columns'), 10, 2);
         add_filter('manage_edit-bkgt_document_sortable_columns', array($this, 'make_columns_sortable'));
         add_action('wp_ajax_bkgt_upload_document', array($this, 'ajax_upload_document'));
+        add_action('wp_ajax_bkgt_create_document', array($this, 'ajax_create_document'));
         add_action('wp_ajax_bkgt_delete_document', array($this, 'ajax_delete_document'));
         add_action('wp_ajax_bkgt_get_document_versions', array($this, 'ajax_get_document_versions'));
         add_action('wp_ajax_bkgt_restore_version', array($this, 'ajax_restore_version'));
@@ -98,8 +105,89 @@ class BKGT_Document_Admin {
             <h1><?php _e('Dokumenthantering', 'bkgt-document-management'); ?></h1>
 
             <div class="bkgt-admin-dashboard">
+                <?php $this->quick_actions(); ?>
                 <?php $this->dashboard_stats(); ?>
                 <?php $this->recent_documents(); ?>
+            </div>
+
+            <!-- Upload Modal -->
+            <div id="bkgt-upload-modal" class="bkgt-modal" style="display: none;">
+                <div class="bkgt-modal-overlay"></div>
+                <div class="bkgt-modal-content">
+                    <div class="bkgt-modal-header">
+                        <h2><?php _e('Ladda upp nytt dokument', 'bkgt-document-management'); ?></h2>
+                        <button type="button" class="bkgt-modal-close">&times;</button>
+                    </div>
+                    <div class="bkgt-modal-body">
+                        <form id="bkgt-upload-form" enctype="multipart/form-data">
+                            <?php wp_nonce_field('bkgt_document_admin', 'bkgt_upload_nonce'); ?>
+                            <div class="bkgt-form-row">
+                                <label for="bkgt-doc-title"><?php _e('Dokumenttitel', 'bkgt-document-management'); ?> *</label>
+                                <input type="text" id="bkgt-doc-title" name="title" required>
+                            </div>
+                            <div class="bkgt-form-row">
+                                <label for="bkgt-doc-category"><?php _e('Kategori', 'bkgt-document-management'); ?></label>
+                                <?php
+                                $categories = get_terms(array(
+                                    'taxonomy' => 'bkgt_doc_category',
+                                    'hide_empty' => false,
+                                ));
+                                ?>
+                                <select id="bkgt-doc-category" name="category_id">
+                                    <option value="0"><?php _e('Välj kategori', 'bkgt-document-management'); ?></option>
+                                    <?php foreach ($categories as $category): ?>
+                                        <option value="<?php echo $category->term_id; ?>"><?php echo esc_html($category->name); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="bkgt-form-row">
+                                <label for="bkgt-doc-file"><?php _e('Välj fil', 'bkgt-document-management'); ?> *</label>
+                                <input type="file" id="bkgt-doc-file" name="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png" required>
+                                <p class="description"><?php _e('Tillåtna filtyper: PDF, Word, Excel, Text, Bilder', 'bkgt-document-management'); ?></p>
+                            </div>
+                            <div class="bkgt-form-row">
+                                <label for="bkgt-doc-description"><?php _e('Ändringsbeskrivning', 'bkgt-document-management'); ?></label>
+                                <textarea id="bkgt-doc-description" name="change_description" rows="3" placeholder="<?php _e('Beskriv ändringen (valfritt)', 'bkgt-document-management'); ?>"></textarea>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="bkgt-modal-footer">
+                        <button type="button" class="button" id="bkgt-cancel-upload"><?php _e('Avbryt', 'bkgt-document-management'); ?></button>
+                        <button type="button" class="button button-primary" id="bkgt-submit-upload">
+                            <span class="dashicons dashicons-upload"></span>
+                            <?php _e('Ladda upp', 'bkgt-document-management'); ?>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php
+    }
+
+    /**
+     * Quick actions section
+     */
+    private function quick_actions() {
+        ?>
+        <div class="bkgt-quick-actions">
+            <h2><?php _e('Snabbåtgärder', 'bkgt-document-management'); ?></h2>
+            <div class="bkgt-action-buttons">
+                <button type="button" class="button button-primary" id="bkgt-upload-modal-trigger">
+                    <span class="dashicons dashicons-plus"></span>
+                    <?php _e('Ladda upp nytt dokument', 'bkgt-document-management'); ?>
+                </button>
+                <a href="<?php echo admin_url('admin.php?page=bkgt-template-builder'); ?>" class="button button-secondary">
+                    <span class="dashicons dashicons-editor-paste-text"></span>
+                    <?php _e('Skapa från mall', 'bkgt-document-management'); ?>
+                </a>
+                <a href="<?php echo admin_url('edit.php?post_type=bkgt_document'); ?>" class="button button-secondary">
+                    <span class="dashicons dashicons-search"></span>
+                    <?php _e('Sök dokument', 'bkgt-document-management'); ?>
+                </a>
+                <a href="<?php echo admin_url('admin.php?page=bkgt-document-settings'); ?>" class="button button-secondary">
+                    <span class="dashicons dashicons-admin-settings"></span>
+                    <?php _e('Inställningar', 'bkgt-document-management'); ?>
+                </a>
             </div>
         </div>
         <?php
@@ -272,6 +360,7 @@ class BKGT_Document_Admin {
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('bkgt_document_admin'),
             'monaco_loader_url' => 'https://unpkg.com/monaco-editor@0.45.0/min/vs/',
+            'template_variables' => $this->template_system->get_available_variables(),
             'strings' => array(
                 'confirm_delete' => __('Är du säker på att du vill radera detta dokument?', 'bkgt-document-management'),
                 'uploading' => __('Laddar upp...', 'bkgt-document-management'),
@@ -279,6 +368,9 @@ class BKGT_Document_Admin {
                 'upload_error' => __('Uppladdning misslyckades.', 'bkgt-document-management'),
                 'editor_loading' => __('Laddar editor...', 'bkgt-document-management'),
                 'preview_error' => __('Kunde inte uppdatera förhandsvisning.', 'bkgt-document-management'),
+                'editing_now' => __('Redigerar nu', 'bkgt-document-management'),
+                'editing_individual' => __('Redigerar enskilt', 'bkgt-document-management'),
+                'saving' => __('Sparar...', 'bkgt-document-management'),
             ),
         ));
     }
@@ -394,6 +486,12 @@ class BKGT_Document_Admin {
                 <div class="bkgt-editor-pane bkgt-markdown-pane">
                     <div class="bkgt-editor-header">
                         <span class="bkgt-pane-title"><?php _e('Markdown', 'bkgt-document-management'); ?></span>
+                        <div class="bkgt-editor-status">
+                            <span class="bkgt-collaboration-indicator" id="bkgt-collaboration-status">
+                                <span class="dashicons dashicons-edit"></span>
+                                <?php _e('Redigerar enskilt', 'bkgt-document-management'); ?>
+                            </span>
+                        </div>
                         <span class="bkgt-word-count">0 <?php _e('ord', 'bkgt-document-management'); ?></span>
                     </div>
                     <div class="bkgt-monaco-editor" id="bkgt-markdown-editor"></div>
@@ -747,6 +845,64 @@ class BKGT_Document_Admin {
 
         wp_send_json_success(array(
             'message' => __('Dokumentversion uppladdad!', 'bkgt-document-management'),
+        ));
+    }
+
+    /**
+     * AJAX create new document
+     */
+    public function ajax_create_document() {
+        check_ajax_referer('bkgt_document_admin', 'nonce');
+
+        if (!current_user_can('edit_documents')) {
+            wp_die(__('Otillräckliga behörigheter.', 'bkgt-document-management'));
+        }
+
+        $title = sanitize_text_field($_POST['title'] ?? '');
+        $category_id = intval($_POST['category_id'] ?? 0);
+        $change_description = sanitize_text_field($_POST['change_description'] ?? '');
+
+        if (empty($title)) {
+            wp_die(__('Dokumenttitel krävs.', 'bkgt-document-management'));
+        }
+
+        if (empty($_FILES['file'])) {
+            wp_die(__('Ingen fil vald.', 'bkgt-document-management'));
+        }
+
+        // Create the document post
+        $document_data = array(
+            'post_title' => $title,
+            'post_status' => 'publish',
+            'post_type' => 'bkgt_document',
+        );
+
+        $document = BKGT_Document::create($document_data);
+
+        if (is_wp_error($document)) {
+            wp_die($document->get_error_message());
+        }
+
+        $document_id = $document->get_id();
+
+        // Set category if provided
+        if ($category_id > 0) {
+            wp_set_post_terms($document_id, array($category_id), 'bkgt_doc_category');
+        }
+
+        // Handle file upload
+        $result = BKGT_Document::handle_file_upload($document_id, $_FILES['file']);
+
+        if (is_wp_error($result)) {
+            // Clean up the post if file upload failed
+            wp_delete_post($document_id, true);
+            wp_die($result->get_error_message());
+        }
+
+        wp_send_json_success(array(
+            'message' => __('Dokument skapat!', 'bkgt-document-management'),
+            'document_id' => $document_id,
+            'edit_url' => get_edit_post_link($document_id),
         ));
     }
 

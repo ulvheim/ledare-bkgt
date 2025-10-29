@@ -279,14 +279,26 @@
      * Initialize scraping functionality
      */
     function initScraping() {
-        // Scrape players
+        // Scrape players (legacy)
         $(document).on('click', '#bkgt-scrape-players, #bkgt-manual-scrape-players', function() {
             scrapeData('players');
         });
 
-        // Scrape events
+        // Scrape events (legacy)
         $(document).on('click', '#bkgt-scrape-events, #bkgt-manual-scrape-events', function() {
             scrapeData('events');
+        });
+
+        // New scraper interface
+        $(document).on('click', '.bkgt-scrape-btn', function() {
+            var scrapeType = $(this).data('type');
+            runScraper(scrapeType);
+        });
+
+        // Handle schedule form submission
+        $(document).on('submit', '.bkgt-schedule-form', function(e) {
+            e.preventDefault();
+            saveScraperSchedule($(this));
         });
     }
 
@@ -949,6 +961,77 @@
             },
             error: function() {
                 $('#bkgt-scraping-modal').hide();
+                alert(bkgt_ajax.strings.error);
+            }
+        });
+    }
+
+    /**
+     * Run scraper with new interface
+     */
+    function runScraper(scrapeType) {
+        var $progress = $('#bkgt-scraper-progress');
+        var $progressFill = $('#bkgt-progress-fill');
+        var $progressText = $('#bkgt-progress-text');
+
+        $progress.show();
+        $progressFill.css('width', '0%');
+        $progressText.text(bkgt_ajax.strings.preparing_scrape || 'Förbereder skrapning...');
+
+        // Disable buttons during scraping
+        $('.bkgt-scrape-btn').prop('disabled', true);
+
+        $.ajax({
+            url: bkgt_ajax.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'bkgt_run_scraper',
+                scrape_type: scrapeType,
+                nonce: bkgt_ajax.scraper_nonce
+            },
+            success: function(response) {
+                $progress.hide();
+                $('.bkgt-scrape-btn').prop('disabled', false);
+
+                if (response.success) {
+                    $progressFill.css('width', '100%');
+                    $progressText.text(bkgt_ajax.strings.scrape_completed || 'Skrapning slutförd!');
+
+                    // Show success message
+                    alert(bkgt_ajax.strings.scrape_success || 'Skrapning slutförd framgångsrikt!');
+
+                    // Refresh the scraper tab content
+                    location.reload();
+                } else {
+                    alert(response.data || bkgt_ajax.strings.error);
+                }
+            },
+            error: function(xhr, status, error) {
+                $progress.hide();
+                $('.bkgt-scrape-btn').prop('disabled', false);
+                alert(bkgt_ajax.strings.error + ': ' + error);
+            }
+        });
+    }
+
+    /**
+     * Save scraper schedule settings
+     */
+    function saveScraperSchedule($form) {
+        var formData = $form.serialize();
+
+        $.ajax({
+            url: bkgt_ajax.ajax_url,
+            type: 'POST',
+            data: formData + '&action=bkgt_save_schedule',
+            success: function(response) {
+                if (response.success) {
+                    alert(bkgt_ajax.strings.schedule_saved || 'Schemaläggning sparad!');
+                } else {
+                    alert(response.data || bkgt_ajax.strings.error);
+                }
+            },
+            error: function() {
                 alert(bkgt_ajax.strings.error);
             }
         });

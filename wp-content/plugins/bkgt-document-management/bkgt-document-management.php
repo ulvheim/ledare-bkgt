@@ -2,36 +2,27 @@
 /**
  * Plugin Name: BKGT Document Management
  * Plugin URI: https://bkgt.se
- * Description: Secure document management system with version control and access permissions for BKGTS.
+ * Description: Secure document management system for BKGTS.
  * Version: 1.0.0
  * Author: BKGT Development Team
  * License: GPL v2 or later
  * Text Domain: bkgt-document-management
- *
- * @package BKGT_Document_Management
- * @since 1.0.0
  */
 
-// Exit if accessed directly
+// Prevent direct access
 if (!defined('ABSPATH')) {
     exit;
 }
 
-// Define plugin constants
-define('BKGT_DOC_VERSION', '1.0.0');
-define('BKGT_DOC_PLUGIN_DIR', plugin_dir_path(__FILE__));
-define('BKGT_DOC_PLUGIN_URL', plugin_dir_url(__FILE__));
-define('BKGT_DOC_PLUGIN_BASENAME', plugin_basename(__FILE__));
+// Define constants
+define('BKGT_DM_VERSION', '1.0.0');
+define('BKGT_DM_PLUGIN_DIR', plugin_dir_path(__FILE__));
+define('BKGT_DM_PLUGIN_URL', plugin_dir_url(__FILE__));
 
-// Include required files
-require_once BKGT_DOC_PLUGIN_DIR . 'includes/class-database.php';
-require_once BKGT_DOC_PLUGIN_DIR . 'includes/class-document.php';
-require_once BKGT_DOC_PLUGIN_DIR . 'includes/class-category.php';
-require_once BKGT_DOC_PLUGIN_DIR . 'includes/class-version.php';
-require_once BKGT_DOC_PLUGIN_DIR . 'includes/class-access.php';
-require_once BKGT_DOC_PLUGIN_DIR . 'admin/class-admin.php';
-require_once BKGT_DOC_PLUGIN_DIR . 'admin/class-smart-templates.php';
-require_once BKGT_DOC_PLUGIN_DIR . 'admin/class-export-engine.php';
+// Check WordPress version compatibility
+if (version_compare(get_bloginfo('version'), '5.0', '<')) {
+    return;
+}
 
 /**
  * Main Plugin Class
@@ -39,14 +30,9 @@ require_once BKGT_DOC_PLUGIN_DIR . 'admin/class-export-engine.php';
 class BKGT_Document_Management {
 
     /**
-     * Single instance of the class
+     * Single instance
      */
     private static $instance = null;
-
-    /**
-     * Database handler
-     */
-    public $db;
 
     /**
      * Get singleton instance
@@ -62,183 +48,73 @@ class BKGT_Document_Management {
      * Constructor
      */
     private function __construct() {
-        $this->db = new BKGT_Document_Database();
-        $this->init_hooks();
+        // Initialize plugin
+        $this->init();
     }
 
     /**
-     * Initialize hooks
+     * Initialize plugin
      */
-    private function init_hooks() {
-        register_activation_hook(__FILE__, array($this, 'activate'));
-        register_deactivation_hook(__FILE__, array($this, 'deactivate'));
-
+    public function init() {
+        // Load textdomain
         add_action('init', array($this, 'load_textdomain'));
+
+        // Register post types and taxonomies
         add_action('init', array($this, 'register_post_types'));
         add_action('init', array($this, 'register_taxonomies'));
 
-        add_action('admin_menu', array($this, 'add_admin_menu'));
-
-        // Frontend assets
-        add_action('wp_enqueue_scripts', array($this, 'enqueue_frontend_assets'));
+        // Add shortcodes
+        add_shortcode('bkgt_documents', array($this, 'documents_shortcode'));
 
         // AJAX handlers
-        add_action('wp_ajax_bkgt_download_document', array($this, 'ajax_download_document'));
-        add_action('wp_ajax_bkgt_download_version', array($this, 'ajax_download_version'));
-        add_action('wp_ajax_bkgt_share_document', array($this, 'ajax_share_document'));
-        
-        // Shortcodes
-        add_shortcode('bkgt_documents', array($this, 'shortcode_documents'));
-        add_shortcode('bkgt_documents_admin', array($this, 'shortcode_documents_admin'));
+        add_action('wp_ajax_bkgt_load_dms_content', array($this, 'ajax_load_dms_content'));
+        add_action('wp_ajax_nopriv_bkgt_load_dms_content', array($this, 'ajax_load_dms_content'));
+
+        // Handle document uploads
+        add_action('wp_ajax_bkgt_upload_document', array($this, 'ajax_upload_document'));
+        add_action('wp_ajax_nopriv_bkgt_upload_document', array($this, 'ajax_upload_document'));
+
+        // Handle document search
+        add_action('wp_ajax_bkgt_search_documents', array($this, 'ajax_search_documents'));
+        add_action('wp_ajax_nopriv_bkgt_search_documents', array($this, 'ajax_search_documents'));
+
+        // Admin hooks
+        if (is_admin()) {
+            add_action('admin_menu', array($this, 'add_admin_menu'));
+        }
     }
 
     /**
-     * Plugin activation
-     */
-    public function activate() {
-        // Create database tables
-        $this->db->create_tables();
-
-        // Register post types first
-        $this->register_post_types();
-        $this->register_taxonomies();
-
-        // Create upload directory
-        $this->create_upload_directory();
-
-        // Flush rewrite rules
-        flush_rewrite_rules();
-
-        // Create default data
-        $this->create_default_data();
-
-        // Set plugin version
-        update_option('bkgt_doc_version', BKGT_DOC_VERSION);
-    }
-
-    /**
-     * Plugin deactivation
-     */
-    public function deactivate() {
-        flush_rewrite_rules();
-    }
-    
-    /**
-     * Add admin menu
-     */
-    public function add_admin_menu() {
-        add_menu_page(
-            __('BKGT Dokument', 'bkgt-document-management'),
-            __('Dokument', 'bkgt-document-management'),
-            'manage_options',
-            'bkgt-documents',
-            array($this, 'admin_page'),
-            'dashicons-media-document',
-            26
-        );
-    }
-    
-    /**
-     * Admin page
-     */
-    public function admin_page() {
-        ?>
-        <div class="wrap">
-            <h1><?php _e('BKGT Dokumenthantering', 'bkgt-document-management'); ?></h1>
-            <p><?php _e('Hantera klubbens dokument här.', 'bkgt-document-management'); ?></p>
-            <div class="bkgt-documents-admin">
-                <p><?php _e('Admin interface kommer här.', 'bkgt-document-management'); ?></p>
-            </div>
-        </div>
-        <?php
-    }
-
-    /**
-     * Load plugin text domain
+     * Load plugin textdomain
      */
     public function load_textdomain() {
-        load_plugin_textdomain(
-            'bkgt-document-management',
-            false,
-            dirname(BKGT_DOC_PLUGIN_BASENAME) . '/languages'
-        );
+        load_plugin_textdomain('bkgt-document-management', false, dirname(plugin_basename(__FILE__)) . '/languages/');
     }
 
     /**
      * Register custom post types
      */
     public function register_post_types() {
-        // Document post type
         register_post_type('bkgt_document', array(
             'labels' => array(
-                'name'               => __('Dokument', 'bkgt-document-management'),
-                'singular_name'      => __('Dokument', 'bkgt-document-management'),
-                'menu_name'          => __('Dokument', 'bkgt-document-management'),
-                'add_new'            => __('Lägg till nytt', 'bkgt-document-management'),
-                'add_new_item'       => __('Lägg till nytt dokument', 'bkgt-document-management'),
-                'edit_item'          => __('Redigera dokument', 'bkgt-document-management'),
-                'new_item'           => __('Nytt dokument', 'bkgt-document-management'),
-                'view_item'          => __('Visa dokument', 'bkgt-document-management'),
-                'search_items'       => __('Sök dokument', 'bkgt-document-management'),
-                'not_found'          => __('Inga dokument hittades', 'bkgt-document-management'),
-                'not_found_in_trash' => __('Inga dokument i papperskorgen', 'bkgt-document-management'),
+                'name' => __('Documents', 'bkgt-document-management'),
+                'singular_name' => __('Document', 'bkgt-document-management'),
+                'add_new' => __('Add New', 'bkgt-document-management'),
+                'add_new_item' => __('Add New Document', 'bkgt-document-management'),
+                'edit_item' => __('Edit Document', 'bkgt-document-management'),
+                'new_item' => __('New Document', 'bkgt-document-management'),
+                'view_item' => __('View Document', 'bkgt-document-management'),
+                'search_items' => __('Search Documents', 'bkgt-document-management'),
+                'not_found' => __('No documents found', 'bkgt-document-management'),
+                'not_found_in_trash' => __('No documents found in trash', 'bkgt-document-management'),
             ),
-            'public'              => true,
-            'publicly_queryable'  => false,
-            'show_ui'             => true,
-            'show_in_menu'        => true,
-            'menu_icon'           => 'dashicons-media-document',
-            'menu_position'       => 25,
-            'capability_type'     => 'post',
-            'capabilities'        => array(
-                'edit_post'          => 'manage_documents',
-                'read_post'          => 'read_document',
-                'delete_post'        => 'delete_document',
-                'edit_posts'         => 'manage_documents',
-                'edit_others_posts'  => 'manage_documents',
-                'publish_posts'      => 'manage_documents',
-                'read_private_posts' => 'read_document',
-            ),
-            'has_archive'         => false,
-            'hierarchical'        => false,
-            'supports'            => array('title', 'editor', 'author', 'thumbnail'),
-            'show_in_rest'        => false,
-        ));
-
-        // Document template post type
-        register_post_type('bkgt_template', array(
-            'labels' => array(
-                'name'               => __('Mall', 'bkgt-document-management'),
-                'singular_name'      => __('Mall', 'bkgt-document-management'),
-                'menu_name'          => __('Mallar', 'bkgt-document-management'),
-                'add_new'            => __('Lägg till ny', 'bkgt-document-management'),
-                'add_new_item'       => __('Lägg till ny mall', 'bkgt-document-management'),
-                'edit_item'          => __('Redigera mall', 'bkgt-document-management'),
-                'new_item'           => __('Ny mall', 'bkgt-document-management'),
-                'view_item'          => __('Visa mall', 'bkgt-document-management'),
-                'search_items'       => __('Sök mallar', 'bkgt-document-management'),
-                'not_found'          => __('Inga mallar hittades', 'bkgt-document-management'),
-                'not_found_in_trash' => __('Inga mallar i papperskorgen', 'bkgt-document-management'),
-            ),
-            'public'              => false,
-            'publicly_queryable'  => false,
-            'show_ui'             => true,
-            'show_in_menu'        => false, // Hidden from main menu, accessed via submenu
-            'menu_icon'           => 'dashicons-layout',
-            'capability_type'     => 'post',
-            'capabilities'        => array(
-                'edit_post'          => 'manage_documents',
-                'read_post'          => 'read_document',
-                'delete_post'        => 'delete_document',
-                'edit_posts'         => 'manage_documents',
-                'edit_others_posts'  => 'manage_documents',
-                'publish_posts'      => 'manage_documents',
-                'read_private_posts' => 'read_document',
-            ),
-            'has_archive'         => false,
-            'hierarchical'        => false,
-            'supports'            => array('title', 'editor', 'author'),
-            'show_in_rest'        => false,
+            'public' => false,
+            'show_ui' => true,
+            'show_in_menu' => true,
+            'capability_type' => 'post',
+            'hierarchical' => false,
+            'supports' => array('title', 'editor', 'author'),
+            'show_in_rest' => false,
         ));
     }
 
@@ -246,321 +122,1175 @@ class BKGT_Document_Management {
      * Register taxonomies
      */
     public function register_taxonomies() {
-        // Document category taxonomy
         register_taxonomy('bkgt_doc_category', 'bkgt_document', array(
             'labels' => array(
-                'name'              => __('Dokumentkategorier', 'bkgt-document-management'),
-                'singular_name'     => __('Dokumentkategori', 'bkgt-document-management'),
-                'search_items'      => __('Sök kategorier', 'bkgt-document-management'),
-                'all_items'         => __('Alla kategorier', 'bkgt-document-management'),
-                'edit_item'         => __('Redigera kategori', 'bkgt-document-management'),
-                'update_item'       => __('Uppdatera kategori', 'bkgt-document-management'),
-                'add_new_item'      => __('Lägg till ny kategori', 'bkgt-document-management'),
-                'new_item_name'     => __('Ny kategori', 'bkgt-document-management'),
-                'menu_name'         => __('Kategorier', 'bkgt-document-management'),
+                'name' => __('Categories', 'bkgt-document-management'),
+                'singular_name' => __('Category', 'bkgt-document-management'),
             ),
-            'hierarchical'      => true,
-            'public'            => false,
-            'show_ui'           => true,
+            'hierarchical' => true,
+            'public' => false,
+            'show_ui' => true,
             'show_admin_column' => true,
-            'query_var'         => true,
-            'rewrite'           => false,
-            'capabilities'      => array(
-                'manage_terms' => 'manage_options',
-                'edit_terms'   => 'manage_options',
-                'delete_terms' => 'manage_options',
-                'assign_terms' => 'manage_documents',
-            ),
-        ));
-
-        // Add default categories
-        if (!term_exists('mötesprotokoll', 'bkgt_doc_category')) {
-            wp_insert_term('Mötesprotokoll', 'bkgt_doc_category', array('slug' => 'mötesprotokoll'));
-        }
-        if (!term_exists('kontrakt', 'bkgt_doc_category')) {
-            wp_insert_term('Kontrakt', 'bkgt_doc_category', array('slug' => 'kontrakt'));
-        }
-        if (!term_exists('policy', 'bkgt_doc_category')) {
-            wp_insert_term('Policy', 'bkgt_doc_category', array('slug' => 'policy'));
-        }
-        if (!term_exists('ekonomi', 'bkgt_doc_category')) {
-            wp_insert_term('Ekonomi', 'bkgt_doc_category', array('slug' => 'ekonomi'));
-        }
-        if (!term_exists('utbildning', 'bkgt_doc_category')) {
-            wp_insert_term('Utbildning', 'bkgt_doc_category', array('slug' => 'utbildning'));
-        }
-    }
-
-    /**
-     * Create upload directory
-     */
-    private function create_upload_directory() {
-        $upload_dir = wp_upload_dir();
-        $bkgt_upload_dir = $upload_dir['basedir'] . '/bkgt-documents';
-
-        if (!file_exists($bkgt_upload_dir)) {
-            wp_mkdir_p($bkgt_upload_dir);
-
-            // Create .htaccess for security
-            $htaccess_content = "Order Deny,Allow\nDeny from all\n";
-            file_put_contents($bkgt_upload_dir . '/.htaccess', $htaccess_content);
-
-            // Create index.php for security
-            file_put_contents($bkgt_upload_dir . '/index.php', '<?php // Silence is golden');
-        }
-    }
-
-    /**
-     * Create default data
-     */
-    private function create_default_data() {
-        // Add default capabilities
-        $role = get_role('administrator');
-        if ($role) {
-            $role->add_cap('manage_documents');
-            $role->add_cap('read_document');
-            $role->add_cap('delete_document');
-        }
-
-        // Add capabilities for custom roles
-        $custom_roles = array('styrelsemedlem', 'tränare', 'lagledare');
-        foreach ($custom_roles as $role_name) {
-            $role = get_role($role_name);
-            if ($role) {
-                $role->add_cap('read_document');
-                if ($role_name === 'styrelsemedlem') {
-                    $role->add_cap('manage_documents');
-                    $role->add_cap('delete_document');
-                }
-            }
-        }
-    }
-
-    /**
-     * Enqueue frontend assets
-     */
-    public function enqueue_frontend_assets() {
-        if (!is_singular('bkgt_document') && !is_post_type_archive('bkgt_document')) {
-            return;
-        }
-
-        wp_enqueue_style(
-            'bkgt-document-frontend',
-            BKGT_DOC_PLUGIN_URL . 'assets/css/frontend.css',
-            array(),
-            BKGT_DOC_VERSION
-        );
-
-        wp_enqueue_script(
-            'bkgt-document-frontend',
-            BKGT_DOC_PLUGIN_URL . 'assets/js/frontend.js',
-            array('jquery'),
-            BKGT_DOC_VERSION,
-            true
-        );
-
-        wp_localize_script('bkgt-document-frontend', 'bkgtDocument', array(
-            'ajaxUrl' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('bkgt-document-nonce'),
-            'strings' => array(
-                'confirmDelete' => __('Är du säker på att du vill radera detta dokument?', 'bkgt-document-management'),
-                'uploadError' => __('Ett fel uppstod vid uppladdning.', 'bkgt-document-management'),
-            ),
+            'query_var' => false,
         ));
     }
 
     /**
-     * AJAX: Download document
+     * Add admin menu
      */
-    public function ajax_download_document() {
-        check_ajax_referer('download_document_' . $_GET['document_id'], 'nonce');
-
-        $document_id = intval($_GET['document_id']);
-
-        if (!BKGT_Document_Access::user_has_access($document_id)) {
-            wp_die(__('Du har inte behörighet att ladda ner detta dokument.', 'bkgt-document-management'));
-        }
-
-        $document = new BKGT_Document($document_id);
-        $file_path = $document->get_file_path();
-
-        if (!$file_path || !file_exists($file_path)) {
-            wp_die(__('Filen hittades inte.', 'bkgt-document-management'));
-        }
-
-        // Log download
-        BKGT_Document::log_download($document_id);
-
-        // Send file
-        header('Content-Type: ' . $document->get_mime_type());
-        header('Content-Disposition: attachment; filename="' . $document->get_file_name() . '"');
-        header('Content-Length: ' . filesize($file_path));
-        header('Cache-Control: private, max-age=0, must-revalidate');
-        header('Pragma: public');
-        readfile($file_path);
-        exit;
+    public function add_admin_menu() {
+        add_menu_page(
+            __('Documents', 'bkgt-document-management'),
+            __('Documents', 'bkgt-document-management'),
+            'manage_options',
+            'bkgt-documents',
+            array($this, 'admin_page'),
+            'dashicons-media-document',
+            30
+        );
     }
 
     /**
-     * AJAX: Download version
+     * Admin page
      */
-    public function ajax_download_version() {
-        check_ajax_referer('download_version_' . $_GET['version_id'], 'nonce');
-
-        $version_id = intval($_GET['version_id']);
-        $version = new BKGT_Document_Version($version_id);
-
-        if (!$version->data) {
-            wp_die(__('Version hittades inte.', 'bkgt-document-management'));
-        }
-
-        $document_id = $version->get_document_id();
-
-        if (!BKGT_Document_Access::user_has_access($document_id)) {
-            wp_die(__('Du har inte behörighet att ladda ner denna version.', 'bkgt-document-management'));
-        }
-
-        $file_path = $version->get_file_path();
-
-        if (!$file_path || !file_exists($file_path)) {
-            wp_die(__('Filen hittades inte.', 'bkgt-document-management'));
-        }
-
-        // Log download
-        BKGT_Document::log_download($document_id);
-
-        // Send file
-        header('Content-Type: ' . $version->get_mime_type());
-        header('Content-Disposition: attachment; filename="' . $version->get_file_name() . '"');
-        header('Content-Length: ' . $version->get_file_size());
-        header('Cache-Control: private, max-age=0, must-revalidate');
-        header('Pragma: public');
-        readfile($file_path);
-        exit;
-    }
-
-    /**
-     * AJAX: Share document
-     */
-    public function ajax_share_document() {
-        check_ajax_referer('share_document_' . $_GET['document_id'], 'nonce');
-
-        $document_id = intval($_GET['document_id']);
-
-        if (!BKGT_Document_Access::user_has_access($document_id, null, BKGT_Document_Access::ACCESS_MANAGE)) {
-            wp_die(__('Du har inte behörighet att dela detta dokument.', 'bkgt-document-management'));
-        }
-
-        $document = get_post($document_id);
-        if (!$document) {
-            wp_die(__('Dokument hittades inte.', 'bkgt-document-management'));
-        }
-
-        // Generate shareable link (this would typically create a temporary access token)
-        $share_url = get_permalink($document_id);
-
-        wp_redirect($share_url);
-        exit;
-    }
-    
-    /**
-     * Shortcode for documents display
-     */
-    public function shortcode_documents($atts) {
-        // Check user permissions
-        if (!is_user_logged_in()) {
-            return '<p>' . __('Du måste vara inloggad för att se denna sida.', 'bkgt-document-management') . '</p>';
-        }
-        
-        // Get current user role
-        $user = wp_get_current_user();
-        $user_roles = $user->roles;
-        
-        ob_start();
+    public function admin_page() {
         ?>
-        <div class="bkgt-documents-container">
-            <h2><?php _e('Dokumenthantering', 'bkgt-document-management'); ?></h2>
-            <p><?php _e('Här kan du hantera klubbens dokument.', 'bkgt-document-management'); ?></p>
-            
-            <?php if (in_array('administrator', $user_roles) || in_array('styrelsemedlem', $user_roles)): ?>
-                <a href="<?php echo get_permalink(19); ?>" class="btn btn-primary">
-                    <?php _e('Hantera Dokument', 'bkgt-document-management'); ?>
-                </a>
-            <?php endif; ?>
-            
-            <!-- Placeholder for documents list -->
-            <div class="documents-list">
-                <p><?php _e('Dokumentlista kommer här.', 'bkgt-document-management'); ?></p>
+        <div class="wrap">
+            <h1><?php _e('BKGT Document Management', 'bkgt-document-management'); ?></h1>
+            <p><?php _e('Document management system is active and ready for development.', 'bkgt-document-management'); ?></p>
+            <div class="notice notice-info">
+                <p><?php _e('Next steps:', 'bkgt-document-management'); ?></p>
+                <ul>
+                    <li><?php _e('Add document upload functionality', 'bkgt-document-management'); ?></li>
+                    <li><?php _e('Implement access control and permissions', 'bkgt-document-management'); ?></li>
+                    <li><?php _e('Add search and filtering capabilities', 'bkgt-document-management'); ?></li>
+                    <li><?php _e('Implement version control for documents', 'bkgt-document-management'); ?></li>
+                </ul>
             </div>
         </div>
         <?php
+    }
+
+    /**
+     * Documents shortcode
+     */
+    public function documents_shortcode($atts) {
+        // Handle tab and category filtering from URL
+        $active_tab = isset($_GET['bkgt_tab']) ? sanitize_text_field($_GET['bkgt_tab']) : 'browse';
+        $active_category = isset($_GET['bkgt_category']) ? sanitize_text_field($_GET['bkgt_category']) : '';
+
+        ob_start();
+
+        // Set default attributes
+        $atts = shortcode_atts(array(
+            'limit' => 10,
+            'category' => $active_category,
+            'show_tabs' => 'true'
+        ), $atts);
+
+        ?>
+        <div class="bkgt-dms">
+            <h2><?php _e('Document Management System', 'bkgt-document-management'); ?></h2>
+
+            <?php if ($atts['show_tabs'] === 'true') : ?>
+                <?php $this->display_dms_function_tabs($active_tab); ?>
+            <?php endif; ?>
+
+            <div class="bkgt-dms-content">
+                <?php $this->display_tab_content($active_tab, $atts); ?>
+            </div>
+        </div>
+
+        <script>
+        jQuery(document).ready(function($) {
+            // Tab switching functionality
+            $('.bkgt-dms-tab-link').on('click', function(e) {
+                e.preventDefault();
+
+                // Remove active class from all tabs
+                $('.bkgt-dms-tab-link').removeClass('active');
+                // Add active class to clicked tab
+                $(this).addClass('active');
+
+                // Get tab name
+                var tab = $(this).data('tab');
+
+                // Update URL without page reload
+                var url = new URL(window.location);
+                url.searchParams.set('bkgt_tab', tab);
+                // Remove category param when switching to non-browse tabs
+                if (tab !== 'browse') {
+                    url.searchParams.delete('bkgt_category');
+                }
+                window.history.pushState({}, '', url);
+
+                // Load tab content
+                loadTabContent(tab);
+            });
+
+            function loadTabContent(tab, category = '') {
+                $('.bkgt-dms-content').addClass('loading');
+
+                $.ajax({
+                    url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                    type: 'POST',
+                    data: {
+                        action: 'bkgt_load_dms_content',
+                        tab: tab,
+                        category: category,
+                        limit: <?php echo intval($atts['limit']); ?>
+                    },
+                    success: function(response) {
+                        $('.bkgt-dms-content').removeClass('loading').html(response);
+                    },
+                    error: function() {
+                        $('.bkgt-dms-content').removeClass('loading').html('<p><?php _e('Error loading content.', 'bkgt-document-management'); ?></p>');
+                    }
+                });
+            }
+
+            // Handle browser back/forward buttons
+            $(window).on('popstate', function() {
+                var url = new URL(window.location);
+                var tab = url.searchParams.get('bkgt_tab') || 'browse';
+                var category = url.searchParams.get('bkgt_category') || '';
+
+                // Update active tab
+                $('.bkgt-dms-tab-link').removeClass('active');
+                $('.bkgt-dms-tab-link[data-tab="' + tab + '"]').addClass('active');
+
+                loadTabContent(tab, category);
+            });
+
+            // Handle category changes within browse tab
+            $(document).on('click', '.bkgt-category-link', function(e) {
+                e.preventDefault();
+                var category = $(this).data('category');
+
+                var url = new URL(window.location);
+                url.searchParams.set('bkgt_tab', 'browse');
+                if (category) {
+                    url.searchParams.set('bkgt_category', category);
+                } else {
+                    url.searchParams.delete('bkgt_category');
+                }
+                window.history.pushState({}, '', url);
+
+                loadTabContent('browse', category);
+            });
+        });
+        </script>
+
+        <style>
+            .bkgt-dms { margin: 20px 0; }
+            .bkgt-dms h2 { color: #333; border-bottom: 2px solid #007cba; padding-bottom: 10px; }
+
+            /* DMS Function Tabs */
+            .bkgt-dms-tabs { margin: 20px 0; }
+            .bkgt-dms-tab-navigation {
+                display: flex;
+                border-bottom: 1px solid #ddd;
+                flex-wrap: wrap;
+                background: #f8f9fa;
+                padding: 0 10px;
+            }
+            .bkgt-dms-tab-link {
+                padding: 15px 25px;
+                text-decoration: none;
+                color: #666;
+                border-bottom: 3px solid transparent;
+                transition: all 0.3s ease;
+                font-weight: 600;
+                font-size: 14px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            .bkgt-dms-tab-link:hover {
+                color: #007cba;
+                background-color: #e9ecef;
+            }
+            .bkgt-dms-tab-link.active {
+                color: #007cba;
+                border-bottom-color: #007cba;
+                background-color: #fff;
+                position: relative;
+            }
+            .bkgt-dms-tab-link.active::after {
+                content: '';
+                position: absolute;
+                bottom: -1px;
+                left: 0;
+                right: 0;
+                height: 3px;
+                background: #007cba;
+            }
+
+            /* DMS Content */
+            .bkgt-dms-content {
+                position: relative;
+                min-height: 300px;
+                padding: 20px;
+                background: #fff;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                margin-top: 10px;
+            }
+            .bkgt-dms-content.loading {
+                opacity: 0.6;
+                pointer-events: none;
+            }
+            .bkgt-dms-content.loading::after {
+                content: '';
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                width: 30px;
+                height: 30px;
+                margin: -15px 0 0 -15px;
+                border: 3px solid #007cba;
+                border-top: 3px solid transparent;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+            }
+
+            /* Browse Section */
+            .bkgt-browse-section {}
+            .bkgt-category-navigation {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 10px;
+                margin-bottom: 20px;
+                padding: 15px;
+                background: #f8f9fa;
+                border-radius: 5px;
+            }
+            .bkgt-category-link {
+                padding: 8px 16px;
+                text-decoration: none;
+                color: #666;
+                background: #fff;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                transition: all 0.3s ease;
+                font-size: 14px;
+            }
+            .bkgt-category-link:hover, .bkgt-category-link.active {
+                color: #007cba;
+                border-color: #007cba;
+                background: #e3f2fd;
+            }
+
+            /* Upload Section */
+            .bkgt-upload-section {}
+            .bkgt-upload-form-container {
+                max-width: 600px;
+                margin: 0 auto;
+            }
+            .bkgt-upload-form-container h3 {
+                color: #333;
+                margin-bottom: 20px;
+            }
+            .bkgt-form-group {
+                margin-bottom: 20px;
+            }
+            .bkgt-form-group label {
+                display: block;
+                margin-bottom: 5px;
+                font-weight: 600;
+                color: #333;
+            }
+            .bkgt-form-group input[type="text"],
+            .bkgt-form-group input[type="file"],
+            .bkgt-form-group select,
+            .bkgt-form-group textarea {
+                width: 100%;
+                padding: 10px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                font-size: 14px;
+            }
+            .bkgt-form-group textarea {
+                resize: vertical;
+                min-height: 80px;
+            }
+            .bkgt-form-actions {
+                text-align: center;
+                margin-top: 30px;
+            }
+            .bkgt-upload-btn {
+                background: #007cba;
+                color: white;
+                padding: 12px 30px;
+                border: none;
+                border-radius: 4px;
+                font-size: 16px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: background 0.3s ease;
+            }
+            .bkgt-upload-btn:hover {
+                background: #005a87;
+            }
+            .bkgt-upload-btn:disabled {
+                background: #ccc;
+                cursor: not-allowed;
+            }
+            .bkgt-upload-progress {
+                margin-top: 15px;
+                text-align: center;
+            }
+            .bkgt-progress-bar {
+                width: 0%;
+                height: 4px;
+                background: #007cba;
+                border-radius: 2px;
+                transition: width 0.3s ease;
+            }
+            .bkgt-success {
+                color: #28a745;
+                background: #d4edda;
+                border: 1px solid #c3e6cb;
+                padding: 10px;
+                border-radius: 4px;
+                margin: 10px 0;
+            }
+            .bkgt-error {
+                color: #dc3545;
+                background: #f8d7da;
+                border: 1px solid #f5c6cb;
+                padding: 10px;
+                border-radius: 4px;
+                margin: 10px 0;
+            }
+
+            /* Search Section */
+            .bkgt-search-section {}
+            .bkgt-search-form {
+                margin-bottom: 30px;
+                padding: 20px;
+                background: #f8f9fa;
+                border-radius: 5px;
+            }
+            .bkgt-search-form h3 {
+                margin-top: 0;
+                color: #333;
+            }
+            .bkgt-search-inputs {
+                display: flex;
+                gap: 10px;
+                align-items: center;
+                flex-wrap: wrap;
+            }
+            .bkgt-search-inputs input,
+            .bkgt-search-inputs select {
+                padding: 10px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                flex: 1;
+                min-width: 200px;
+            }
+            .bkgt-search-btn {
+                background: #007cba;
+                color: white;
+                padding: 10px 20px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-weight: 600;
+                transition: background 0.3s ease;
+            }
+            .bkgt-search-btn:hover {
+                background: #005a87;
+            }
+            .bkgt-search-results {
+                min-height: 200px;
+            }
+            .bkgt-search-placeholder {
+                text-align: center;
+                color: #666;
+                font-style: italic;
+                padding: 40px;
+            }
+            .bkgt-search-results-list {
+                display: grid;
+                gap: 15px;
+            }
+            .bkgt-search-result-item {
+                border: 1px solid #ddd;
+                padding: 15px;
+                border-radius: 5px;
+                background: #fff;
+            }
+            .bkgt-search-result-item h4 {
+                margin: 0 0 10px 0;
+                color: #007cba;
+            }
+            .bkgt-search-result-item h4 a {
+                text-decoration: none;
+                color: inherit;
+            }
+            .bkgt-search-result-item h4 a:hover {
+                color: #005a87;
+            }
+            .bkgt-search-meta {
+                font-size: 0.9em;
+                color: #666;
+                margin-bottom: 10px;
+            }
+            .bkgt-search-meta span {
+                display: inline-block;
+                margin-right: 15px;
+            }
+            .bkgt-no-results {
+                text-align: center;
+                padding: 40px;
+                color: #666;
+                font-style: italic;
+            }
+
+            /* Permissions Section */
+            .bkgt-permissions-section {}
+            .bkgt-permissions-info {
+                display: grid;
+                gap: 20px;
+                grid-template-columns: 1fr;
+            }
+            .bkgt-notice {
+                background: #e3f2fd;
+                border: 1px solid #2196f3;
+                border-radius: 5px;
+                padding: 20px;
+            }
+            .bkgt-notice h4 {
+                margin-top: 0;
+                color: #1976d2;
+            }
+            .bkgt-notice ul {
+                margin: 15px 0;
+                padding-left: 20px;
+            }
+            .bkgt-notice li {
+                margin-bottom: 5px;
+            }
+            .bkgt-permissions-actions {
+                background: #fff3cd;
+                border: 1px solid #ffc107;
+                border-radius: 5px;
+                padding: 20px;
+            }
+            .bkgt-permissions-actions h4 {
+                margin-top: 0;
+                color: #856404;
+            }
+            .bkgt-permissions-actions ul {
+                margin: 15px 0;
+                padding-left: 20px;
+            }
+            .bkgt-permissions-actions a {
+                color: #856404;
+                text-decoration: none;
+                font-weight: 600;
+            }
+            .bkgt-permissions-actions a:hover {
+                text-decoration: underline;
+            }
+
+            /* Documents List (shared) */
+            .bkgt-documents-container {}
+            .bkgt-documents-list { margin-top: 0; }
+            .bkgt-document-item {
+                border: 1px solid #ddd;
+                padding: 15px;
+                margin-bottom: 15px;
+                border-radius: 5px;
+                background: #fff;
+                transition: box-shadow 0.3s ease;
+            }
+            .bkgt-document-item:hover {
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }
+            .bkgt-document-item h3 {
+                margin-top: 0;
+                color: #007cba;
+                font-size: 18px;
+            }
+            .bkgt-document-item h3 a {
+                text-decoration: none;
+                color: inherit;
+            }
+            .bkgt-document-item h3 a:hover {
+                color: #005a87;
+            }
+            .bkgt-document-meta {
+                font-size: 0.9em;
+                color: #666;
+                margin: 10px 0;
+            }
+            .bkgt-document-meta span {
+                display: inline-block;
+                margin-right: 15px;
+            }
+            .bkgt-category-tag {
+                display: inline-block;
+                background: #007cba;
+                color: white;
+                padding: 2px 8px;
+                border-radius: 3px;
+                font-size: 0.8em;
+                margin-right: 5px;
+            }
+            .bkgt-document-excerpt { margin-top: 10px; }
+            .bkgt-no-documents {
+                text-align: center;
+                padding: 40px;
+                background: #f8f9fa;
+                border-radius: 5px;
+                color: #666;
+            }
+
+            /* Loading animation */
+            .bkgt-loading {
+                text-align: center;
+                padding: 40px;
+                color: #666;
+            }
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+
+            /* Responsive design */
+            @media (max-width: 768px) {
+                .bkgt-dms-tab-navigation,
+                .bkgt-category-navigation,
+                .bkgt-search-inputs {
+                    flex-direction: column;
+                    align-items: stretch;
+                }
+                .bkgt-dms-tab-link,
+                .bkgt-category-link {
+                    text-align: center;
+                }
+                .bkgt-search-inputs input,
+                .bkgt-search-inputs select {
+                    min-width: auto;
+                }
+                .bkgt-permissions-info {
+                    grid-template-columns: 1fr;
+                }
+            }
+        </style>
+        <?php
+
         return ob_get_clean();
     }
-    
+
     /**
-     * Shortcode for documents admin interface
+     * Display category filter
      */
-    public function shortcode_documents_admin($atts) {
-        // Check user permissions - only admins
-        if (!current_user_can('manage_options')) {
-            return '<p>' . __('Du har inte behörighet att komma åt denna sida.', 'bkgt-document-management') . '</p>';
-        }
-        
-        ob_start();
+    private function display_category_filter() {
+        $categories = get_terms(array(
+            'taxonomy' => 'bkgt_doc_category',
+            'hide_empty' => false,
+        ));
+
+        if (!empty($categories) && !is_wp_error($categories)) :
         ?>
-        <div class="bkgt-documents-admin">
-            <h2><?php _e('Hantera Dokument', 'bkgt-document-management'); ?></h2>
-            
-            <!-- Upload Document Form -->
-            <div class="admin-section">
-                <h3><?php _e('Ladda upp nytt dokument', 'bkgt-document-management'); ?></h3>
-                <form id="upload-document-form" enctype="multipart/form-data">
-                    <div class="form-group">
-                        <label for="document-title"><?php _e('Titel', 'bkgt-document-management'); ?></label>
-                        <input type="text" id="document-title" name="title" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="document-file"><?php _e('Fil', 'bkgt-document-management'); ?></label>
-                        <input type="file" id="document-file" name="document_file" accept=".pdf,.doc,.docx,.xls,.xlsx" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="document-category"><?php _e('Kategori', 'bkgt-document-management'); ?></label>
-                        <select id="document-category" name="category">
-                            <option value="allmanna"><?php _e('Allmänna dokument', 'bkgt-document-management'); ?></option>
-                            <option value="ekonomi"><?php _e('Ekonomi', 'bkgt-document-management'); ?></option>
-                            <option value="spelare"><?php _e('Spelare', 'bkgt-document-management'); ?></option>
-                        </select>
-                    </div>
-                    <button type="submit" class="btn btn-primary"><?php _e('Ladda upp', 'bkgt-document-management'); ?></button>
+            <div class="bkgt-category-filter">
+                <form method="get" action="">
+                    <label for="bkgt_category"><?php _e('Filter by Category:', 'bkgt-document-management'); ?></label>
+                    <select name="bkgt_category" id="bkgt_category" onchange="this.form.submit()">
+                        <option value=""><?php _e('All Categories', 'bkgt-document-management'); ?></option>
+                        <?php foreach ($categories as $category) : ?>
+                            <option value="<?php echo esc_attr($category->slug); ?>" <?php selected(isset($_GET['bkgt_category']) ? $_GET['bkgt_category'] : '', $category->slug); ?>>
+                                <?php echo esc_html($category->name); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </form>
             </div>
-            
-            <!-- Documents List -->
-            <div class="admin-section">
-                <h3><?php _e('Dokumentlista', 'bkgt-document-management'); ?></h3>
-                <div id="documents-table">
-                    <p><?php _e('Laddar...', 'bkgt-document-management'); ?></p>
+        <?php
+        endif;
+    }
+
+    /**
+     * Display DMS function tabs
+     */
+    private function display_dms_function_tabs($active_tab = 'browse') {
+        $tabs = array(
+            'browse' => __('Browse Documents', 'bkgt-document-management'),
+            'upload' => __('Upload Document', 'bkgt-document-management'),
+            'search' => __('Search & Filter', 'bkgt-document-management'),
+            'permissions' => __('Permissions', 'bkgt-document-management'),
+        );
+
+        ?>
+        <div class="bkgt-dms-tabs">
+            <div class="bkgt-dms-tab-navigation">
+                <?php foreach ($tabs as $tab_key => $tab_label) : ?>
+                    <a href="#" class="bkgt-dms-tab-link <?php echo ($active_tab === $tab_key) ? 'active' : ''; ?>" data-tab="<?php echo esc_attr($tab_key); ?>">
+                        <?php echo esc_html($tab_label); ?>
+                    </a>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <?php
+    }
+
+    /**
+     * Display tab content based on active tab
+     */
+    private function display_tab_content($active_tab, $atts) {
+        switch ($active_tab) {
+            case 'browse':
+                $this->display_browse_content($atts);
+                break;
+            case 'upload':
+                $this->display_upload_content();
+                break;
+            case 'search':
+                $this->display_search_content();
+                break;
+            case 'permissions':
+                $this->display_permissions_content();
+                break;
+            default:
+                $this->display_browse_content($atts);
+        }
+    }
+
+    /**
+     * Display browse tab content (documents with categories)
+     */
+    private function display_browse_content($atts) {
+        // Get all categories for sub-navigation
+        $categories = get_terms(array(
+            'taxonomy' => 'bkgt_doc_category',
+            'hide_empty' => false,
+        ));
+
+        ?>
+        <div class="bkgt-browse-section">
+            <?php if (!empty($categories) && !is_wp_error($categories)) : ?>
+                <div class="bkgt-category-navigation">
+                    <a href="#" class="bkgt-category-link <?php echo empty($atts['category']) ? 'active' : ''; ?>" data-category="">
+                        <?php _e('All Documents', 'bkgt-document-management'); ?>
+                    </a>
+                    <?php foreach ($categories as $category) : ?>
+                        <a href="#" class="bkgt-category-link <?php echo ($atts['category'] === $category->slug) ? 'active' : ''; ?>" data-category="<?php echo esc_attr($category->slug); ?>">
+                            <?php echo esc_html($category->name); ?>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+
+            <div class="bkgt-documents-container">
+                <?php $this->display_documents_list($atts); ?>
+            </div>
+        </div>
+        <?php
+    }
+
+    /**
+     * Display upload tab content
+     */
+    private function display_upload_content() {
+        ?>
+        <div class="bkgt-upload-section">
+            <div class="bkgt-upload-form-container">
+                <h3><?php _e('Upload New Document', 'bkgt-document-management'); ?></h3>
+                <form id="bkgt-upload-form" enctype="multipart/form-data">
+                    <?php wp_nonce_field('bkgt_upload_document', 'bkgt_upload_nonce'); ?>
+
+                    <div class="bkgt-form-group">
+                        <label for="document_title"><?php _e('Document Title', 'bkgt-document-management'); ?> *</label>
+                        <input type="text" id="document_title" name="document_title" required>
+                    </div>
+
+                    <div class="bkgt-form-group">
+                        <label for="document_file"><?php _e('Document File', 'bkgt-document-management'); ?> *</label>
+                        <input type="file" id="document_file" name="document_file" accept=".pdf,.doc,.docx,.txt,.jpg,.png" required>
+                        <small><?php _e('Allowed formats: PDF, DOC, DOCX, TXT, JPG, PNG', 'bkgt-document-management'); ?></small>
+                    </div>
+
+                    <div class="bkgt-form-group">
+                        <label for="document_category"><?php _e('Category', 'bkgt-document-management'); ?></label>
+                        <select id="document_category" name="document_category">
+                            <option value=""><?php _e('Select Category', 'bkgt-document-management'); ?></option>
+                            <?php
+                            $categories = get_terms(array('taxonomy' => 'bkgt_doc_category', 'hide_empty' => false));
+                            if (!empty($categories) && !is_wp_error($categories)) {
+                                foreach ($categories as $category) {
+                                    echo '<option value="' . esc_attr($category->term_id) . '">' . esc_html($category->name) . '</option>';
+                                }
+                            }
+                            ?>
+                        </select>
+                    </div>
+
+                    <div class="bkgt-form-group">
+                        <label for="document_description"><?php _e('Description', 'bkgt-document-management'); ?></label>
+                        <textarea id="document_description" name="document_description" rows="4"></textarea>
+                    </div>
+
+                    <div class="bkgt-form-actions">
+                        <button type="submit" class="bkgt-upload-btn"><?php _e('Upload Document', 'bkgt-document-management'); ?></button>
+                        <div class="bkgt-upload-progress" style="display: none;">
+                            <div class="bkgt-progress-bar"></div>
+                            <span class="bkgt-progress-text"><?php _e('Uploading...', 'bkgt-document-management'); ?></span>
+                        </div>
+                    </div>
+                </form>
+
+                <div id="bkgt-upload-result"></div>
+            </div>
+        </div>
+
+        <script>
+        jQuery(document).ready(function($) {
+            $('#bkgt-upload-form').on('submit', function(e) {
+                e.preventDefault();
+
+                var formData = new FormData(this);
+                formData.append('action', 'bkgt_upload_document');
+
+                $('.bkgt-upload-progress').show();
+                $('.bkgt-upload-btn').prop('disabled', true);
+
+                $.ajax({
+                    url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    xhr: function() {
+                        var xhr = new window.XMLHttpRequest();
+                        xhr.upload.addEventListener('progress', function(e) {
+                            if (e.lengthComputable) {
+                                var percentComplete = (e.loaded / e.total) * 100;
+                                $('.bkgt-progress-bar').css('width', percentComplete + '%');
+                                $('.bkgt-progress-text').text(Math.round(percentComplete) + '%');
+                            }
+                        });
+                        return xhr;
+                    },
+                    success: function(response) {
+                        $('.bkgt-upload-progress').hide();
+                        $('.bkgt-upload-btn').prop('disabled', false);
+                        $('.bkgt-progress-bar').css('width', '0%');
+
+                        if (response.success) {
+                            $('#bkgt-upload-result').html('<div class="bkgt-success">' + response.data.message + '</div>');
+                            $('#bkgt-upload-form')[0].reset();
+                        } else {
+                            $('#bkgt-upload-result').html('<div class="bkgt-error">' + response.data.message + '</div>');
+                        }
+                    },
+                    error: function() {
+                        $('.bkgt-upload-progress').hide();
+                        $('.bkgt-upload-btn').prop('disabled', false);
+                        $('.bkgt-progress-bar').css('width', '0%');
+                        $('#bkgt-upload-result').html('<div class="bkgt-error"><?php _e('Upload failed. Please try again.', 'bkgt-document-management'); ?></div>');
+                    }
+                });
+            });
+        });
+        </script>
+        <?php
+    }
+
+    /**
+     * Display search tab content
+     */
+    private function display_search_content() {
+        ?>
+        <div class="bkgt-search-section">
+            <div class="bkgt-search-form">
+                <h3><?php _e('Search Documents', 'bkgt-document-management'); ?></h3>
+                <form id="bkgt-search-form">
+                    <div class="bkgt-search-inputs">
+                        <input type="text" id="search_query" name="search_query" placeholder="<?php _e('Search by title, content, or author...', 'bkgt-document-management'); ?>">
+                        <select id="search_category" name="search_category">
+                            <option value=""><?php _e('All Categories', 'bkgt-document-management'); ?></option>
+                            <?php
+                            $categories = get_terms(array('taxonomy' => 'bkgt_doc_category', 'hide_empty' => false));
+                            if (!empty($categories) && !is_wp_error($categories)) {
+                                foreach ($categories as $category) {
+                                    echo '<option value="' . esc_attr($category->slug) . '">' . esc_html($category->name) . '</option>';
+                                }
+                            }
+                            ?>
+                        </select>
+                        <button type="submit" class="bkgt-search-btn"><?php _e('Search', 'bkgt-document-management'); ?></button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="bkgt-search-results" class="bkgt-search-results">
+                <p class="bkgt-search-placeholder"><?php _e('Enter search terms above to find documents.', 'bkgt-document-management'); ?></p>
+            </div>
+        </div>
+
+        <script>
+        jQuery(document).ready(function($) {
+            $('#bkgt-search-form').on('submit', function(e) {
+                e.preventDefault();
+
+                var query = $('#search_query').val();
+                var category = $('#search_category').val();
+
+                if (!query.trim()) {
+                    alert('<?php _e('Please enter a search term.', 'bkgt-document-management'); ?>');
+                    return;
+                }
+
+                $('#bkgt-search-results').html('<div class="bkgt-loading"><?php _e('Searching...', 'bkgt-document-management'); ?></div>');
+
+                $.ajax({
+                    url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                    type: 'POST',
+                    data: {
+                        action: 'bkgt_search_documents',
+                        query: query,
+                        category: category
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            $('#bkgt-search-results').html(response.data.html);
+                        } else {
+                            $('#bkgt-search-results').html('<div class="bkgt-error">' + response.data.message + '</div>');
+                        }
+                    },
+                    error: function() {
+                        $('#bkgt-search-results').html('<div class="bkgt-error"><?php _e('Search failed. Please try again.', 'bkgt-document-management'); ?></div>');
+                    }
+                });
+            });
+        });
+        </script>
+        <?php
+    }
+
+    /**
+     * Display permissions tab content
+     */
+    private function display_permissions_content() {
+        if (!current_user_can('manage_options')) {
+            echo '<div class="bkgt-error">' . __('You do not have permission to manage document permissions.', 'bkgt-document-management') . '</div>';
+            return;
+        }
+
+        ?>
+        <div class="bkgt-permissions-section">
+            <h3><?php _e('Document Permissions', 'bkgt-document-management'); ?></h3>
+            <div class="bkgt-permissions-info">
+                <div class="bkgt-notice">
+                    <h4><?php _e('Current Permissions System', 'bkgt-document-management'); ?></h4>
+                    <p><?php _e('Document permissions are managed through WordPress user roles and capabilities.', 'bkgt-document-management'); ?></p>
+                    <ul>
+                        <li><strong><?php _e('Administrators:', 'bkgt-document-management'); ?></strong> <?php _e('Full access to all documents and settings', 'bkgt-document-management'); ?></li>
+                        <li><strong><?php _e('Editors:', 'bkgt-document-management'); ?></strong> <?php _e('Can create and edit documents', 'bkgt-document-management'); ?></li>
+                        <li><strong><?php _e('Authors:', 'bkgt-document-management'); ?></strong> <?php _e('Can create documents', 'bkgt-document-management'); ?></li>
+                        <li><strong><?php _e('Subscribers:', 'bkgt-document-management'); ?></strong> <?php _e('Read-only access to published documents', 'bkgt-document-management'); ?></li>
+                    </ul>
+                </div>
+
+                <div class="bkgt-permissions-actions">
+                    <h4><?php _e('Quick Actions', 'bkgt-document-management'); ?></h4>
+                    <p><?php _e('Advanced permission management features will be available in future updates.', 'bkgt-document-management'); ?></p>
+                    <ul>
+                        <li><a href="<?php echo admin_url('users.php'); ?>"><?php _e('Manage Users', 'bkgt-document-management'); ?></a></li>
+                        <li><a href="<?php echo admin_url('edit.php?post_type=bkgt_document'); ?>"><?php _e('Manage Documents', 'bkgt-document-management'); ?></a></li>
+                        <li><a href="<?php echo admin_url('edit-tags.php?taxonomy=bkgt_doc_category&post_type=bkgt_document'); ?>"><?php _e('Manage Categories', 'bkgt-document-management'); ?></a></li>
+                    </ul>
                 </div>
             </div>
         </div>
         <?php
-        return ob_get_clean();
+    }
+
+    /**
+     * Display documents list
+     */
+    private function display_documents_list($atts) {
+        // Get documents
+        $args = array(
+            'post_type' => 'bkgt_document',
+            'posts_per_page' => intval($atts['limit']),
+            'post_status' => 'publish',
+        );
+
+        // Filter by category if specified
+        if (!empty($atts['category'])) {
+            $args['tax_query'] = array(
+                array(
+                    'taxonomy' => 'bkgt_doc_category',
+                    'field' => 'slug',
+                    'terms' => $atts['category'],
+                ),
+            );
+        }
+
+        $documents = new WP_Query($args);
+
+        if ($documents->have_posts()) : ?>
+            <div class="bkgt-documents-list">
+                <?php while ($documents->have_posts()) : $documents->the_post(); ?>
+                    <div class="bkgt-document-item">
+                        <h3><a href="<?php the_permalink(); ?>"><?php the_title(); ?></a></h3>
+                        <div class="bkgt-document-meta">
+                            <span class="bkgt-document-author">
+                                <?php _e('Author:', 'bkgt-document-management'); ?> <?php the_author(); ?>
+                            </span>
+                            <span class="bkgt-document-date">
+                                <?php _e('Date:', 'bkgt-document-management'); ?> <?php the_date(); ?>
+                            </span>
+                            <?php
+                            $categories = get_the_terms(get_the_ID(), 'bkgt_doc_category');
+                            if ($categories && !is_wp_error($categories)) :
+                            ?>
+                                <span class="bkgt-document-categories">
+                                    <?php _e('Categories:', 'bkgt-document-management'); ?>
+                                    <?php foreach ($categories as $category) : ?>
+                                        <span class="bkgt-category-tag"><?php echo esc_html($category->name); ?></span>
+                                    <?php endforeach; ?>
+                                </span>
+                            <?php endif; ?>
+                        </div>
+                        <div class="bkgt-document-excerpt">
+                            <?php the_excerpt(); ?>
+                        </div>
+                    </div>
+                <?php endwhile; ?>
+            </div>
+
+            <?php
+            // Pagination
+            $big = 999999999;
+            echo paginate_links(array(
+                'base' => str_replace($big, '%#%', esc_url(get_pagenum_link($big))),
+                'format' => '?paged=%#%',
+                'current' => max(1, get_query_var('paged')),
+                'total' => $documents->max_num_pages,
+            ));
+            ?>
+
+        <?php else : ?>
+            <div class="bkgt-no-documents">
+                <p><?php _e('No documents found.', 'bkgt-document-management'); ?></p>
+                <p><?php _e('Documents can be added through the admin panel.', 'bkgt-document-management'); ?></p>
+            </div>
+        <?php endif;
+
+        wp_reset_postdata();
+    }
+
+    /**
+     * AJAX handler for loading DMS content
+     */
+    public function ajax_load_dms_content() {
+        $tab = isset($_POST['tab']) ? sanitize_text_field($_POST['tab']) : 'browse';
+        $category = isset($_POST['category']) ? sanitize_text_field($_POST['category']) : '';
+        $limit = isset($_POST['limit']) ? intval($_POST['limit']) : 10;
+
+        $atts = array(
+            'category' => $category,
+            'limit' => $limit,
+            'show_tabs' => 'false' // Don't show tabs in AJAX response
+        );
+
+        ob_start();
+        $this->display_tab_content($tab, $atts);
+        $content = ob_get_clean();
+
+        wp_send_json_success(array('html' => $content));
+    }
+
+    /**
+     * AJAX handler for document upload
+     */
+    public function ajax_upload_document() {
+        // Verify nonce
+        if (!wp_verify_nonce($_POST['bkgt_upload_nonce'], 'bkgt_upload_document')) {
+            wp_send_json_error(array('message' => __('Security check failed.', 'bkgt-document-management')));
+        }
+
+        // Check user permissions
+        if (!current_user_can('edit_posts')) {
+            wp_send_json_error(array('message' => __('You do not have permission to upload documents.', 'bkgt-document-management')));
+        }
+
+        // Check if file was uploaded
+        if (empty($_FILES['document_file'])) {
+            wp_send_json_error(array('message' => __('No file uploaded.', 'bkgt-document-management')));
+        }
+
+        $file = $_FILES['document_file'];
+        $title = sanitize_text_field($_POST['document_title']);
+        $category_id = intval($_POST['document_category']);
+        $description = sanitize_textarea_field($_POST['document_description']);
+
+        // Validate file
+        $allowed_types = array('pdf', 'doc', 'docx', 'txt', 'jpg', 'jpeg', 'png');
+        $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+
+        if (!in_array($file_ext, $allowed_types)) {
+            wp_send_json_error(array('message' => __('Invalid file type. Allowed: PDF, DOC, DOCX, TXT, JPG, PNG.', 'bkgt-document-management')));
+        }
+
+        // Handle file upload
+        $upload_dir = wp_upload_dir();
+        $filename = wp_unique_filename($upload_dir['path'], $file['name']);
+        $filepath = $upload_dir['path'] . '/' . $filename;
+
+        if (move_uploaded_file($file['tmp_name'], $filepath)) {
+            // Create attachment
+            $attachment = array(
+                'guid' => $upload_dir['url'] . '/' . $filename,
+                'post_mime_type' => $file['type'],
+                'post_title' => $title,
+                'post_content' => $description,
+                'post_status' => 'inherit'
+            );
+
+            $attachment_id = wp_insert_attachment($attachment, $filepath);
+
+            if (!is_wp_error($attachment_id)) {
+                // Generate metadata
+                require_once(ABSPATH . 'wp-admin/includes/image.php');
+                $attachment_data = wp_generate_attachment_metadata($attachment_id, $filepath);
+                wp_update_attachment_metadata($attachment_id, $attachment_data);
+
+                // Create document post
+                $document_data = array(
+                    'post_title' => $title,
+                    'post_content' => $description,
+                    'post_status' => 'publish',
+                    'post_type' => 'bkgt_document',
+                    'post_author' => get_current_user_id(),
+                    'meta_input' => array(
+                        '_bkgt_attachment_id' => $attachment_id,
+                        '_bkgt_file_path' => $filepath,
+                        '_bkgt_file_url' => $upload_dir['url'] . '/' . $filename
+                    )
+                );
+
+                $document_id = wp_insert_post($document_data);
+
+                if (!is_wp_error($document_id)) {
+                    // Set category if provided
+                    if ($category_id > 0) {
+                        wp_set_post_terms($document_id, array($category_id), 'bkgt_doc_category');
+                    }
+
+                    wp_send_json_success(array('message' => __('Document uploaded successfully!', 'bkgt-document-management')));
+                } else {
+                    // Clean up attachment if document creation failed
+                    wp_delete_attachment($attachment_id, true);
+                    wp_send_json_error(array('message' => __('Failed to create document record.', 'bkgt-document-management')));
+                }
+            } else {
+                // Clean up file if attachment creation failed
+                unlink($filepath);
+                wp_send_json_error(array('message' => __('Failed to create attachment.', 'bkgt-document-management')));
+            }
+        } else {
+            wp_send_json_error(array('message' => __('Failed to upload file.', 'bkgt-document-management')));
+        }
+    }
+
+    /**
+     * AJAX handler for document search
+     */
+    public function ajax_search_documents() {
+        $query = isset($_POST['query']) ? sanitize_text_field($_POST['query']) : '';
+        $category = isset($_POST['category']) ? sanitize_text_field($_POST['category']) : '';
+
+        if (empty($query)) {
+            wp_send_json_error(array('message' => __('Search query is required.', 'bkgt-document-management')));
+        }
+
+        $args = array(
+            'post_type' => 'bkgt_document',
+            'post_status' => 'publish',
+            's' => $query,
+            'posts_per_page' => 20
+        );
+
+        // Filter by category if specified
+        if (!empty($category)) {
+            $args['tax_query'] = array(
+                array(
+                    'taxonomy' => 'bkgt_doc_category',
+                    'field' => 'slug',
+                    'terms' => $category,
+                ),
+            );
+        }
+
+        $search_results = new WP_Query($args);
+
+        ob_start();
+        if ($search_results->have_posts()) {
+            echo '<div class="bkgt-search-results-list">';
+            while ($search_results->have_posts()) {
+                $search_results->the_post();
+                ?>
+                <div class="bkgt-search-result-item">
+                    <h4><a href="<?php the_permalink(); ?>"><?php the_title(); ?></a></h4>
+                    <div class="bkgt-search-meta">
+                        <span class="bkgt-search-author"><?php _e('Author:', 'bkgt-document-management'); ?> <?php the_author(); ?></span>
+                        <span class="bkgt-search-date"><?php _e('Date:', 'bkgt-document-management'); ?> <?php the_date(); ?></span>
+                        <?php
+                        $categories = get_the_terms(get_the_ID(), 'bkgt_doc_category');
+                        if ($categories && !is_wp_error($categories)) {
+                            echo '<span class="bkgt-search-categories">' . __('Categories:', 'bkgt-document-management') . ' ';
+                            foreach ($categories as $cat) {
+                                echo '<span class="bkgt-category-tag">' . esc_html($cat->name) . '</span> ';
+                            }
+                            echo '</span>';
+                        }
+                        ?>
+                    </div>
+                    <div class="bkgt-search-excerpt">
+                        <?php the_excerpt(); ?>
+                    </div>
+                </div>
+                <?php
+            }
+            echo '</div>';
+        } else {
+            echo '<div class="bkgt-no-results">' . __('No documents found matching your search.', 'bkgt-document-management') . '</div>';
+        }
+        wp_reset_postdata();
+
+        $html = ob_get_clean();
+        wp_send_json_success(array('html' => $html));
     }
 }
 
 /**
  * Initialize the plugin
  */
-function bkgt_document_management() {
-    return BKGT_Document_Management::get_instance();
-}
+function bkgt_document_management_init() {
+    // Load core classes
+    require_once BKGT_DM_PLUGIN_DIR . 'includes/class-access.php';
+    require_once BKGT_DM_PLUGIN_DIR . 'includes/class-category.php';
+    require_once BKGT_DM_PLUGIN_DIR . 'includes/class-database.php';
+    require_once BKGT_DM_PLUGIN_DIR . 'includes/class-document.php';
+    require_once BKGT_DM_PLUGIN_DIR . 'includes/class-version.php';
 
-// Start the plugin
-bkgt_document_management();
+    // Load Phase 3 advanced features
+    require_once BKGT_DM_PLUGIN_DIR . 'includes/class-template-system.php';
+    require_once BKGT_DM_PLUGIN_DIR . 'includes/class-export-system.php';
+    require_once BKGT_DM_PLUGIN_DIR . 'includes/class-version-control.php';
 
-// Initialize admin classes
-if (is_admin()) {
-    new BKGT_Document_Admin();
-    new BKGT_Smart_Template_Application();
-    new BKGT_Advanced_Export_Engine();
+    // Load admin classes
+    if (is_admin()) {
+        require_once BKGT_DM_PLUGIN_DIR . 'admin/class-admin.php';
+        new BKGT_Document_Admin();
+    }
+
+    BKGT_Document_Management::get_instance();
 }
+add_action('plugins_loaded', 'bkgt_document_management_init');

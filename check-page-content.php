@@ -1,0 +1,10 @@
+<?php
+require_once('wp-load.php');
+
+$post = get_post(16);
+if ($post) {
+    echo "Page Content: " . $post->post_content . "\n";
+} else {
+    echo "Page not found\n";
+}
+?>

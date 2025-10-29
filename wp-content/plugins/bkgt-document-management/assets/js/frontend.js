@@ -295,6 +295,61 @@
             window.open(previewUrl, 'document_preview', 'width=800,height=600,scrollbars=yes');
         });
 
+        // Document upload form handling
+        $('#dms-upload-form').on('submit', function(e) {
+            e.preventDefault();
+
+            var $form = $(this);
+            var $submitBtn = $form.find('button[type="submit"]');
+            var $progress = $('#dms-upload-progress');
+            var formData = new FormData(this);
+
+            // Add nonce
+            formData.append('action', 'bkgt_upload_document_frontend');
+            formData.append('nonce', bkgtDocument.nonce);
+
+            // Disable form
+            $submitBtn.prop('disabled', true).text('Laddar upp...');
+            $progress.show();
+
+            $.ajax({
+                url: bkgtDocument.ajaxUrl,
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                xhr: function() {
+                    var xhr = new window.XMLHttpRequest();
+                    xhr.upload.addEventListener('progress', function(e) {
+                        if (e.lengthComputable) {
+                            var percentComplete = Math.round((e.loaded / e.total) * 100);
+                            $progress.find('.progress-fill').css('width', percentComplete + '%');
+                        }
+                    });
+                    return xhr;
+                },
+                success: function(response) {
+                    $submitBtn.prop('disabled', false).text('Ladda upp dokument');
+                    $progress.hide();
+
+                    if (response.success) {
+                        alert(response.data.message);
+                        // Reset form
+                        $form[0].reset();
+                        // Redirect to manage tab to see the new document
+                        window.location.href = window.location.pathname + '?tab=manage';
+                    } else {
+                        alert(response.data || 'Ett fel uppstod vid uppladdning.');
+                    }
+                },
+                error: function() {
+                    $submitBtn.prop('disabled', false).text('Ladda upp dokument');
+                    $progress.hide();
+                    alert('Ett fel uppstod vid uppladdning.');
+                }
+            });
+        });
+
     });
 
 })(jQuery);
