@@ -30,27 +30,33 @@ class BKGT_Manufacturer {
     /**
      * Create a new manufacturer
      */
-    public static function create($name, $manufacturer_id) {
+    public static function create($data) {
         self::init_db();
         global $wpdb;
         
-        // Validate manufacturer ID format (4 digits)
-        if (!preg_match('/^\d{4}$/', $manufacturer_id)) {
-            return new WP_Error('invalid_manufacturer_id', __('Tillverkare-ID måste vara 4 siffror.', 'bkgt-inventory'));
+        // Validate required fields
+        if (empty($data['name']) || empty($data['code'])) {
+            return new WP_Error('missing_data', __('Namn och kod krävs.', 'bkgt-inventory'));
         }
         
-        // Check if manufacturer ID already exists
-        if (self::exists($manufacturer_id)) {
-            return new WP_Error('manufacturer_id_exists', __('Tillverkare-ID finns redan.', 'bkgt-inventory'));
+        // Validate manufacturer ID format (4 characters)
+        if (!preg_match('/^[A-Z0-9]{4}$/', strtoupper($data['code']))) {
+            return new WP_Error('invalid_code', __('Kod måste vara 4 tecken lång och innehålla endast bokstäver och siffror.', 'bkgt-inventory'));
+        }
+        
+        // Check if manufacturer code already exists
+        if (self::exists(strtoupper($data['code']))) {
+            return new WP_Error('code_exists', __('Tillverkarkod finns redan.', 'bkgt-inventory'));
         }
         
         $result = $wpdb->insert(
             self::$db->get_manufacturers_table(),
             array(
-                'name' => sanitize_text_field($name),
-                'manufacturer_id' => $manufacturer_id,
+                'name' => sanitize_text_field($data['name']),
+                'manufacturer_id' => strtoupper($data['code']),
+                'contact_info' => sanitize_textarea_field($data['contact_info'] ?? ''),
             ),
-            array('%s', '%s')
+            array('%s', '%s', '%s')
         );
         
         if ($result === false) {
@@ -67,10 +73,10 @@ class BKGT_Manufacturer {
         self::init_db();
         global $wpdb;
         
+        $table = self::$db->get_manufacturers_table();
         return $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT * FROM %s WHERE id = %d",
-                self::$db->get_manufacturers_table(),
+                "SELECT * FROM {$table} WHERE id = %d",
                 $id
             ),
             ARRAY_A
@@ -101,10 +107,16 @@ class BKGT_Manufacturer {
         self::init_db();
         global $wpdb;
         
-        return $wpdb->get_results(
-            "SELECT * FROM " . self::$db->get_manufacturers_table() . " ORDER BY name ASC",
+        $manufacturers = $wpdb->get_results(
+            "SELECT m.*, COUNT(i.id) as item_count 
+             FROM " . self::$db->get_manufacturers_table() . " m 
+             LEFT JOIN " . self::$db->get_inventory_items_table() . " i ON m.id = i.manufacturer_id 
+             GROUP BY m.id 
+             ORDER BY m.name ASC",
             ARRAY_A
         );
+        
+        return $manufacturers;
     }
     
     /**
@@ -122,19 +134,24 @@ class BKGT_Manufacturer {
             $update_format[] = '%s';
         }
         
-        if (isset($data['manufacturer_id'])) {
-            // Validate manufacturer ID format
-            if (!preg_match('/^\d{4}$/', $data['manufacturer_id'])) {
-                return new WP_Error('invalid_manufacturer_id', __('Tillverkare-ID måste vara 4 siffror.', 'bkgt-inventory'));
+        if (isset($data['code'])) {
+            // Validate manufacturer code format
+            if (!preg_match('/^[A-Z0-9]{4}$/', strtoupper($data['code']))) {
+                return new WP_Error('invalid_code', __('Kod måste vara 4 tecken lång och innehålla endast bokstäver och siffror.', 'bkgt-inventory'));
             }
             
-            // Check if manufacturer ID already exists (excluding current)
-            $existing = self::get_by_manufacturer_id($data['manufacturer_id']);
+            // Check if manufacturer code already exists (excluding current)
+            $existing = self::get_by_manufacturer_id(strtoupper($data['code']));
             if ($existing && $existing['id'] != $id) {
-                return new WP_Error('manufacturer_id_exists', __('Tillverkare-ID finns redan.', 'bkgt-inventory'));
+                return new WP_Error('code_exists', __('Tillverkarkod finns redan.', 'bkgt-inventory'));
             }
             
-            $update_data['manufacturer_id'] = $data['manufacturer_id'];
+            $update_data['manufacturer_id'] = strtoupper($data['code']);
+            $update_format[] = '%s';
+        }
+        
+        if (isset($data['contact_info'])) {
+            $update_data['contact_info'] = sanitize_textarea_field($data['contact_info']);
             $update_format[] = '%s';
         }
         
@@ -197,14 +214,14 @@ class BKGT_Manufacturer {
     /**
      * Check if manufacturer exists by manufacturer ID
      */
-    public static function exists($manufacturer_id) {
+    public static function exists($manufacturer_code) {
         self::init_db();
         global $wpdb;
         
         $count = $wpdb->get_var(
             $wpdb->prepare(
                 "SELECT COUNT(*) FROM " . self::$db->get_manufacturers_table() . " WHERE manufacturer_id = %s",
-                $manufacturer_id
+                strtoupper($manufacturer_code)
             )
         );
         
@@ -223,5 +240,34 @@ class BKGT_Manufacturer {
         }
         
         return $options;
+    }
+    
+    /**
+     * Get next available manufacturer code
+     */
+    public static function get_next_manufacturer_code() {
+        self::init_db();
+        global $wpdb;
+        
+        $table = self::$db->get_manufacturers_table();
+        
+        // Get all existing manufacturer codes
+        $existing_codes = $wpdb->get_col("SELECT manufacturer_id FROM {$table} ORDER BY manufacturer_id DESC");
+        
+        if (empty($existing_codes)) {
+            return '0001';
+        }
+        
+        // Find the highest numeric code
+        $max_code = 0;
+        foreach ($existing_codes as $code) {
+            // Remove any non-numeric characters and convert to int
+            $numeric_code = intval(preg_replace('/[^0-9]/', '', $code));
+            $max_code = max($max_code, $numeric_code);
+        }
+        
+        // Increment and format as 4-digit code
+        $next_code = $max_code + 1;
+        return str_pad($next_code, 4, '0', STR_PAD_LEFT);
     }
 }

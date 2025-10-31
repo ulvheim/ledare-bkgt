@@ -10,6 +10,8 @@
     
     $(document).ready(function() {
         
+        console.log('BKGT Inventory Admin JavaScript loaded');
+        
         // Handle delete buttons
         $('.button-link-delete').on('click', function(e) {
             e.preventDefault();
@@ -59,15 +61,26 @@
         
         // Generate unique ID preview
         var generateUniqueIdPreview = function() {
+            console.log('generateUniqueIdPreview called');
             var manufacturerSelect = $('#bkgt_manufacturer_id');
             var itemTypeSelect = $('#bkgt_item_type_id');
-            var previewElement = $('#bkgt_unique_id_preview');
+            var serialNumberField = $('#bkgt_serial_number');
+            var previewElement = $('#bkgt_serial_preview');
+            
+            console.log('Elements found:', {
+                manufacturerSelect: manufacturerSelect.length,
+                itemTypeSelect: itemTypeSelect.length,
+                serialNumberField: serialNumberField.length
+            });
             
             if (manufacturerSelect.length && itemTypeSelect.length) {
                 var manufacturerId = manufacturerSelect.val();
                 var itemTypeId = itemTypeSelect.val();
                 
+                console.log('Selected values:', { manufacturerId, itemTypeId });
+                
                 if (manufacturerId && itemTypeId) {
+                    console.log('Making AJAX call...');
                     // Make AJAX call to generate identifier
                     $.ajax({
                         url: bkgtInventory.ajaxUrl,
@@ -80,27 +93,56 @@
                             nonce: bkgtInventory.nonce
                         },
                         success: function(response) {
-                            if (response.success) {
+                            console.log('AJAX response:', response);
+                            if (response.success && response.data && response.data.identifier) {
+                                // Show preview
                                 if (!previewElement.length) {
-                                    $('#bkgt_manufacturer_id').closest('td').append('<p id="bkgt_unique_id_preview" style="margin-top: 5px; color: #666; font-size: 12px;"></p>');
-                                    previewElement = $('#bkgt_unique_id_preview');
+                                    serialNumberField.after('<p id="bkgt_serial_preview" style="margin-top: 5px; color: #666; font-size: 12px; font-style: italic;"></p>');
+                                    previewElement = $('#bkgt_serial_preview');
                                 }
                                 previewElement.text('Förhandsgranskning: ' + response.data.identifier);
+                                
+                                // Set the actual field value for form submission
+                                serialNumberField.val(response.data.identifier);
+                                console.log('Field updated with:', response.data.identifier);
+                            } else {
+                                console.error('AJAX response not successful or missing identifier:', response);
                             }
+                        },
+                        error: function(xhr, status, error) {
+                            console.error('AJAX failed:', { xhr, status, error });
+                            console.error('Response text:', xhr.responseText);
                         }
                     });
                 } else {
+                    // Clear preview and field
                     if (previewElement.length) {
                         previewElement.text('');
                     }
+                    serialNumberField.val('');
                 }
+            } else {
+                console.log('Elements not found, will retry...');
             }
         };
         
-        $('#bkgt_manufacturer_id, #bkgt_item_type_id').on('change', generateUniqueIdPreview);
+        // Function to check if elements are available and bind events
+        var checkAndBindEvents = function() {
+            var manufacturerSelect = $('#bkgt_manufacturer_id');
+            var itemTypeSelect = $('#bkgt_item_type_id');
+            
+            if (manufacturerSelect.length && itemTypeSelect.length) {
+                console.log('Elements found, binding events');
+                $('#bkgt_manufacturer_id, #bkgt_item_type_id').on('change', generateUniqueIdPreview);
+                generateUniqueIdPreview();
+            } else {
+                console.log('Elements not found, checking again in 500ms');
+                setTimeout(checkAndBindEvents, 500);
+            }
+        };
         
-        // Initialize preview on page load
-        generateUniqueIdPreview();
+        // Start checking for elements
+        checkAndBindEvents();
         
         // Handle bulk actions for inventory items
         $('#doaction, #doaction2').on('click', function(e) {

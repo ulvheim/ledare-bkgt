@@ -18,13 +18,45 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// Define plugin constants
+define('BKGT_INV_VERSION', '1.0.0');
+define('BKGT_INV_PLUGIN_DIR', plugin_dir_path(__FILE__));
+define('BKGT_INV_PLUGIN_URL', plugin_dir_url(__FILE__));
+
 // Include required files
 require_once plugin_dir_path(__FILE__) . 'includes/class-database.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-analytics.php';
+require_once plugin_dir_path(__FILE__) . 'includes/class-history.php';
+require_once plugin_dir_path(__FILE__) . 'includes/class-location.php';
+require_once plugin_dir_path(__FILE__) . 'includes/class-manufacturer.php';
+require_once plugin_dir_path(__FILE__) . 'includes/class-item-type.php';
+require_once plugin_dir_path(__FILE__) . 'includes/class-inventory-item.php';
+
+// Include admin files if in admin area
+if (is_admin()) {
+    require_once plugin_dir_path(__FILE__) . 'admin/class-admin.php';
+    require_once plugin_dir_path(__FILE__) . 'admin/class-item-admin.php';
+}
 
 // Initialize database class
 global $bkgt_inventory_db;
 $bkgt_inventory_db = new BKGT_Inventory_Database();
+
+// Initialize plugin instance
+function bkgt_inventory() {
+    static $instance = null;
+    if ($instance === null) {
+        $instance = new stdClass();
+        global $bkgt_inventory_db;
+        $instance->db = $bkgt_inventory_db;
+    }
+    return $instance;
+}
+
+// Initialize admin class if in admin area or AJAX request
+if (is_admin() || (defined('DOING_AJAX') && DOING_AJAX)) {
+    new BKGT_Inventory_Admin();
+}
 
 // Plugin activation
 register_activation_hook(__FILE__, 'bkgt_inventory_activate');
@@ -32,10 +64,23 @@ function bkgt_inventory_activate() {
     add_option('bkgt_inventory_test', 'activated');
     
     // Create database tables
-    bkgt_inventory_create_tables();
+    global $bkgt_inventory_db;
+    $bkgt_inventory_db->create_tables();
+    
+    // Create history table
+    BKGT_History::create_history_table();
     
     // Create sample data
     bkgt_inventory_create_sample_data();
+    
+    // Add capabilities to administrator role
+    $admin_role = get_role('administrator');
+    if ($admin_role) {
+        $admin_role->add_cap('manage_inventory');
+    }
+    
+    // Flush rewrite rules for custom post type
+    flush_rewrite_rules();
 }
 
 // Plugin deactivation
@@ -48,6 +93,111 @@ function bkgt_inventory_deactivate() {
 add_action('init', 'bkgt_inventory_register_shortcodes');
 function bkgt_inventory_register_shortcodes() {
     add_shortcode('bkgt_inventory', 'bkgt_inventory_shortcode');
+}
+
+// Register custom post type
+add_action('init', 'bkgt_inventory_register_post_type');
+function bkgt_inventory_register_post_type() {
+    register_post_type('bkgt_inventory_item', array(
+        'labels' => array(
+            'name' => __('Utrustning', 'bkgt-inventory'),
+            'singular_name' => __('Artikel', 'bkgt-inventory'),
+            'add_new' => __('Lägg till artikel', 'bkgt-inventory'),
+            'add_new_item' => __('Lägg till ny artikel', 'bkgt-inventory'),
+            'edit_item' => __('Redigera artikel', 'bkgt-inventory'),
+            'new_item' => __('Ny artikel', 'bkgt-inventory'),
+            'view_item' => __('Visa artikel', 'bkgt-inventory'),
+            'search_items' => __('Sök artiklar', 'bkgt-inventory'),
+            'not_found' => __('Inga artiklar hittades', 'bkgt-inventory'),
+            'not_found_in_trash' => __('Inga artiklar i papperskorgen', 'bkgt-inventory'),
+        ),
+        'public' => false,
+        'show_ui' => true,
+        'show_in_menu' => false, // Will be shown under our custom menu
+        'capability_type' => 'post',
+        'capabilities' => array(
+            'edit_post' => 'manage_inventory',
+            'read_post' => 'manage_inventory',
+            'delete_post' => 'manage_inventory',
+            'edit_posts' => 'manage_inventory',
+            'edit_others_posts' => 'manage_inventory',
+            'publish_posts' => 'manage_inventory',
+            'read_private_posts' => 'manage_inventory',
+        ),
+        'supports' => array('custom-fields'),
+        'has_archive' => false,
+        'rewrite' => false,
+    ));
+}
+
+// Remove default title and content fields from inventory item edit screen
+add_action('admin_head', 'bkgt_inventory_remove_default_fields');
+function bkgt_inventory_remove_default_fields() {
+    $screen = get_current_screen();
+    if ($screen && $screen->post_type === 'bkgt_inventory_item') {
+        // Remove title field
+        remove_post_type_support('bkgt_inventory_item', 'title');
+        // Remove content editor
+        remove_post_type_support('bkgt_inventory_item', 'editor');
+    }
+}
+
+// Remove unwanted metaboxes from inventory item edit screen
+add_action('add_meta_boxes', 'bkgt_inventory_remove_metaboxes', 99);
+function bkgt_inventory_remove_metaboxes() {
+    $screen = get_current_screen();
+    if ($screen && $screen->post_type === 'bkgt_inventory_item') {
+        // Remove publish metabox
+        remove_meta_box('submitdiv', 'bkgt_inventory_item', 'side');
+        // Remove slug metabox
+        remove_meta_box('slugdiv', 'bkgt_inventory_item', 'normal');
+        // Remove author metabox
+        remove_meta_box('authordiv', 'bkgt_inventory_item', 'normal');
+        // Remove comments metabox
+        remove_meta_box('commentsdiv', 'bkgt_inventory_item', 'normal');
+        // Remove revisions metabox
+        remove_meta_box('revisionsdiv', 'bkgt_inventory_item', 'normal');
+        // Remove custom fields metabox (we have our own)
+        remove_meta_box('postcustom', 'bkgt_inventory_item', 'normal');
+        // Remove excerpt metabox
+        remove_meta_box('postexcerpt', 'bkgt_inventory_item', 'normal');
+        // Remove trackbacks metabox
+        remove_meta_box('trackbacksdiv', 'bkgt_inventory_item', 'normal');
+        // Remove tags metabox
+        remove_meta_box('tagsdiv-bkgt_condition', 'bkgt_inventory_item', 'side');
+    }
+}
+
+// Register custom taxonomies
+add_action('init', 'bkgt_inventory_register_taxonomies');
+function bkgt_inventory_register_taxonomies() {
+    // Condition taxonomy
+    register_taxonomy('bkgt_condition', 'bkgt_inventory_item', array(
+        'labels' => array(
+            'name' => __('Skick', 'bkgt-inventory'),
+            'singular_name' => __('Skick', 'bkgt-inventory'),
+            'search_items' => __('Sök skick', 'bkgt-inventory'),
+            'all_items' => __('Alla skick', 'bkgt-inventory'),
+            'parent_item' => __('Förälderskick', 'bkgt-inventory'),
+            'parent_item_colon' => __('Förälderskick:', 'bkgt-inventory'),
+            'edit_item' => __('Redigera skick', 'bkgt-inventory'),
+            'update_item' => __('Uppdatera skick', 'bkgt-inventory'),
+            'add_new_item' => __('Lägg till nytt skick', 'bkgt-inventory'),
+            'new_item_name' => __('Nytt skick namn', 'bkgt-inventory'),
+            'menu_name' => __('Skick', 'bkgt-inventory'),
+        ),
+        'hierarchical' => false,
+        'show_ui' => true,
+        'show_admin_column' => true,
+        'query_var' => true,
+        'rewrite' => array('slug' => 'condition'),
+        'capabilities' => array(
+            'manage_terms' => 'manage_inventory',
+            'edit_terms' => 'manage_inventory',
+            'delete_terms' => 'manage_inventory',
+            'assign_terms' => 'manage_inventory',
+        ),
+    ));
 }
 
 /**
@@ -68,10 +218,16 @@ function bkgt_inventory_shortcode($atts) {
     $query = "SELECT
         i.*,
         m.name as manufacturer_name,
-        t.name as item_type_name
-        FROM {$inventory_db->inventory_items_table} i
-        LEFT JOIN {$inventory_db->manufacturers_table} m ON i.manufacturer_id = m.id
-        LEFT JOIN {$inventory_db->item_types_table} t ON i.item_type_id = t.id
+        t.name as item_type_name,
+        pm_assignment.meta_value as assignment_type,
+        pm_assigned.meta_value as assigned_to,
+        l.name as location_name
+        FROM {$inventory_db->get_inventory_items_table()} i
+        LEFT JOIN {$inventory_db->get_manufacturers_table()} m ON i.manufacturer_id = m.id
+        LEFT JOIN {$inventory_db->get_item_types_table()} t ON i.item_type_id = t.id
+        LEFT JOIN {$wpdb->postmeta} pm_assignment ON i.post_id = pm_assignment.post_id AND pm_assignment.meta_key = '_bkgt_assignment_type'
+        LEFT JOIN {$wpdb->postmeta} pm_assigned ON i.post_id = pm_assigned.post_id AND pm_assigned.meta_key = '_bkgt_assigned_to'
+        LEFT JOIN {$inventory_db->get_locations_table()} l ON pm_assigned.meta_value = l.id AND pm_assignment.meta_value = 'location'
         ORDER BY i.created_at DESC";
 
     if ($atts['limit'] > 0) {
@@ -166,7 +322,19 @@ function bkgt_inventory_shortcode($atts) {
                             <span class="meta-item"><strong>ID:</strong> <?php echo esc_html($item->unique_identifier ?? ''); ?></span>
                             <span class="meta-item"><strong>Tillverkare:</strong> <?php echo esc_html($item->manufacturer_name ?? ''); ?></span>
                             <span class="meta-item"><strong>Typ:</strong> <?php echo esc_html($item->item_type_name ?? ''); ?></span>
-                            <span class="meta-item"><strong>Lagring:</strong> <?php echo esc_html($item->storage_location ?? ''); ?></span>
+                            <span class="meta-item"><strong>Plats:</strong> <?php 
+                                if (!empty($item->assignment_type) && $item->assignment_type === 'location' && !empty($item->location_name)) {
+                                    echo esc_html($item->location_name);
+                                } elseif (!empty($item->assignment_type) && $item->assignment_type === 'team') {
+                                    echo 'Lag';
+                                } elseif (!empty($item->assignment_type) && $item->assignment_type === 'individual') {
+                                    echo 'Individ';
+                                } elseif (!empty($item->assignment_type) && $item->assignment_type === 'club') {
+                                    echo 'Klubben';
+                                } else {
+                                    echo esc_html($item->storage_location ?? 'Ej tilldelad');
+                                }
+                            ?></span>
                         </div>
                     </div>
                     <div class="inventory-status">

@@ -197,7 +197,7 @@ class BKGT_History {
     /**
      * Create history table
      */
-    private static function create_history_table() {
+    public static function create_history_table() {
         global $wpdb;
         
         $table_name = $wpdb->prefix . 'bkgt_inventory_history';

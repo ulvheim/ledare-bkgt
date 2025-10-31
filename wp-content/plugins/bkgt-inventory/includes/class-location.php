@@ -28,21 +28,17 @@ class BKGT_Location {
     public static function get_all_locations($include_inactive = false) {
         global $wpdb;
         
-        $db = BKGT_Inventory_Database::get_instance();
+        $db = bkgt_inventory()->db;
         $locations_table = $db->get_locations_table();
         
         $where = $include_inactive ? '' : 'WHERE is_active = 1';
         
         $sql = "SELECT * FROM {$locations_table} {$where} ORDER BY name ASC";
         
-        $results = $wpdb->get_results($sql, ARRAY_A);
-        
-        if (!$results) {
-            return array();
-        }
+        $locations = $wpdb->get_results($sql, ARRAY_A);
         
         // Build hierarchical structure
-        return self::build_hierarchy($results);
+        return self::build_hierarchy($locations);
     }
     
     /**
@@ -51,7 +47,7 @@ class BKGT_Location {
     public static function get_location($location_id) {
         global $wpdb;
         
-        $db = BKGT_Inventory_Database::get_instance();
+        $db = bkgt_inventory()->db;
         $locations_table = $db->get_locations_table();
         
         $sql = $wpdb->prepare(
@@ -82,7 +78,7 @@ class BKGT_Location {
     public static function get_child_locations($parent_id) {
         global $wpdb;
         
-        $db = BKGT_Inventory_Database::get_instance();
+        $db = bkgt_inventory()->db;
         $locations_table = $db->get_locations_table();
         
         $sql = $wpdb->prepare(
@@ -99,7 +95,7 @@ class BKGT_Location {
     public static function create_location($data) {
         global $wpdb;
         
-        $db = BKGT_Inventory_Database::get_instance();
+        $db = bkgt_inventory()->db;
         $locations_table = $db->get_locations_table();
         
         // Validate required fields
@@ -184,7 +180,7 @@ class BKGT_Location {
     public static function update_location($location_id, $data) {
         global $wpdb;
         
-        $db = BKGT_Inventory_Database::get_instance();
+        $db = bkgt_inventory()->db;
         $locations_table = $db->get_locations_table();
         
         // Check if location exists
@@ -263,7 +259,7 @@ class BKGT_Location {
     public static function delete_location($location_id) {
         global $wpdb;
         
-        $db = BKGT_Inventory_Database::get_instance();
+        $db = bkgt_inventory()->db;
         $locations_table = $db->get_locations_table();
         
         // Check if location exists
@@ -308,7 +304,7 @@ class BKGT_Location {
     public static function get_location_item_count($location_id) {
         global $wpdb;
         
-        $db = BKGT_Inventory_Database::get_instance();
+        $db = bkgt_inventory()->db;
         $assignments_table = $db->get_assignments_table();
         
         $sql = $wpdb->prepare(
@@ -375,7 +371,7 @@ class BKGT_Location {
     public static function location_exists($location_id) {
         global $wpdb;
         
-        $db = BKGT_Inventory_Database::get_instance();
+        $db = bkgt_inventory()->db;
         $locations_table = $db->get_locations_table();
         
         $sql = $wpdb->prepare(
@@ -392,7 +388,7 @@ class BKGT_Location {
     public static function slug_exists($slug, $exclude_id = null) {
         global $wpdb;
         
-        $db = BKGT_Inventory_Database::get_instance();
+        $db = bkgt_inventory()->db;
         $locations_table = $db->get_locations_table();
         
         $sql = $wpdb->prepare(
@@ -417,6 +413,11 @@ class BKGT_Location {
         $hierarchy = array();
         
         foreach ($locations as $location) {
+            // Ensure parent_id is set
+            if (!isset($location['parent_id'])) {
+                $location['parent_id'] = null;
+            }
+            
             if ($location['parent_id'] == $parent_id) {
                 $children = self::build_hierarchy($locations, $location['id']);
                 if (!empty($children)) {

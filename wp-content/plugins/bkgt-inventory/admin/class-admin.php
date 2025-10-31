@@ -146,57 +146,190 @@ class BKGT_Inventory_Admin {
     }
     
     /**
+     * Export inventory items to CSV
+     */
+    private function export_inventory_csv() {
+        // Check permissions
+        if (!current_user_can('manage_inventory')) {
+            wp_die(__('Du har inte behörighet att exportera data.', 'bkgt-inventory'));
+        }
+        
+        // Set headers for CSV download
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename=inventory-export-' . date('Y-m-d') . '.csv');
+        
+        // Create output stream
+        $output = fopen('php://output', 'w');
+        
+        // Write BOM for UTF-8
+        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+        
+        // Write CSV header
+        fputcsv($output, array(
+            'Unik Identifierare',
+            'Artikelnamn',
+            'Tillverkare',
+            'Artikeltyp',
+            'Skick',
+            'Tilldelad till',
+            'Plats',
+            'Inköpsdatum',
+            'Inköpspris',
+            'Garanti utgångsdatum'
+        ));
+        
+        // Get all inventory items
+        $items = get_posts(array(
+            'post_type' => 'bkgt_inventory_item',
+            'posts_per_page' => -1,
+            'post_status' => 'publish',
+            'orderby' => 'title',
+            'order' => 'ASC'
+        ));
+        
+        foreach ($items as $item) {
+            // Get meta data
+            $unique_id = get_post_meta($item->ID, '_bkgt_serial_number', true);
+            $manufacturer_id = get_post_meta($item->ID, '_bkgt_manufacturer_id', true);
+            $item_type_id = get_post_meta($item->ID, '_bkgt_item_type_id', true);
+            $purchase_date = get_post_meta($item->ID, '_bkgt_purchase_date', true);
+            $purchase_price = get_post_meta($item->ID, '_bkgt_purchase_price', true);
+            $warranty_expiry = get_post_meta($item->ID, '_bkgt_warranty_expiry', true);
+            $assignment_type = get_post_meta($item->ID, '_bkgt_assignment_type', true);
+            $assigned_to = get_post_meta($item->ID, '_bkgt_assigned_to', true);
+            
+            // Get manufacturer and item type names
+            $manufacturer_name = '';
+            if ($manufacturer_id) {
+                $manufacturer = BKGT_Manufacturer::get($manufacturer_id);
+                $manufacturer_name = $manufacturer ? $manufacturer['name'] : '';
+            }
+            
+            $item_type_name = '';
+            if ($item_type_id) {
+                $item_type = BKGT_Item_Type::get($item_type_id);
+                $item_type_name = $item_type ? $item_type['name'] : '';
+            }
+            
+            // Get condition
+            $condition_terms = wp_get_post_terms($item->ID, 'bkgt_condition', array('fields' => 'names'));
+            $condition = !empty($condition_terms) ? implode(', ', $condition_terms) : '';
+            
+            // Get assignment info
+            $assignee_name = '';
+            if ($assignment_type && $assigned_to) {
+                switch ($assignment_type) {
+                    case 'location':
+                        $location = BKGT_Location::get_location($assigned_to);
+                        $assignee_name = $location ? $location['name'] : '';
+                        break;
+                    case 'team':
+                        $team = get_post($assigned_to);
+                        $assignee_name = $team ? $team->post_title : '';
+                        break;
+                    case 'individual':
+                        $user = get_userdata($assigned_to);
+                        $assignee_name = $user ? $user->display_name : '';
+                        break;
+                    case 'club':
+                        $assignee_name = __('Klubben', 'bkgt-inventory');
+                        break;
+                }
+            }
+            
+            // Write CSV row
+            fputcsv($output, array(
+                $unique_id,
+                $item->post_title,
+                $manufacturer_name,
+                $item_type_name,
+                $condition,
+                $assignee_name,
+                '', // Location (could be enhanced)
+                $purchase_date,
+                $purchase_price,
+                $warranty_expiry
+            ));
+        }
+        
+        fclose($output);
+        exit;
+    }
+    
+    /**
      * Render main dashboard page
      */
     public function render_main_page() {
-        $stats = $this->get_inventory_stats();
+        // Handle CSV export
+        if (isset($_GET['action']) && $_GET['action'] === 'export_csv') {
+            $this->export_inventory_csv();
+            return;
+        }
         
+        $stats = $this->get_inventory_stats();
+
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e('Utrustning - Översikt', 'bkgt-inventory'); ?></h1>
-            
-            <div class="bkgt-dashboard-stats">
-                <div class="bkgt-stat-card">
-                    <h3><?php esc_html_e('Totalt antal artiklar', 'bkgt-inventory'); ?></h3>
-                    <div class="bkgt-stat-number"><?php echo $stats['total_items']; ?></div>
-                </div>
-                
-                <div class="bkgt-stat-card">
-                    <h3><?php esc_html_e('Tilldelade till klubben', 'bkgt-inventory'); ?></h3>
-                    <div class="bkgt-stat-number"><?php echo $stats['club_items']; ?></div>
-                </div>
-                
-                <div class="bkgt-stat-card">
-                    <h3><?php esc_html_e('Tilldelade till lag', 'bkgt-inventory'); ?></h3>
-                    <div class="bkgt-stat-number"><?php echo $stats['team_items']; ?></div>
-                </div>
-                
-                <div class="bkgt-stat-card">
-                    <h3><?php esc_html_e('Tilldelade till individer', 'bkgt-inventory'); ?></h3>
-                    <div class="bkgt-stat-number"><?php echo $stats['individual_items']; ?></div>
-                </div>
-                
-                <div class="bkgt-stat-card warning">
-                    <h3><?php esc_html_e('Behöver reparation', 'bkgt-inventory'); ?></h3>
-                    <div class="bkgt-stat-number"><?php echo $stats['needs_repair']; ?></div>
-                </div>
-                
-                <div class="bkgt-stat-card error">
-                    <h3><?php esc_html_e('Förlustanmälda', 'bkgt-inventory'); ?></h3>
-                    <div class="bkgt-stat-number"><?php echo $stats['reported_lost']; ?></div>
+            <div class="bkgt-admin-header">
+                <h1><?php esc_html_e('Utrustning - Översikt', 'bkgt-inventory'); ?></h1>
+                <div class="bkgt-admin-actions">
+                    <a href="<?php echo admin_url('admin.php?page=bkgt-inventory&action=export_csv'); ?>" class="button button-primary">
+                        <?php esc_html_e('Exportera till CSV', 'bkgt-inventory'); ?>
+                    </a>
                 </div>
             </div>
-            
+
+            <div class="bkgt-dashboard-stats">
+                <table class="wp-list-table widefat fixed striped bkgt-stats-table">
+                    <tbody>
+                        <tr>
+                            <td><strong><?php esc_html_e('Totalt antal artiklar', 'bkgt-inventory'); ?>:</strong></td>
+                            <td><?php echo $stats['total_items']; ?></td>
+                        </tr>
+                        <tr>
+                            <td><strong><?php esc_html_e('Tilldelade till klubben', 'bkgt-inventory'); ?>:</strong></td>
+                            <td><?php echo $stats['club_items']; ?></td>
+                        </tr>
+                        <tr>
+                            <td><strong><?php esc_html_e('Tilldelade till lag', 'bkgt-inventory'); ?>:</strong></td>
+                            <td><?php echo $stats['team_items']; ?></td>
+                        </tr>
+                        <tr>
+                            <td><strong><?php esc_html_e('Tilldelade till individer', 'bkgt-inventory'); ?>:</strong></td>
+                            <td><?php echo $stats['individual_items']; ?></td>
+                        </tr>
+                        <tr>
+                            <td><strong><?php esc_html_e('Behöver reparation', 'bkgt-inventory'); ?>:</strong></td>
+                            <td><?php echo $stats['needs_repair']; ?></td>
+                        </tr>
+                        <tr>
+                            <td><strong><?php esc_html_e('Förlustanmälda', 'bkgt-inventory'); ?>:</strong></td>
+                            <td><?php echo $stats['reported_lost']; ?></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
             <div class="bkgt-dashboard-grid">
                 <div class="bkgt-dashboard-card">
                     <h3><?php esc_html_e('Senaste aktivitet', 'bkgt-inventory'); ?></h3>
                     <?php $this->render_recent_activity(); ?>
                 </div>
-                
+
                 <div class="bkgt-dashboard-card">
                     <h3><?php esc_html_e('Artiklar per skick', 'bkgt-inventory'); ?></h3>
                     <?php $this->render_condition_breakdown(); ?>
                 </div>
+            </div>
+
+            <div class="bkgt-dashboard-card">
+                <div class="bkgt-card-header">
+                    <h3><?php esc_html_e('Senaste artiklar', 'bkgt-inventory'); ?></h3>
+                    <a href="<?php echo admin_url('edit.php?post_type=bkgt_inventory_item'); ?>" class="button button-secondary">
+                        <?php esc_html_e('Visa alla', 'bkgt-inventory'); ?>
+                    </a>
+                </div>
+                <?php $this->render_recent_inventory_table(); ?>
             </div>
         </div>
         <?php
@@ -251,53 +384,71 @@ class BKGT_Inventory_Admin {
         
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e('Utrustningshistorik', 'bkgt-inventory'); ?></h1>
-            
-            <div class="bkgt-history-stats">
-                <div class="bkgt-stat-card">
-                    <h3><?php esc_html_e('Totalt antal åtgärder', 'bkgt-inventory'); ?></h3>
-                    <div class="bkgt-stat-number"><?php echo $stats['total_actions']; ?></div>
-                </div>
-                <div class="bkgt-stat-card">
-                    <h3><?php esc_html_e('Åtgärder idag', 'bkgt-inventory'); ?></h3>
-                    <div class="bkgt-stat-number"><?php echo $stats['actions_today']; ?></div>
-                </div>
-                <div class="bkgt-stat-card">
-                    <h3><?php esc_html_e('Åtgärder denna vecka', 'bkgt-inventory'); ?></h3>
-                    <div class="bkgt-stat-number"><?php echo $stats['actions_this_week']; ?></div>
+            <div class="bkgt-admin-header">
+                <h1><?php esc_html_e('Utrustningshistorik', 'bkgt-inventory'); ?></h1>
+                <div class="bkgt-admin-actions">
+                    <a href="<?php echo admin_url('admin.php?page=bkgt-reports'); ?>" class="button button-secondary">
+                        <?php esc_html_e('Visa rapporter', 'bkgt-inventory'); ?>
+                    </a>
                 </div>
             </div>
-            
-            <table class="wp-list-table widefat fixed striped">
-                <thead>
-                    <tr>
-                        <th><?php esc_html_e('Datum', 'bkgt-inventory'); ?></th>
-                        <th><?php esc_html_e('Artikel', 'bkgt-inventory'); ?></th>
-                        <th><?php esc_html_e('Åtgärd', 'bkgt-inventory'); ?></th>
-                        <th><?php esc_html_e('Användare', 'bkgt-inventory'); ?></th>
-                        <th><?php esc_html_e('Detaljer', 'bkgt-inventory'); ?></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($history as $entry): ?>
-                    <tr>
-                        <td><?php echo wp_date('Y-m-d H:i', strtotime($entry->timestamp)); ?></td>
-                        <td>
-                            <?php if ($entry->item_title): ?>
-                                <a href="<?php echo get_edit_post_link($entry->item_id); ?>">
-                                    <?php echo esc_html($entry->item_title); ?>
-                                </a>
-                            <?php else: ?>
-                                <?php esc_html_e('(Raderad artikel)', 'bkgt-inventory'); ?>
-                            <?php endif; ?>
-                        </td>
-                        <td><?php echo esc_html(BKGT_History::get_action_description($entry->action, $entry->data)); ?></td>
-                        <td><?php echo esc_html($entry->user_name); ?></td>
-                        <td><?php echo $this->format_history_details($entry); ?></td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+
+            <div class="bkgt-dashboard-stats">
+                <table class="wp-list-table widefat fixed striped bkgt-stats-table">
+                    <tbody>
+                        <tr>
+                            <td><strong><?php esc_html_e('Totalt antal åtgärder', 'bkgt-inventory'); ?>:</strong></td>
+                            <td><?php echo $stats['total_actions']; ?></td>
+                        </tr>
+                        <tr>
+                            <td><strong><?php esc_html_e('Åtgärder idag', 'bkgt-inventory'); ?>:</strong></td>
+                            <td><?php echo $stats['actions_today']; ?></td>
+                        </tr>
+                        <tr>
+                            <td><strong><?php esc_html_e('Åtgärder denna vecka', 'bkgt-inventory'); ?>:</strong></td>
+                            <td><?php echo $stats['actions_this_week']; ?></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="bkgt-dashboard-card">
+                <div class="bkgt-card-header">
+                    <h3><?php esc_html_e('Senaste aktivitet', 'bkgt-inventory'); ?></h3>
+                </div>
+                <div class="bkgt-table-responsive">
+                    <table class="wp-list-table widefat fixed striped">
+                        <thead>
+                            <tr>
+                                <th><?php esc_html_e('Datum', 'bkgt-inventory'); ?></th>
+                                <th><?php esc_html_e('Artikel', 'bkgt-inventory'); ?></th>
+                                <th><?php esc_html_e('Åtgärd', 'bkgt-inventory'); ?></th>
+                                <th><?php esc_html_e('Användare', 'bkgt-inventory'); ?></th>
+                                <th><?php esc_html_e('Detaljer', 'bkgt-inventory'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($history as $entry): ?>
+                            <tr>
+                                <td><?php echo wp_date('Y-m-d H:i', strtotime($entry->timestamp)); ?></td>
+                                <td>
+                                    <?php if ($entry->item_title): ?>
+                                        <a href="<?php echo get_edit_post_link($entry->item_id); ?>">
+                                            <?php echo esc_html($entry->item_title); ?>
+                                        </a>
+                                    <?php else: ?>
+                                        <?php esc_html_e('(Raderad artikel)', 'bkgt-inventory'); ?>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?php echo esc_html(BKGT_History::get_action_description($entry->action, $entry->data)); ?></td>
+                                <td><?php echo esc_html($entry->user_name); ?></td>
+                                <td><?php echo $this->format_history_details($entry); ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
         <?php
     }
@@ -496,21 +647,36 @@ class BKGT_Inventory_Admin {
      * AJAX: Generate unique identifier
      */
     private function ajax_generate_identifier() {
-        $manufacturer_id = intval($_POST['manufacturer_id']);
-        $item_type_id = intval($_POST['item_type_id']);
-        
-        $manufacturer = BKGT_Manufacturer::get($manufacturer_id);
-        $item_type = BKGT_Item_Type::get($item_type_id);
-        
-        if (!$manufacturer || !$item_type) {
-            wp_send_json_error(__('Ogiltig tillverkare eller artikeltyp.', 'bkgt-inventory'));
-            return;
+        try {
+            error_log('BKGT: ajax_generate_identifier called');
+            error_log('POST data: ' . print_r($_POST, true));
+            
+            $manufacturer_id = intval($_POST['manufacturer_id']);
+            $item_type_id = intval($_POST['item_type_id']);
+            
+            error_log("BKGT: manufacturer_id=$manufacturer_id, item_type_id=$item_type_id");
+            
+            $manufacturer = BKGT_Manufacturer::get($manufacturer_id);
+            $item_type = BKGT_Item_Type::get($item_type_id);
+            
+            error_log('BKGT: manufacturer=' . print_r($manufacturer, true));
+            error_log('BKGT: item_type=' . print_r($item_type, true));
+            
+            if (!$manufacturer || !$item_type) {
+                error_log('BKGT: Invalid manufacturer or item type');
+                wp_send_json_error(__('Ogiltig tillverkare eller artikeltyp.', 'bkgt-inventory'));
+                return;
+            }
+            
+            $identifier = BKGT_Inventory_Item::generate_unique_identifier($manufacturer_id, $item_type_id);
+            
+            error_log('BKGT: Generated identifier: ' . $identifier);
+            
+            wp_send_json_success(array('identifier' => $identifier));
+        } catch (Exception $e) {
+            error_log('BKGT: Exception in ajax_generate_identifier: ' . $e->getMessage());
+            wp_send_json_error('Exception: ' . $e->getMessage());
         }
-        
-        $inventory_item = new BKGT_Inventory_Item();
-        $identifier = $inventory_item->generate_unique_identifier($manufacturer->code, $item_type->code);
-        
-        wp_send_json_success(array('identifier' => $identifier));
     }
     
     /**
@@ -522,7 +688,7 @@ class BKGT_Inventory_Admin {
         $assigned_to = isset($_POST['assigned_to']) ? intval($_POST['assigned_to']) : 0;
         
         // Validate assignment
-        if (!in_array($assignment_type, array('club', 'team', 'individual', 'unassign'))) {
+        if (!in_array($assignment_type, array('club', 'team', 'individual', 'location', 'unassign'))) {
             wp_send_json_error(__('Ogiltig tilldelningstyp.', 'bkgt-inventory'));
             return;
         }
@@ -578,18 +744,18 @@ class BKGT_Inventory_Admin {
                     <?php else: ?>
                         <?php foreach ($manufacturers as $manufacturer): ?>
                         <tr>
-                            <td><?php echo esc_html($manufacturer->name); ?></td>
-                            <td><?php echo esc_html($manufacturer->code); ?></td>
-                            <td><?php echo esc_html($manufacturer->contact_info); ?></td>
-                            <td><?php echo intval($manufacturer->item_count); ?></td>
+                            <td><?php echo esc_html($manufacturer['name']); ?></td>
+                            <td><?php echo esc_html($manufacturer['manufacturer_id']); ?></td>
+                            <td><?php echo esc_html($manufacturer['contact_info'] ?? ''); ?></td>
+                            <td><?php echo intval($manufacturer['item_count'] ?? 0); ?></td>
                             <td>
-                                <a href="<?php echo add_query_arg(array('action' => 'edit', 'id' => $manufacturer->id)); ?>" class="button button-small">
+                                <a href="<?php echo add_query_arg(array('action' => 'edit', 'id' => $manufacturer['id'])); ?>" class="button button-small">
                                     <?php esc_html_e('Redigera', 'bkgt-inventory'); ?>
                                 </a>
                                 <button type="button" class="button button-small button-link-delete" 
                                         data-action="delete_manufacturer" 
-                                        data-id="<?php echo $manufacturer->id; ?>"
-                                        data-name="<?php echo esc_attr($manufacturer->name); ?>">
+                                        data-id="<?php echo $manufacturer['id']; ?>"
+                                        data-name="<?php echo esc_attr($manufacturer['name']); ?>">
                                     <?php esc_html_e('Radera', 'bkgt-inventory'); ?>
                                 </button>
                             </td>
@@ -635,7 +801,7 @@ class BKGT_Inventory_Admin {
                         </th>
                         <td>
                             <input type="text" id="manufacturer_name" name="name" 
-                                   value="<?php echo $is_edit ? esc_attr($manufacturer->name) : ''; ?>" 
+                                   value="<?php echo $is_edit ? esc_attr($manufacturer['name']) : ''; ?>" 
                                    class="regular-text" required>
                         </td>
                     </tr>
@@ -646,9 +812,15 @@ class BKGT_Inventory_Admin {
                         </th>
                         <td>
                             <input type="text" id="manufacturer_code" name="code" 
-                                   value="<?php echo $is_edit ? esc_attr($manufacturer->code) : ''; ?>" 
-                                   class="regular-text" maxlength="4" required>
-                            <p class="description"><?php esc_html_e('4 tecken lång kod för unik identifiering.', 'bkgt-inventory'); ?></p>
+                                   value="<?php echo $is_edit ? esc_attr($manufacturer['manufacturer_id']) : BKGT_Manufacturer::get_next_manufacturer_code(); ?>" 
+                                   class="regular-text" maxlength="4" required readonly>
+                            <p class="description">
+                                <?php if ($is_edit): ?>
+                                    <?php esc_html_e('Kod kan inte ändras efter skapande.', 'bkgt-inventory'); ?>
+                                <?php else: ?>
+                                    <?php esc_html_e('Kod genereras automatiskt som nästa tillgängliga nummer.', 'bkgt-inventory'); ?>
+                                <?php endif; ?>
+                            </p>
                         </td>
                     </tr>
                     
@@ -658,7 +830,7 @@ class BKGT_Inventory_Admin {
                         </th>
                         <td>
                             <textarea id="manufacturer_contact" name="contact_info" 
-                                      rows="3" class="large-text"><?php echo $is_edit ? esc_textarea($manufacturer->contact_info) : ''; ?></textarea>
+                                      rows="3" class="large-text"><?php echo $is_edit ? esc_textarea($manufacturer['contact_info'] ?? '') : ''; ?></textarea>
                         </td>
                     </tr>
                 </table>
@@ -739,18 +911,18 @@ class BKGT_Inventory_Admin {
                     <?php else: ?>
                         <?php foreach ($item_types as $item_type): ?>
                         <tr>
-                            <td><?php echo esc_html($item_type->name); ?></td>
-                            <td><?php echo esc_html($item_type->code); ?></td>
-                            <td><?php echo esc_html($item_type->description); ?></td>
-                            <td><?php echo intval($item_type->item_count); ?></td>
+                            <td><?php echo esc_html($item_type['name']); ?></td>
+                            <td><?php echo esc_html($item_type['item_type_id']); ?></td>
+                            <td><?php echo esc_html($item_type['description'] ?? ''); ?></td>
+                            <td><?php echo intval($item_type['item_count'] ?? 0); ?></td>
                             <td>
-                                <a href="<?php echo add_query_arg(array('action' => 'edit', 'id' => $item_type->id)); ?>" class="button button-small">
+                                <a href="<?php echo add_query_arg(array('action' => 'edit', 'id' => $item_type['id'])); ?>" class="button button-small">
                                     <?php esc_html_e('Redigera', 'bkgt-inventory'); ?>
                                 </a>
                                 <button type="button" class="button button-small button-link-delete" 
                                         data-action="delete_item_type" 
-                                        data-id="<?php echo $item_type->id; ?>"
-                                        data-name="<?php echo esc_attr($item_type->name); ?>">
+                                        data-id="<?php echo $item_type['id']; ?>"
+                                        data-name="<?php echo esc_attr($item_type['name']); ?>">
                                     <?php esc_html_e('Radera', 'bkgt-inventory'); ?>
                                 </button>
                             </td>
@@ -796,7 +968,7 @@ class BKGT_Inventory_Admin {
                         </th>
                         <td>
                             <input type="text" id="item_type_name" name="name" 
-                                   value="<?php echo $is_edit ? esc_attr($item_type->name) : ''; ?>" 
+                                   value="<?php echo $is_edit ? esc_attr($item_type['name']) : ''; ?>" 
                                    class="regular-text" required>
                         </td>
                     </tr>
@@ -807,9 +979,15 @@ class BKGT_Inventory_Admin {
                         </th>
                         <td>
                             <input type="text" id="item_type_code" name="code" 
-                                   value="<?php echo $is_edit ? esc_attr($item_type->code) : ''; ?>" 
-                                   class="regular-text" maxlength="4" required>
-                            <p class="description"><?php esc_html_e('4 tecken lång kod för unik identifiering.', 'bkgt-inventory'); ?></p>
+                                   value="<?php echo $is_edit ? esc_attr($item_type['item_type_id']) : BKGT_Item_Type::get_next_item_type_code(); ?>" 
+                                   class="regular-text" maxlength="4" required readonly>
+                            <p class="description">
+                                <?php if ($is_edit): ?>
+                                    <?php esc_html_e('Kod kan inte ändras efter skapande.', 'bkgt-inventory'); ?>
+                                <?php else: ?>
+                                    <?php esc_html_e('Kod genereras automatiskt som nästa tillgängliga nummer.', 'bkgt-inventory'); ?>
+                                <?php endif; ?>
+                            </p>
                         </td>
                     </tr>
                     
@@ -819,7 +997,7 @@ class BKGT_Inventory_Admin {
                         </th>
                         <td>
                             <textarea id="item_type_description" name="description" 
-                                      rows="3" class="large-text"><?php echo $is_edit ? esc_textarea($item_type->description) : ''; ?></textarea>
+                                      rows="3" class="large-text"><?php echo $is_edit ? esc_textarea($item_type['description'] ?? '') : ''; ?></textarea>
                         </td>
                     </tr>
                 </table>
@@ -871,48 +1049,22 @@ class BKGT_Inventory_Admin {
      */
     public function add_meta_boxes() {
         add_meta_box(
-            'bkgt_inventory_details',
-            __('Utrustningsdetaljer', 'bkgt-inventory'),
-            array($this, 'render_inventory_details_meta_box'),
+            'bkgt_inventory_form',
+            __('Utrustningsinformation', 'bkgt-inventory'),
+            array($this, 'render_inventory_form'),
             'bkgt_inventory_item',
             'normal',
             'high'
-        );
-        
-        add_meta_box(
-            'bkgt_inventory_assignment',
-            __('Tilldelning', 'bkgt-inventory'),
-            array($this, 'render_assignment_meta_box'),
-            'bkgt_inventory_item',
-            'normal',
-            'high'
-        );
-        
-        add_meta_box(
-            'bkgt_inventory_condition',
-            __('Skick', 'bkgt-inventory'),
-            array($this, 'render_condition_meta_box'),
-            'bkgt_inventory_item',
-            'side',
-            'default'
-        );
-        
-        add_meta_box(
-            'bkgt_inventory_history',
-            __('Historik', 'bkgt-inventory'),
-            array($this, 'render_history_meta_box'),
-            'bkgt_inventory_item',
-            'side',
-            'default'
         );
     }
     
     /**
-     * Render inventory details meta box
+     * Render inventory form (single comprehensive form)
      */
-    public function render_inventory_details_meta_box($post) {
+    public function render_inventory_form($post) {
         wp_nonce_field('bkgt_inventory_meta', 'bkgt_inventory_meta_nonce');
-        
+
+        // Get all meta values
         $manufacturer_id = get_post_meta($post->ID, '_bkgt_manufacturer_id', true);
         $item_type_id = get_post_meta($post->ID, '_bkgt_item_type_id', true);
         $serial_number = get_post_meta($post->ID, '_bkgt_serial_number', true);
@@ -920,8 +1072,13 @@ class BKGT_Inventory_Admin {
         $purchase_price = get_post_meta($post->ID, '_bkgt_purchase_price', true);
         $warranty_expiry = get_post_meta($post->ID, '_bkgt_warranty_expiry', true);
         $notes = get_post_meta($post->ID, '_bkgt_notes', true);
-        
-        // Get conditional field values
+
+        // Assignment fields
+        $assignment_type = get_post_meta($post->ID, '_bkgt_assignment_type', true);
+        $assigned_to = get_post_meta($post->ID, '_bkgt_assigned_to', true);
+        $metadata = get_post_meta($post->ID, '_bkgt_metadata', true);
+
+        // Conditional fields
         $size = get_post_meta($post->ID, '_bkgt_size', true);
         $color = get_post_meta($post->ID, '_bkgt_color', true);
         $material = get_post_meta($post->ID, '_bkgt_material', true);
@@ -929,412 +1086,459 @@ class BKGT_Inventory_Admin {
         $voltage = get_post_meta($post->ID, '_bkgt_voltage', true);
         $weight = get_post_meta($post->ID, '_bkgt_weight', true);
         $dimensions = get_post_meta($post->ID, '_bkgt_dimensions', true);
-        
+
+        // Get data for dropdowns
         $manufacturers = BKGT_Manufacturer::get_all();
         $item_types = BKGT_Item_Type::get_all();
-        
-        ?>
-        <table class="form-table">
-            <tr>
-                <th scope="row">
-                    <label for="bkgt_manufacturer_id"><?php esc_html_e('Tillverkare', 'bkgt-inventory'); ?> *</label>
-                </th>
-                <td>
-                    <select id="bkgt_manufacturer_id" name="bkgt_manufacturer_id" required>
-                        <option value=""><?php esc_html_e('Välj tillverkare', 'bkgt-inventory'); ?></option>
-                        <?php foreach ($manufacturers as $manufacturer): ?>
-                        <option value="<?php echo $manufacturer->id; ?>" <?php selected($manufacturer_id, $manufacturer->id); ?>>
-                            <?php echo esc_html($manufacturer->name); ?>
-                        </option>
-                        <?php endforeach; ?>
-                    </select>
-                </td>
-            </tr>
-            
-            <tr>
-                <th scope="row">
-                    <label for="bkgt_item_type_id"><?php esc_html_e('Artikeltyp', 'bkgt-inventory'); ?> *</label>
-                </th>
-                <td>
-                    <select id="bkgt_item_type_id" name="bkgt_item_type_id" required>
-                        <option value=""><?php esc_html_e('Välj artikeltyp', 'bkgt-inventory'); ?></option>
-                        <?php foreach ($item_types as $item_type): ?>
-                        <option value="<?php echo $item_type->id; ?>" <?php selected($item_type_id, $item_type->id); ?> data-type-id="<?php echo esc_attr($item_type->item_type_id); ?>">
-                            <?php echo esc_html($item_type->name); ?>
-                        </option>
-                        <?php endforeach; ?>
-                    </select>
-                </td>
-            </tr>
-            
-            <tr>
-                <th scope="row">
-                    <label for="bkgt_serial_number"><?php esc_html_e('Serienummer', 'bkgt-inventory'); ?></label>
-                </th>
-                <td>
-                    <input type="text" id="bkgt_serial_number" name="bkgt_serial_number" 
-                           value="<?php echo esc_attr($serial_number); ?>" class="regular-text">
-                </td>
-            </tr>
-            
-            <tr>
-                <th scope="row">
-                    <label for="bkgt_purchase_date"><?php esc_html_e('Inköpsdatum', 'bkgt-inventory'); ?></label>
-                </th>
-                <td>
-                    <input type="date" id="bkgt_purchase_date" name="bkgt_purchase_date" 
-                           value="<?php echo esc_attr($purchase_date); ?>">
-                </td>
-            </tr>
-            
-            <tr>
-                <th scope="row">
-                    <label for="bkgt_purchase_price"><?php esc_html_e('Inköpspris (SEK)', 'bkgt-inventory'); ?></label>
-                </th>
-                <td>
-                    <input type="number" id="bkgt_purchase_price" name="bkgt_purchase_price" 
-                           value="<?php echo esc_attr($purchase_price); ?>" step="0.01" min="0">
-                </td>
-            </tr>
-            
-            <tr>
-                <th scope="row">
-                    <label for="bkgt_warranty_expiry"><?php esc_html_e('Garanti utgångsdatum', 'bkgt-inventory'); ?></label>
-                </th>
-                <td>
-                    <input type="date" id="bkgt_warranty_expiry" name="bkgt_warranty_expiry" 
-                           value="<?php echo esc_attr($warranty_expiry); ?>">
-                </td>
-            </tr>
-            
-            <!-- Conditional Fields based on Item Type -->
-            <tr class="bkgt-conditional-field bkgt-size-field" style="display: none;">
-                <th scope="row">
-                    <label for="bkgt_size"><?php esc_html_e('Storlek', 'bkgt-inventory'); ?></label>
-                </th>
-                <td>
-                    <select id="bkgt_size" name="bkgt_size">
-                        <option value=""><?php esc_html_e('Välj storlek', 'bkgt-inventory'); ?></option>
-                        <option value="XS" <?php selected($size, 'XS'); ?>>XS</option>
-                        <option value="S" <?php selected($size, 'S'); ?>>S</option>
-                        <option value="M" <?php selected($size, 'M'); ?>>M</option>
-                        <option value="L" <?php selected($size, 'L'); ?>>L</option>
-                        <option value="XL" <?php selected($size, 'XL'); ?>>XL</option>
-                        <option value="XXL" <?php selected($size, 'XXL'); ?>>XXL</option>
-                    </select>
-                </td>
-            </tr>
-            
-            <tr class="bkgt-conditional-field bkgt-color-field" style="display: none;">
-                <th scope="row">
-                    <label for="bkgt_color"><?php esc_html_e('Färg', 'bkgt-inventory'); ?></label>
-                </th>
-                <td>
-                    <input type="text" id="bkgt_color" name="bkgt_color" 
-                           value="<?php echo esc_attr($color); ?>" class="regular-text" placeholder="<?php esc_attr_e('t.ex. Svart, Vit, Röd', 'bkgt-inventory'); ?>">
-                </td>
-            </tr>
-            
-            <tr class="bkgt-conditional-field bkgt-material-field" style="display: none;">
-                <th scope="row">
-                    <label for="bkgt_material"><?php esc_html_e('Material', 'bkgt-inventory'); ?></label>
-                </th>
-                <td>
-                    <select id="bkgt_material" name="bkgt_material">
-                        <option value=""><?php esc_html_e('Välj material', 'bkgt-inventory'); ?></option>
-                        <option value="plastic" <?php selected($material, 'plastic'); ?>><?php _e('Plast', 'bkgt-inventory'); ?></option>
-                        <option value="metal" <?php selected($material, 'metal'); ?>><?php _e('Metall', 'bkgt-inventory'); ?></option>
-                        <option value="composite" <?php selected($material, 'composite'); ?>><?php _e('Komposit', 'bkgt-inventory'); ?></option>
-                        <option value="fabric" <?php selected($material, 'fabric'); ?>><?php _e('Tyg', 'bkgt-inventory'); ?></option>
-                        <option value="leather" <?php selected($material, 'leather'); ?>><?php _e('Läder', 'bkgt-inventory'); ?></option>
-                        <option value="rubber" <?php selected($material, 'rubber'); ?>><?php _e('Gummi', 'bkgt-inventory'); ?></option>
-                    </select>
-                </td>
-            </tr>
-            
-            <tr class="bkgt-conditional-field bkgt-battery-field" style="display: none;">
-                <th scope="row">
-                    <label for="bkgt_battery_type"><?php esc_html_e('Batterityp', 'bkgt-inventory'); ?></label>
-                </th>
-                <td>
-                    <select id="bkgt_battery_type" name="bkgt_battery_type">
-                        <option value=""><?php esc_html_e('Välj batterityp', 'bkgt-inventory'); ?></option>
-                        <option value="alkaline" <?php selected($battery_type, 'alkaline'); ?>><?php _e('Alkalisk', 'bkgt-inventory'); ?></option>
-                        <option value="lithium" <?php selected($battery_type, 'lithium'); ?>><?php _e('Litium', 'bkgt-inventory'); ?></option>
-                        <option value="rechargeable" <?php selected($battery_type, 'rechargeable'); ?>><?php _e('Uppladdningsbar', 'bkgt-inventory'); ?></option>
-                        <option value="none" <?php selected($battery_type, 'none'); ?>><?php _e('Ingen batteri', 'bkgt-inventory'); ?></option>
-                    </select>
-                </td>
-            </tr>
-            
-            <tr class="bkgt-conditional-field bkgt-voltage-field" style="display: none;">
-                <th scope="row">
-                    <label for="bkgt_voltage"><?php esc_html_e('Spänning (V)', 'bkgt-inventory'); ?></label>
-                </th>
-                <td>
-                    <input type="number" id="bkgt_voltage" name="bkgt_voltage" 
-                           value="<?php echo esc_attr($voltage); ?>" step="0.1" min="0" placeholder="t.ex. 3.7">
-                </td>
-            </tr>
-            
-            <tr class="bkgt-conditional-field bkgt-weight-field" style="display: none;">
-                <th scope="row">
-                    <label for="bkgt_weight"><?php esc_html_e('Vikt (kg)', 'bkgt-inventory'); ?></label>
-                </th>
-                <td>
-                    <input type="number" id="bkgt_weight" name="bkgt_weight" 
-                           value="<?php echo esc_attr($weight); ?>" step="0.01" min="0" placeholder="t.ex. 0.5">
-                </td>
-            </tr>
-            
-            <tr class="bkgt-conditional-field bkgt-dimensions-field" style="display: none;">
-                <th scope="row">
-                    <label for="bkgt_dimensions"><?php esc_html_e('Dimensioner (LxBxH cm)', 'bkgt-inventory'); ?></label>
-                </th>
-                <td>
-                    <input type="text" id="bkgt_dimensions" name="bkgt_dimensions" 
-                           value="<?php echo esc_attr($dimensions); ?>" class="regular-text" placeholder="t.ex. 30x20x10">
-                </td>
-            </tr>
-            
-            <tr>
-                <th scope="row">
-                    <label for="bkgt_notes"><?php esc_html_e('Anteckningar', 'bkgt-inventory'); ?></label>
-                </th>
-                <td>
-                    <textarea id="bkgt_notes" name="bkgt_notes" rows="3" class="large-text"><?php echo esc_textarea($notes); ?></textarea>
-                </td>
-            </tr>
-        </table>
-        
-        <script type="text/javascript">
-        jQuery(document).ready(function($) {
-            function toggleConditionalFields() {
-                var selectedOption = $('#bkgt_item_type_id option:selected');
-                var typeId = selectedOption.data('type-id');
-                
-                // Hide all conditional fields first
-                $('.bkgt-conditional-field').hide();
-                
-                // Show fields based on item type
-                if (typeId) {
-                    switch(typeId.toLowerCase()) {
-                        case 'helm': // Helmet
-                        case 'hjlm':
-                            $('.bkgt-size-field, .bkgt-color-field, .bkgt-material-field, .bkgt-weight-field').show();
-                            break;
-                        case 'axsk': // Shoulder pads
-                        case 'bensk': // Knee pads
-                        case 'armsk': // Elbow pads
-                        case 'tröja': // Jersey
-                        case 'byxor': // Pants
-                            $('.bkgt-size-field, .bkgt-color-field, .bkgt-material-field').show();
-                            break;
-                        case 'boll': // Ball
-                        case 'kon': // Cone
-                            $('.bkgt-color-field, .bkgt-material-field, .bkgt-weight-field, .bkgt-dimensions-field').show();
-                            break;
-                        case 'elek': // Electronics
-                        case 'tidt': // Timer
-                        case 'ljus': // Light
-                            $('.bkgt-battery-field, .bkgt-voltage-field, .bkgt-weight-field, .bkgt-dimensions-field').show();
-                            break;
-                        case 'verk': // Tools
-                        case 'repd': // Repair parts
-                            $('.bkgt-material-field, .bkgt-weight-field, .bkgt-dimensions-field').show();
-                            break;
-                        default:
-                            // Show common fields for other types
-                            $('.bkgt-color-field, .bkgt-material-field').show();
-                            break;
-                    }
-                }
-            }
-            
-            // Initial check
-            toggleConditionalFields();
-            
-            // Listen for changes
-            $('#bkgt_item_type_id').on('change', toggleConditionalFields);
-            
-            // Dynamic validation
-            $('#bkgt_voltage').on('input', function() {
-                var voltage = parseFloat($(this).val());
-                if (voltage > 50) {
-                    alert('<?php _e('Varning: Spänning över 50V kan vara farligt!', 'bkgt-inventory'); ?>');
-                }
-            });
-            
-            $('#bkgt_weight').on('input', function() {
-                var weight = parseFloat($(this).val());
-                if (weight > 10) {
-                    $(this).addClass('warning-field');
-                } else {
-                    $(this).removeClass('warning-field');
-                }
-            });
-        });
-        </script>
-        
-        <style>
-        .warning-field {
-            border-color: #ff6b35 !important;
-            background-color: #fff3cd !important;
-        }
-        .bkgt-conditional-field {
-            background-color: #f8f9fa;
-            border-left: 3px solid #007cba;
-        }
-        .bkgt-conditional-field th {
-            font-weight: normal;
-            color: #666;
-        }
-        </style>
-        <?php
-    }
-    
-    /**
-     * Render assignment meta box
-     */
-    public function render_assignment_meta_box($post) {
-        $assignment_type = get_post_meta($post->ID, '_bkgt_assignment_type', true);
-        $assigned_to = get_post_meta($post->ID, '_bkgt_assigned_to', true);
-        
+
         // Get teams from user management plugin
         $teams = array();
-        if (function_exists('bkgt_get_teams')) {
-            $teams = bkgt_get_teams();
+        if (class_exists('BKGT_Team')) {
+            $teams = BKGT_Team::get_all_teams();
         }
-        
-        ?>
-        <table class="form-table">
-            <tr>
-                <th scope="row">
-                    <label for="bkgt_assignment_type"><?php esc_html_e('Tilldelningstyp', 'bkgt-inventory'); ?></label>
-                </th>
-                <td>
-                    <select id="bkgt_assignment_type" name="bkgt_assignment_type">
-                        <option value=""><?php esc_html_e('Ej tilldelad', 'bkgt-inventory'); ?></option>
-                        <option value="club" <?php selected($assignment_type, 'club'); ?>>
-                            <?php esc_html_e('Klubben', 'bkgt-inventory'); ?>
-                        </option>
-                        <option value="team" <?php selected($assignment_type, 'team'); ?>>
-                            <?php esc_html_e('Lag', 'bkgt-inventory'); ?>
-                        </option>
-                        <option value="individual" <?php selected($assignment_type, 'individual'); ?>>
-                            <?php esc_html_e('Individ', 'bkgt-inventory'); ?>
-                        </option>
-                    </select>
-                </td>
-            </tr>
-            
-            <tr id="bkgt_team_assignment_row" style="display: <?php echo $assignment_type === 'team' ? 'table-row' : 'none'; ?>;">
-                <th scope="row">
-                    <label for="bkgt_assigned_team"><?php esc_html_e('Tilldelat lag', 'bkgt-inventory'); ?></label>
-                </th>
-                <td>
-                    <select id="bkgt_assigned_team" name="bkgt_assigned_to">
-                        <option value=""><?php esc_html_e('Välj lag', 'bkgt-inventory'); ?></option>
-                        <?php foreach ($teams as $team): ?>
-                        <option value="<?php echo $team->id; ?>" <?php selected($assigned_to, $team->id); ?>>
-                            <?php echo esc_html($team->name); ?>
-                        </option>
-                        <?php endforeach; ?>
-                    </select>
-                </td>
-            </tr>
-            
-            <tr id="bkgt_individual_assignment_row" style="display: <?php echo $assignment_type === 'individual' ? 'table-row' : 'none'; ?>;">
-                <th scope="row">
-                    <label for="bkgt_assigned_user"><?php esc_html_e('Tilldelad användare', 'bkgt-inventory'); ?></label>
-                </th>
-                <td>
-                    <?php wp_dropdown_users(array(
-                        'name' => 'bkgt_assigned_to',
-                        'selected' => $assigned_to,
-                        'show_option_none' => __('Välj användare', 'bkgt-inventory'),
-                        'role__in' => array('styrelsemedlem', 'tränare', 'lagledare'),
-                    )); ?>
-                </td>
-            </tr>
-        </table>
-        
-        <script>
-        jQuery(document).ready(function($) {
-            $('#bkgt_assignment_type').change(function() {
-                var type = $(this).val();
-                $('#bkgt_team_assignment_row').hide();
-                $('#bkgt_individual_assignment_row').hide();
-                
-                if (type === 'team') {
-                    $('#bkgt_team_assignment_row').show();
-                } else if (type === 'individual') {
-                    $('#bkgt_individual_assignment_row').show();
-                }
-            });
-        });
-        </script>
-        <?php
-    }
-    
-    /**
-     * Render condition meta box
-     */
-    public function render_condition_meta_box($post) {
+
+        // Get conditions
         $conditions = get_terms(array(
             'taxonomy' => 'bkgt_condition',
             'hide_empty' => false,
         ));
-        
-        $current_condition = wp_get_post_terms($post->ID, 'bkgt_condition', array('fields' => 'ids'));
-        $current_condition = !empty($current_condition) ? $current_condition[0] : '';
-        
+        if (is_wp_error($conditions)) {
+            $conditions = array();
+        }
+        $current_condition_terms = wp_get_post_terms($post->ID, 'bkgt_condition', array('fields' => 'ids'));
+        $current_condition = !empty($current_condition_terms) ? $current_condition_terms[0] : '';
+
         ?>
-        <p>
-            <select name="bkgt_condition" class="widefat">
-                <option value=""><?php esc_html_e('Välj skick', 'bkgt-inventory'); ?></option>
-                <?php foreach ($conditions as $condition): ?>
-                <option value="<?php echo $condition->term_id; ?>" <?php selected($current_condition, $condition->term_id); ?>>
-                    <?php echo esc_html($condition->name); ?>
-                </option>
-                <?php endforeach; ?>
-            </select>
-        </p>
-        
-        <p>
-            <a href="<?php echo admin_url('edit-tags.php?taxonomy=bkgt_condition&post_type=bkgt_inventory_item'); ?>" target="_blank">
-                <?php esc_html_e('Hantera skickstyper', 'bkgt-inventory'); ?>
-            </a>
-        </p>
+        <div class="bkgt-inventory-form">
+            <h3><?php esc_html_e('Grundläggande information', 'bkgt-inventory'); ?></h3>
+            <table class="form-table">
+                <tr>
+                    <th scope="row">
+                        <label for="bkgt_manufacturer_id"><?php esc_html_e('Tillverkare', 'bkgt-inventory'); ?> *</label>
+                    </th>
+                    <td>
+                        <select id="bkgt_manufacturer_id" name="bkgt_manufacturer_id" required>
+                            <option value=""><?php esc_html_e('Välj tillverkare', 'bkgt-inventory'); ?></option>
+                            <?php foreach ($manufacturers as $manufacturer): ?>
+                            <option value="<?php echo $manufacturer['id']; ?>" <?php selected($manufacturer_id, $manufacturer['id']); ?>>
+                                <?php echo esc_html($manufacturer['name']); ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th scope="row">
+                        <label for="bkgt_item_type_id"><?php esc_html_e('Artikeltyp', 'bkgt-inventory'); ?> *</label>
+                    </th>
+                    <td>
+                        <select id="bkgt_item_type_id" name="bkgt_item_type_id" required>
+                            <option value=""><?php esc_html_e('Välj artikeltyp', 'bkgt-inventory'); ?></option>
+                            <?php foreach ($item_types as $item_type): ?>
+                            <option value="<?php echo $item_type['id']; ?>" <?php selected($item_type_id, $item_type['id']); ?> data-type-id="<?php echo esc_attr($item_type['item_type_id']); ?>">
+                                <?php echo esc_html($item_type['name']); ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th scope="row">
+                        <label for="bkgt_serial_number"><?php esc_html_e('Unik Identifierare', 'bkgt-inventory'); ?></label>
+                    </th>
+                    <td>
+                        <input type="text" id="bkgt_serial_number" name="bkgt_serial_number"
+                               value="<?php echo esc_attr($serial_number); ?>" class="regular-text" readonly>
+                        <p class="description"><?php esc_html_e('Genereras automatiskt baserat på tillverkare och artikeltyp.', 'bkgt-inventory'); ?></p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th scope="row">
+                        <label for="bkgt_condition"><?php esc_html_e('Skick', 'bkgt-inventory'); ?></label>
+                    </th>
+                    <td>
+                        <select name="bkgt_condition" class="regular-text">
+                            <option value=""><?php esc_html_e('Välj skick', 'bkgt-inventory'); ?></option>
+                            <?php foreach ($conditions as $condition): ?>
+                            <option value="<?php echo $condition->term_id; ?>" <?php selected($current_condition, $condition->term_id); ?>>
+                                <?php echo esc_html($condition->name); ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <p class="description">
+                            <a href="<?php echo admin_url('edit-tags.php?taxonomy=bkgt_condition&post_type=bkgt_inventory_item'); ?>" target="_blank">
+                                <?php esc_html_e('Hantera skickstyper', 'bkgt-inventory'); ?>
+                            </a>
+                        </p>
+                    </td>
+                </tr>
+            </table>
+
+            <h3><?php esc_html_e('Inköpsinformation', 'bkgt-inventory'); ?></h3>
+            <table class="form-table">
+                <tr>
+                    <th scope="row">
+                        <label for="bkgt_purchase_date"><?php esc_html_e('Inköpsdatum', 'bkgt-inventory'); ?></label>
+                    </th>
+                    <td>
+                        <input type="date" id="bkgt_purchase_date" name="bkgt_purchase_date"
+                               value="<?php echo esc_attr($purchase_date); ?>">
+                    </td>
+                </tr>
+
+                <tr>
+                    <th scope="row">
+                        <label for="bkgt_purchase_price"><?php esc_html_e('Inköpspris (SEK)', 'bkgt-inventory'); ?></label>
+                    </th>
+                    <td>
+                        <input type="number" id="bkgt_purchase_price" name="bkgt_purchase_price"
+                               value="<?php echo esc_attr($purchase_price); ?>" step="0.01" min="0">
+                    </td>
+                </tr>
+
+                <tr>
+                    <th scope="row">
+                        <label for="bkgt_warranty_expiry"><?php esc_html_e('Garanti utgångsdatum', 'bkgt-inventory'); ?></label>
+                    </th>
+                    <td>
+                        <input type="date" id="bkgt_warranty_expiry" name="bkgt_warranty_expiry"
+                               value="<?php echo esc_attr($warranty_expiry); ?>">
+                    </td>
+                </tr>
+            </table>
+
+            <h3><?php esc_html_e('Tilldelning & Egenskaper', 'bkgt-inventory'); ?></h3>
+            <table class="form-table">
+                <tr>
+                    <th scope="row">
+                        <label for="bkgt_assignment_type"><?php esc_html_e('Tilldelningstyp', 'bkgt-inventory'); ?></label>
+                    </th>
+                    <td>
+                        <select id="bkgt_assignment_type" name="bkgt_assignment_type">
+                            <option value=""><?php esc_html_e('Ej tilldelad', 'bkgt-inventory'); ?></option>
+                            <option value="location" <?php selected($assignment_type, 'location'); ?>>
+                                <?php esc_html_e('Fysisk plats', 'bkgt-inventory'); ?>
+                            </option>
+                            <option value="club" <?php selected($assignment_type, 'club'); ?>>
+                                <?php esc_html_e('Klubben', 'bkgt-inventory'); ?>
+                            </option>
+                            <option value="team" <?php selected($assignment_type, 'team'); ?>>
+                                <?php esc_html_e('Lag', 'bkgt-inventory'); ?>
+                            </option>
+                            <option value="individual" <?php selected($assignment_type, 'individual'); ?>>
+                                <?php esc_html_e('Individ', 'bkgt-inventory'); ?>
+                            </option>
+                        </select>
+                    </td>
+                </tr>
+
+                <tr id="bkgt_location_assignment_row" style="display: <?php echo $assignment_type === 'location' ? 'table-row' : 'none'; ?>;">
+                    <th scope="row">
+                        <label for="bkgt_assigned_location"><?php esc_html_e('Fysisk plats', 'bkgt-inventory'); ?></label>
+                    </th>
+                    <td>
+                        <select id="bkgt_assigned_location" name="bkgt_assigned_to">
+                            <option value=""><?php esc_html_e('Välj plats', 'bkgt-inventory'); ?></option>
+                            <?php
+                            $locations = BKGT_Location::get_all_locations();
+                            foreach ($locations as $location):
+                            ?>
+                            <option value="<?php echo $location['id']; ?>" <?php selected($assigned_to, $location['id']); ?>>
+                                <?php echo esc_html($location['name']); ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </td>
+                </tr>
+
+                <tr id="bkgt_team_assignment_row" style="display: <?php echo $assignment_type === 'team' ? 'table-row' : 'none'; ?>;">
+                    <th scope="row">
+                        <label for="bkgt_assigned_team"><?php esc_html_e('Tilldelat lag', 'bkgt-inventory'); ?></label>
+                    </th>
+                    <td>
+                        <select id="bkgt_assigned_team" name="bkgt_assigned_to">
+                            <option value=""><?php esc_html_e('Välj lag', 'bkgt-inventory'); ?></option>
+                            <?php foreach ($teams as $team): ?>
+                            <option value="<?php echo $team->ID; ?>" <?php selected($assigned_to, $team->ID); ?>>
+                                <?php echo esc_html($team->post_title); ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </td>
+                </tr>
+
+                <tr id="bkgt_individual_assignment_row" style="display: <?php echo $assignment_type === 'individual' ? 'table-row' : 'none'; ?>;">
+                    <th scope="row">
+                        <label for="bkgt_assigned_user"><?php esc_html_e('Tilldelad användare', 'bkgt-inventory'); ?></label>
+                    </th>
+                    <td>
+                        <?php wp_dropdown_users(array(
+                            'name' => 'bkgt_assigned_to',
+                            'selected' => $assigned_to,
+                            'show_option_none' => __('Välj användare', 'bkgt-inventory'),
+                            'role__in' => array('styrelsemedlem', 'tränare', 'lagledare'),
+                        )); ?>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th scope="row">
+                        <label for="bkgt_size"><?php esc_html_e('Storlek', 'bkgt-inventory'); ?></label>
+                    </th>
+                    <td>
+                        <input type="text" id="bkgt_size" name="bkgt_size"
+                               value="<?php echo esc_attr($size); ?>" class="regular-text" placeholder="<?php esc_attr_e('t.ex. M, 42, Large, 30x20cm', 'bkgt-inventory'); ?>">
+                    </td>
+                </tr>
+
+                <tr>
+                    <th scope="row">
+                        <label for="bkgt_metadata"><?php esc_html_e('Ytterligare metadata', 'bkgt-inventory'); ?></label>
+                    </th>
+                    <td>
+                        <input type="text" id="bkgt_metadata" name="bkgt_metadata"
+                               value="<?php echo esc_attr($metadata ?? ''); ?>" class="regular-text" placeholder="<?php esc_attr_e('t.ex. Modellnummer, serienummer, specifikationer', 'bkgt-inventory'); ?>">
+                    </td>
+                </tr>
+
+                <!-- Conditional Fields based on Item Type -->
+
+                <tr class="bkgt-conditional-field bkgt-color-field" style="display: none;">
+                    <th scope="row">
+                        <label for="bkgt_color"><?php esc_html_e('Färg', 'bkgt-inventory'); ?></label>
+                    </th>
+                    <td>
+                        <input type="text" id="bkgt_color" name="bkgt_color"
+                               value="<?php echo esc_attr($color); ?>" class="regular-text" placeholder="<?php esc_attr_e('t.ex. Svart, Vit, Röd', 'bkgt-inventory'); ?>">
+                    </td>
+                </tr>
+
+                <tr class="bkgt-conditional-field bkgt-material-field" style="display: none;">
+                    <th scope="row">
+                        <label for="bkgt_material"><?php esc_html_e('Material', 'bkgt-inventory'); ?></label>
+                    </th>
+                    <td>
+                        <select id="bkgt_material" name="bkgt_material">
+                            <option value=""><?php esc_html_e('Välj material', 'bkgt-inventory'); ?></option>
+                            <option value="plastic" <?php selected($material, 'plastic'); ?>><?php _e('Plast', 'bkgt-inventory'); ?></option>
+                            <option value="metal" <?php selected($material, 'metal'); ?>><?php _e('Metall', 'bkgt-inventory'); ?></option>
+                            <option value="composite" <?php selected($material, 'composite'); ?>><?php _e('Komposit', 'bkgt-inventory'); ?></option>
+                            <option value="fabric" <?php selected($material, 'fabric'); ?>><?php _e('Tyg', 'bkgt-inventory'); ?></option>
+                            <option value="leather" <?php selected($material, 'leather'); ?>><?php _e('Läder', 'bkgt-inventory'); ?></option>
+                            <option value="rubber" <?php selected($material, 'rubber'); ?>><?php _e('Gummi', 'bkgt-inventory'); ?></option>
+                        </select>
+                    </td>
+                </tr>
+
+                <tr class="bkgt-conditional-field bkgt-battery-field" style="display: none;">
+                    <th scope="row">
+                        <label for="bkgt_battery_type"><?php esc_html_e('Batterityp', 'bkgt-inventory'); ?></label>
+                    </th>
+                    <td>
+                        <select id="bkgt_battery_type" name="bkgt_battery_type">
+                            <option value=""><?php esc_html_e('Välj batterityp', 'bkgt-inventory'); ?></option>
+                            <option value="alkaline" <?php selected($battery_type, 'alkaline'); ?>><?php _e('Alkalisk', 'bkgt-inventory'); ?></option>
+                            <option value="lithium" <?php selected($battery_type, 'lithium'); ?>><?php _e('Litium', 'bkgt-inventory'); ?></option>
+                            <option value="rechargeable" <?php selected($battery_type, 'rechargeable'); ?>><?php _e('Uppladdningsbar', 'bkgt-inventory'); ?></option>
+                            <option value="none" <?php selected($battery_type, 'none'); ?>><?php _e('Ingen batteri', 'bkgt-inventory'); ?></option>
+                        </select>
+                    </td>
+                </tr>
+
+                <tr class="bkgt-conditional-field bkgt-voltage-field" style="display: none;">
+                    <th scope="row">
+                        <label for="bkgt_voltage"><?php esc_html_e('Spänning (V)', 'bkgt-inventory'); ?></label>
+                    </th>
+                    <td>
+                        <input type="number" id="bkgt_voltage" name="bkgt_voltage"
+                               value="<?php echo esc_attr($voltage); ?>" step="0.1" min="0" placeholder="t.ex. 3.7">
+                    </td>
+                </tr>
+
+                <tr class="bkgt-conditional-field bkgt-weight-field" style="display: none;">
+                    <th scope="row">
+                        <label for="bkgt_weight"><?php esc_html_e('Vikt (kg)', 'bkgt-inventory'); ?></label>
+                    </th>
+                    <td>
+                        <input type="number" id="bkgt_weight" name="bkgt_weight"
+                               value="<?php echo esc_attr($weight); ?>" step="0.01" min="0" placeholder="t.ex. 0.5">
+                    </td>
+                </tr>
+
+                <tr class="bkgt-conditional-field bkgt-dimensions-field" style="display: none;">
+                    <th scope="row">
+                        <label for="bkgt_dimensions"><?php esc_html_e('Dimensioner (LxBxH cm)', 'bkgt-inventory'); ?></label>
+                    </th>
+                    <td>
+                        <input type="text" id="bkgt_dimensions" name="bkgt_dimensions"
+                               value="<?php echo esc_attr($dimensions); ?>" class="regular-text" placeholder="t.ex. 30x20x10">
+                    </td>
+                </tr>
+            </table>            <h3><?php esc_html_e('Anteckningar', 'bkgt-inventory'); ?></h3>
+            <table class="form-table">
+                <tr>
+                    <th scope="row">
+                        <label for="bkgt_notes"><?php esc_html_e('Anteckningar', 'bkgt-inventory'); ?></label>
+                    </th>
+                    <td>
+                        <textarea id="bkgt_notes" name="bkgt_notes" rows="3" class="large-text"><?php echo esc_textarea($notes); ?></textarea>
+                    </td>
+                </tr>
+            </table>
+
+            <?php
+            // Show history if item exists
+            if ($post->ID) {
+                $history = BKGT_History::get_item_history($post->ID, 5);
+                if (!empty($history)) {
+                    ?>
+                    <h3><?php esc_html_e('Senaste historik', 'bkgt-inventory'); ?></h3>
+                    <div class="bkgt-history-preview">
+                        <ul class="bkgt-history-list">
+                            <?php foreach ($history as $entry): ?>
+                            <li>
+                                <small><?php echo wp_date('Y-m-d H:i', strtotime($entry->timestamp)); ?>: <?php echo esc_html(BKGT_History::get_action_description($entry->action, $entry->data)); ?></small>
+                            </li>
+                            <?php endforeach; ?>
+                        </ul>
+                        <p>
+                            <a href="<?php echo add_query_arg('item_id', $post->ID, admin_url('admin.php?page=bkgt-history')); ?>" target="_blank">
+                                <?php esc_html_e('Visa fullständig historik', 'bkgt-inventory'); ?>
+                            </a>
+                        </p>
+                    </div>
+                    <?php
+                }
+            }
+            ?>
+
+            <script type="text/javascript">
+            jQuery(document).ready(function($) {
+                function toggleConditionalFields() {
+                    var selectedOption = $('#bkgt_item_type_id option:selected');
+                    var typeId = selectedOption.data('type-id');
+
+                    // Hide all conditional fields first
+                    $('.bkgt-conditional-field').hide();
+
+                    // Show fields based on item type
+                    if (typeId) {
+                        switch(typeId.toLowerCase()) {
+                            case 'helm': // Helmet
+                            case 'hjlm':
+                                $('.bkgt-color-field, .bkgt-material-field, .bkgt-weight-field').show();
+                                break;
+                            case 'axsk': // Shoulder pads
+                            case 'bensk': // Knee pads
+                            case 'armsk': // Elbow pads
+                            case 'tröja': // Jersey
+                            case 'byxor': // Pants
+                                $('.bkgt-color-field, .bkgt-material-field').show();
+                                break;
+                            case 'boll': // Ball
+                            case 'kon': // Cone
+                                $('.bkgt-color-field, .bkgt-material-field, .bkgt-weight-field, .bkgt-dimensions-field').show();
+                                break;
+                            case 'elek': // Electronics
+                            case 'tidt': // Timer
+                            case 'ljus': // Light
+                                $('.bkgt-battery-field, .bkgt-voltage-field, .bkgt-weight-field, .bkgt-dimensions-field').show();
+                                break;
+                            case 'verk': // Tools
+                            case 'repd': // Repair parts
+                                $('.bkgt-material-field, .bkgt-weight-field, .bkgt-dimensions-field').show();
+                                break;
+                            default:
+                                // Show common fields for other types
+                                $('.bkgt-color-field, .bkgt-material-field').show();
+                                break;
+                        }
+                    }
+                }
+
+                // Initial check
+                toggleConditionalFields();
+
+                // Listen for changes
+                $('#bkgt_item_type_id').on('change', toggleConditionalFields);
+
+                // Assignment type toggle
+                $('#bkgt_assignment_type').change(function() {
+                    var type = $(this).val();
+                    $('#bkgt_location_assignment_row').hide();
+                    $('#bkgt_team_assignment_row').hide();
+                    $('#bkgt_individual_assignment_row').hide();
+
+                    if (type === 'location') {
+                        $('#bkgt_location_assignment_row').show();
+                    } else if (type === 'team') {
+                        $('#bkgt_team_assignment_row').show();
+                    } else if (type === 'individual') {
+                        $('#bkgt_individual_assignment_row').show();
+                    }
+                });
+
+                // Dynamic validation
+                $('#bkgt_voltage').on('input', function() {
+                    var voltage = parseFloat($(this).val());
+                    if (voltage > 50) {
+                        alert('<?php _e('Varning: Spänning över 50V kan vara farligt!', 'bkgt-inventory'); ?>');
+                    }
+                });
+
+                $('#bkgt_weight').on('input', function() {
+                    var weight = parseFloat($(this).val());
+                    if (weight > 10) {
+                        $(this).addClass('warning-field');
+                    } else {
+                        $(this).removeClass('warning-field');
+                    }
+                });
+            });
+            </script>
+
+            <style>
+            .bkgt-inventory-form h3 {
+                border-bottom: 1px solid #ddd;
+                padding-bottom: 5px;
+                margin-top: 30px;
+                margin-bottom: 15px;
+                color: #23282d;
+            }
+            .bkgt-inventory-form h3:first-child {
+                margin-top: 0;
+            }
+            .warning-field {
+                border-color: #ff6b35 !important;
+                background-color: #fff3cd !important;
+            }
+            .bkgt-conditional-field {
+                background-color: #f8f9fa;
+                border-left: 3px solid #007cba;
+            }
+            .bkgt-conditional-field th {
+                font-weight: normal;
+                color: #666;
+            }
+            .bkgt-history-preview {
+                background-color: #f9f9f9;
+                padding: 10px;
+                border-radius: 4px;
+                margin-top: 10px;
+            }
+            .bkgt-history-list {
+                margin: 0;
+                padding-left: 20px;
+            }
+            .bkgt-history-list li {
+                margin-bottom: 5px;
+            }
+            </style>
+        </div>
         <?php
-    }
-    
-    /**
-     * Render history meta box
-     */
-    public function render_history_meta_box($post) {
-        $history = BKGT_History::get_item_history($post->ID, 5);
-        
-        if (empty($history)) {
-            echo '<p>' . esc_html__('Ingen historik tillgänglig.', 'bkgt-inventory') . '</p>';
-            return;
-        }
-        
-        echo '<ul class="bkgt-history-list">';
-        foreach ($history as $entry) {
-            printf(
-                '<li><small>%s: %s</small></li>',
-                wp_date('Y-m-d H:i', strtotime($entry->timestamp)),
-                esc_html(BKGT_History::get_action_description($entry->action, $entry->data))
-            );
-        }
-        echo '</ul>';
-        
-        printf(
-            '<p><a href="%s" target="_blank">%s</a></p>',
-            add_query_arg('item_id', $post->ID, admin_url('admin.php?page=bkgt-history')),
-            esc_html__('Visa fullständig historik', 'bkgt-inventory')
-        );
     }
     
     /**
@@ -1365,6 +1569,7 @@ class BKGT_Inventory_Admin {
             'bkgt_notes',
             'bkgt_assignment_type',
             'bkgt_assigned_to',
+            'bkgt_metadata',
             // Conditional fields
             'bkgt_size',
             'bkgt_color',
@@ -1394,7 +1599,7 @@ class BKGT_Inventory_Admin {
             
             if ($manufacturer && $item_type) {
                 $inventory_item = new BKGT_Inventory_Item($post_id);
-                $unique_id = $inventory_item->generate_unique_identifier($manufacturer->code, $item_type->code);
+                $unique_id = $inventory_item->generate_unique_identifier($_POST['bkgt_manufacturer_id'], $_POST['bkgt_item_type_id']);
                 update_post_meta($post_id, '_bkgt_unique_id', $unique_id);
                 
                 // Update post title if it's "Auto Draft"
@@ -1522,12 +1727,20 @@ class BKGT_Inventory_Admin {
      * Render location options for select dropdown
      */
     private function render_location_options($locations, $selected = '', $parent_id = null, $level = 0) {
+        if (!is_array($locations)) {
+            return;
+        }
+        
         $indent = str_repeat('—', $level);
         
         foreach ($locations as $location) {
-            if ($location['parent_id'] == $parent_id) {
-                $option_value = $location['id'];
-                $option_text = $indent . ' ' . $location['name'];
+            if (!is_array($location)) {
+                continue;
+            }
+            
+            if (($location['parent_id'] ?? null) == $parent_id) {
+                $option_value = $location['id'] ?? '';
+                $option_text = $indent . ' ' . ($location['name'] ?? '');
                 $is_selected = ($selected == $option_value) ? 'selected' : '';
                 
                 echo '<option value="' . esc_attr($option_value) . '" ' . $is_selected . '>' . esc_html($option_text) . '</option>';
@@ -1544,8 +1757,16 @@ class BKGT_Inventory_Admin {
      * Render locations hierarchy
      */
     private function render_locations_hierarchy($locations, $parent_id = null, $level = 0) {
+        if (!is_array($locations)) {
+            return;
+        }
+        
         foreach ($locations as $location) {
-            if ($location['parent_id'] == $parent_id) {
+            if (!is_array($location)) {
+                continue;
+            }
+            
+            if (($location['parent_id'] ?? null) == $parent_id) {
                 $this->render_location_item($location, $level);
                 
                 // Render children
@@ -2510,5 +2731,114 @@ class BKGT_Inventory_Admin {
              AND a.due_date < CURDATE()
              ORDER BY a.due_date ASC"
         );
+    }
+
+    /**
+     * Render recent inventory items table
+     */
+    private function render_recent_inventory_table() {
+        $recent_items = get_posts(array(
+            'post_type' => 'bkgt_inventory_item',
+            'posts_per_page' => 10,
+            'orderby' => 'date',
+            'order' => 'DESC'
+        ));
+
+        if (empty($recent_items)) {
+            echo '<p>' . esc_html__('Inga artiklar hittades.', 'bkgt-inventory') . '</p>';
+            return;
+        }
+
+        ?>
+        <div class="bkgt-table-responsive">
+            <table class="wp-list-table widefat fixed striped">
+                <thead>
+                    <tr>
+                        <th><?php esc_html_e('Artikel', 'bkgt-inventory'); ?></th>
+                        <th><?php esc_html_e('Unik Identifierare', 'bkgt-inventory'); ?></th>
+                        <th><?php esc_html_e('Tillverkare', 'bkgt-inventory'); ?></th>
+                        <th><?php esc_html_e('Artikeltyp', 'bkgt-inventory'); ?></th>
+                        <th><?php esc_html_e('Skick', 'bkgt-inventory'); ?></th>
+                        <th><?php esc_html_e('Tilldelad', 'bkgt-inventory'); ?></th>
+                        <th><?php esc_html_e('Datum', 'bkgt-inventory'); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($recent_items as $item): ?>
+                        <?php
+                        $manufacturer_id = get_post_meta($item->ID, '_bkgt_manufacturer_id', true);
+                        $item_type_id = get_post_meta($item->ID, '_bkgt_item_type_id', true);
+                        $serial_number = get_post_meta($item->ID, '_bkgt_serial_number', true);
+                        $condition = get_post_meta($item->ID, '_bkgt_condition', true);
+                        $assignment_type = get_post_meta($item->ID, '_bkgt_assignment_type', true);
+                        $assigned_to = get_post_meta($item->ID, '_bkgt_assigned_to', true);
+
+                        // Get manufacturer and item type names
+                        $manufacturer_name = '';
+                        if ($manufacturer_id) {
+                            $manufacturer = BKGT_Manufacturer::get($manufacturer_id);
+                            $manufacturer_name = $manufacturer ? $manufacturer['name'] : '';
+                        }
+
+                        $item_type_name = '';
+                        if ($item_type_id) {
+                            $item_type = BKGT_Item_Type::get($item_type_id);
+                            $item_type_name = $item_type ? $item_type['name'] : '';
+                        }
+
+                        // Get assignee name
+                        $assignee_name = '';
+                        if ($assignment_type && $assigned_to) {
+                            switch ($assignment_type) {
+                                case 'team':
+                                    if (class_exists('BKGT_Team')) {
+                                        $team = BKGT_Team::get_team($assigned_to);
+                                        $assignee_name = $team ? $team->post_title : '';
+                                    }
+                                    break;
+                                case 'individual':
+                                    $user = get_user_by('id', $assigned_to);
+                                    $assignee_name = $user ? $user->display_name : '';
+                                    break;
+                                case 'club':
+                                    $assignee_name = __('Klubben', 'bkgt-inventory');
+                                    break;
+                                case 'location':
+                                    $assignee_name = __('Plats', 'bkgt-inventory');
+                                    break;
+                            }
+                        }
+
+                        // Get condition term
+                        $condition_name = '';
+                        if ($condition) {
+                            $condition_term = get_term($condition, 'bkgt_condition');
+                            $condition_name = $condition_term && !is_wp_error($condition_term) ? $condition_term->name : '';
+                        }
+                        ?>
+                        <tr>
+                            <td>
+                                <strong>
+                                    <a href="<?php echo get_edit_post_link($item->ID); ?>">
+                                        <?php echo esc_html($item->post_title); ?>
+                                    </a>
+                                </strong>
+                            </td>
+                            <td><?php echo esc_html($serial_number); ?></td>
+                            <td><?php echo esc_html($manufacturer_name); ?></td>
+                            <td><?php echo esc_html($item_type_name); ?></td>
+                            <td>
+                                <span class="bkgt-condition-<?php echo esc_attr($condition_name ? strtolower(str_replace(' ', '-', $condition_name)) : 'normal'); ?>">
+                                    <?php echo esc_html($condition_name ?: __('Normal', 'bkgt-inventory')); ?>
+                                </span>
+                            </td>
+                            <td><?php echo esc_html($assignee_name); ?></td>
+                            <td><?php echo esc_html(get_the_date('', $item->ID)); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php
     }
 }

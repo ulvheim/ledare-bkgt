@@ -30,28 +30,34 @@ class BKGT_Item_Type {
     /**
      * Create a new item type
      */
-    public static function create($name, $item_type_id, $custom_fields = array()) {
+    public static function create($data) {
         self::init_db();
         global $wpdb;
         
-        // Validate item type ID format (4 digits)
-        if (!preg_match('/^\d{4}$/', $item_type_id)) {
-            return new WP_Error('invalid_item_type_id', __('Artikeltyp-ID måste vara 4 siffror.', 'bkgt-inventory'));
+        // Validate required fields
+        if (empty($data['name']) || empty($data['code'])) {
+            return new WP_Error('missing_data', __('Namn och kod krävs.', 'bkgt-inventory'));
         }
         
-        // Check if item type ID already exists
-        if (self::exists($item_type_id)) {
-            return new WP_Error('item_type_id_exists', __('Artikeltyp-ID finns redan.', 'bkgt-inventory'));
+        // Validate item type code format (4 characters)
+        if (!preg_match('/^[A-Z0-9]{4}$/', strtoupper($data['code']))) {
+            return new WP_Error('invalid_code', __('Kod måste vara 4 tecken lång och innehålla endast bokstäver och siffror.', 'bkgt-inventory'));
+        }
+        
+        // Check if item type code already exists
+        if (self::exists(strtoupper($data['code']))) {
+            return new WP_Error('code_exists', __('Artikelkod finns redan.', 'bkgt-inventory'));
         }
         
         $result = $wpdb->insert(
             self::$db->get_item_types_table(),
             array(
-                'name' => sanitize_text_field($name),
-                'item_type_id' => $item_type_id,
-                'custom_fields' => json_encode($custom_fields),
+                'name' => sanitize_text_field($data['name']),
+                'item_type_id' => strtoupper($data['code']),
+                'description' => sanitize_textarea_field($data['description'] ?? ''),
+                'custom_fields' => json_encode($data['custom_fields'] ?? array()),
             ),
-            array('%s', '%s', '%s')
+            array('%s', '%s', '%s', '%s')
         );
         
         if ($result === false) {
@@ -68,17 +74,17 @@ class BKGT_Item_Type {
         self::init_db();
         global $wpdb;
         
+        $table = self::$db->get_item_types_table();
         $item_type = $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT * FROM %s WHERE id = %d",
-                self::$db->get_item_types_table(),
+                "SELECT * FROM {$table} WHERE id = %d",
                 $id
             ),
             ARRAY_A
         );
         
         if ($item_type) {
-            $item_type['custom_fields'] = json_decode($item_type['custom_fields'], true);
+            $item_type['custom_fields'] = !empty($item_type['custom_fields']) ? json_decode($item_type['custom_fields'], true) : array();
         }
         
         return $item_type;
@@ -101,7 +107,7 @@ class BKGT_Item_Type {
         );
         
         if ($item_type) {
-            $item_type['custom_fields'] = json_decode($item_type['custom_fields'], true);
+            $item_type['custom_fields'] = !empty($item_type['custom_fields']) ? json_decode($item_type['custom_fields'], true) : array();
         }
         
         return $item_type;
@@ -115,13 +121,17 @@ class BKGT_Item_Type {
         global $wpdb;
         
         $item_types = $wpdb->get_results(
-            "SELECT * FROM " . self::$db->get_item_types_table() . " ORDER BY name ASC",
+            "SELECT it.*, COUNT(i.id) as item_count 
+             FROM " . self::$db->get_item_types_table() . " it 
+             LEFT JOIN " . self::$db->get_inventory_items_table() . " i ON it.id = i.item_type_id 
+             GROUP BY it.id 
+             ORDER BY it.name ASC",
             ARRAY_A
         );
         
         // Decode custom fields
         foreach ($item_types as &$item_type) {
-            $item_type['custom_fields'] = json_decode($item_type['custom_fields'], true);
+            $item_type['custom_fields'] = !empty($item_type['custom_fields']) ? json_decode($item_type['custom_fields'], true) : array();
         }
         
         return $item_types;
@@ -142,19 +152,24 @@ class BKGT_Item_Type {
             $update_format[] = '%s';
         }
         
-        if (isset($data['item_type_id'])) {
-            // Validate item type ID format
-            if (!preg_match('/^\d{4}$/', $data['item_type_id'])) {
-                return new WP_Error('invalid_item_type_id', __('Artikeltyp-ID måste vara 4 siffror.', 'bkgt-inventory'));
+        if (isset($data['code'])) {
+            // Validate item type code format
+            if (!preg_match('/^[A-Z0-9]{4}$/', strtoupper($data['code']))) {
+                return new WP_Error('invalid_code', __('Kod måste vara 4 tecken lång och innehålla endast bokstäver och siffror.', 'bkgt-inventory'));
             }
             
-            // Check if item type ID already exists (excluding current)
-            $existing = self::get_by_item_type_id($data['item_type_id']);
+            // Check if item type code already exists (excluding current)
+            $existing = self::get_by_item_type_id(strtoupper($data['code']));
             if ($existing && $existing['id'] != $id) {
-                return new WP_Error('item_type_id_exists', __('Artikeltyp-ID finns redan.', 'bkgt-inventory'));
+                return new WP_Error('code_exists', __('Artikelkod finns redan.', 'bkgt-inventory'));
             }
             
-            $update_data['item_type_id'] = $data['item_type_id'];
+            $update_data['item_type_id'] = strtoupper($data['code']);
+            $update_format[] = '%s';
+        }
+        
+        if (isset($data['description'])) {
+            $update_data['description'] = sanitize_textarea_field($data['description']);
             $update_format[] = '%s';
         }
         
@@ -222,14 +237,14 @@ class BKGT_Item_Type {
     /**
      * Check if item type exists by item type ID
      */
-    public static function exists($item_type_id) {
+    public static function exists($item_type_code) {
         self::init_db();
         global $wpdb;
         
         $count = $wpdb->get_var(
             $wpdb->prepare(
                 "SELECT COUNT(*) FROM " . self::$db->get_item_types_table() . " WHERE item_type_id = %s",
-                $item_type_id
+                strtoupper($item_type_code)
             )
         );
         
@@ -294,5 +309,34 @@ class BKGT_Item_Type {
         unset($custom_fields[$field_name]);
         
         return self::update($item_type_id, array('custom_fields' => $custom_fields));
+    }
+    
+    /**
+     * Get next available item type code
+     */
+    public static function get_next_item_type_code() {
+        self::init_db();
+        global $wpdb;
+        
+        $table = self::$db->get_item_types_table();
+        
+        // Get all existing item type codes
+        $existing_codes = $wpdb->get_col("SELECT item_type_id FROM {$table} ORDER BY item_type_id DESC");
+        
+        if (empty($existing_codes)) {
+            return '0001';
+        }
+        
+        // Find the highest numeric code
+        $max_code = 0;
+        foreach ($existing_codes as $code) {
+            // Remove any non-numeric characters and convert to int
+            $numeric_code = intval(preg_replace('/[^0-9]/', '', $code));
+            $max_code = max($max_code, $numeric_code);
+        }
+        
+        // Increment and format as 4-digit code
+        $next_code = $max_code + 1;
+        return str_pad($next_code, 4, '0', STR_PAD_LEFT);
     }
 }
