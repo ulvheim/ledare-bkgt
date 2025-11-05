@@ -43,6 +43,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/class-location.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-manufacturer.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-item-type.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-inventory-item.php';
+require_once plugin_dir_path(__FILE__) . 'includes/class-assignment.php';
 
 // Include admin files if in admin area
 if (is_admin()) {
