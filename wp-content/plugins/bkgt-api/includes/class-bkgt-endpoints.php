@@ -1749,27 +1749,11 @@ class BKGT_API_Endpoints {
      */
     public function validate_token($request) {
         $auth = new BKGT_API_Auth();
-        $headers = BKGT_API_Auth::get_auth_headers();
+        $user = $auth->get_current_user_from_request($request);
 
-        // Try JWT token first
-        if (isset($headers['authorization'])) {
-            $token = BKGT_API_Auth::extract_token($headers['authorization']);
-            if ($token) {
-                $payload = $auth->validate_token($token);
-                if ($payload) {
-                    wp_set_current_user($payload['user_id']);
-                    return true;
-                }
-            }
-        }
-
-        // Fallback to API key
-        if (isset($headers['x-api-key'])) {
-            $user = $auth->get_user_from_api_key($headers['x-api-key']);
-            if ($user) {
-                wp_set_current_user($user->ID);
-                return true;
-            }
+        if ($user) {
+            wp_set_current_user($user->ID);
+            return true;
         }
 
         return new WP_Error(

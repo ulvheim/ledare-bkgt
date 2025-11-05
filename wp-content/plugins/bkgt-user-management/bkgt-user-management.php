@@ -11,6 +11,7 @@
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * License: Proprietary
+ * Requires Plugins: bkgt-core
  */
 
 // Exit if accessed directly
@@ -79,6 +80,15 @@ class BKGT_User_Management {
      * Plugin activation
      */
     public function activate() {
+        // Check for BKGT Core
+        if (!function_exists('bkgt_log')) {
+            deactivate_plugins(plugin_basename(__FILE__));
+            wp_die(__('BKGT Core plugin must be activated first.', 'bkgt-user-management'));
+        }
+        
+        // Log activation
+        bkgt_log('info', 'User Management plugin activated');
+        
         // Register post types first
         $this->register_post_types();
         
@@ -96,6 +106,9 @@ class BKGT_User_Management {
      * Plugin deactivation
      */
     public function deactivate() {
+        if (function_exists('bkgt_log')) {
+            bkgt_log('info', 'User Management plugin deactivated');
+        }
         flush_rewrite_rules();
     }
     

@@ -11,6 +11,7 @@
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * License: Proprietary
+ * Requires Plugins: bkgt-core
  */
 
 // Exit if accessed directly
@@ -87,6 +88,11 @@ class BKGT_Communication {
      * Plugin activation
      */
     public function activate() {
+        if (!function_exists('bkgt_log')) {
+            deactivate_plugins(plugin_basename(__FILE__));
+            wp_die(__('BKGT Core plugin must be activated first.', 'bkgt-communication'));
+        }
+        bkgt_log('info', 'Communication plugin activated');
         $this->db->create_tables();
         flush_rewrite_rules();
     }
@@ -95,6 +101,9 @@ class BKGT_Communication {
      * Plugin deactivation
      */
     public function deactivate() {
+        if (function_exists('bkgt_log')) {
+            bkgt_log('info', 'Communication plugin deactivated');
+        }
         flush_rewrite_rules();
     }
     
@@ -140,23 +149,51 @@ class BKGT_Communication {
      * AJAX send message
      */
     public function ajax_send_message() {
-        check_ajax_referer('bkgt_comm_nonce', 'nonce');
-        
-        if (!current_user_can('read')) {
-            wp_die(__('Du har inte behörighet.', 'bkgt-communication'));
+        // Verify nonce using BKGT Core
+        if (!bkgt_validate('verify_nonce', $_POST['nonce'] ?? '', 'bkgt_comm_nonce')) {
+            bkgt_log('warning', 'Send message nonce verification failed', array(
+                'user_id' => get_current_user_id(),
+            ));
+            wp_send_json_error(array('message' => __('Säkerhetskontroll misslyckades.', 'bkgt-communication')));
         }
         
-        $subject = sanitize_text_field($_POST['subject']);
-        $message = wp_kses_post($_POST['message']);
-        $recipients = $_POST['recipients'];
+        // Check permissions using BKGT Core
+        if (!bkgt_can('send_messages')) {
+            bkgt_log('warning', 'Send message denied - insufficient permissions', array(
+                'user_id' => get_current_user_id(),
+            ));
+            wp_send_json_error(array('message' => __('Du har inte behörighet att skicka meddelanden.', 'bkgt-communication')));
+        }
         
-        // Send message logic here
+        // Get and validate input using BKGT Core
+        $subject = bkgt_validate('sanitize_text', $_POST['subject'] ?? '');
+        $message = bkgt_validate('sanitize_html', $_POST['message'] ?? '');
+        $recipients = isset($_POST['recipients']) ? (array) $_POST['recipients'] : array();
+        
+        if (empty($subject) || empty($message)) {
+            bkgt_log('warning', 'Send message - subject or message empty');
+            wp_send_json_error(array('message' => __('Ämne och meddelande är obligatoriska.', 'bkgt-communication')));
+        }
+        
+        if (empty($recipients)) {
+            bkgt_log('warning', 'Send message - no recipients specified');
+            wp_send_json_error(array('message' => __('Minst en mottagare krävs.', 'bkgt-communication')));
+        }
+        
+        // Send message logic
         $result = $this->send_message($subject, $message, $recipients);
         
         if ($result) {
-            wp_send_json_success(__('Meddelande skickat!', 'bkgt-communication'));
+            bkgt_log('info', 'Message sent successfully', array(
+                'recipients_count' => count($recipients),
+                'user_id' => get_current_user_id(),
+            ));
+            wp_send_json_success(array('message' => __('Meddelande skickat framgångsrikt!', 'bkgt-communication')));
         } else {
-            wp_send_json_error(__('Kunde inte skicka meddelande.', 'bkgt-communication'));
+            bkgt_log('error', 'Failed to send message', array(
+                'recipients_count' => count($recipients),
+            ));
+            wp_send_json_error(array('message' => __('Kunde inte skicka meddelande.', 'bkgt-communication')));
         }
     }
     
@@ -164,14 +201,35 @@ class BKGT_Communication {
      * AJAX get notifications
      */
     public function ajax_get_notifications() {
-        check_ajax_referer('bkgt_comm_nonce', 'nonce');
-        
+        // Verify nonce using BKGT Core
+        if (!bkgt_validate('verify_nonce', $_POST['nonce'] ?? '', 'bkgt_comm_nonce')) {
+            bkgt_log('warning', 'Get notifications nonce verification failed', array(
+                'user_id' => get_current_user_id(),
+            ));
+            wp_send_json_error(array('message' => __('Säkerhetskontroll misslyckades.', 'bkgt-communication')));
+        }
+
+        // Check if user is logged in
         if (!is_user_logged_in()) {
-            wp_die(__('Du måste vara inloggad.', 'bkgt-communication'));
+            bkgt_log('warning', 'Get notifications - user not logged in');
+            wp_send_json_error(array('message' => __('Du måste vara inloggad.', 'bkgt-communication')));
+        }
+        
+        // Check permissions using BKGT Core
+        if (!bkgt_can('view_notifications')) {
+            bkgt_log('warning', 'Get notifications denied - insufficient permissions', array(
+                'user_id' => get_current_user_id(),
+            ));
+            wp_send_json_error(array('message' => __('Du har inte behörighet att visa notifikationer.', 'bkgt-communication')));
         }
         
         $user_id = get_current_user_id();
         $notifications = $this->get_user_notifications($user_id);
+        
+        bkgt_log('info', 'Notifications retrieved', array(
+            'notifications_count' => count($notifications),
+            'user_id' => $user_id,
+        ));
         
         wp_send_json_success($notifications);
     }
@@ -180,17 +238,35 @@ class BKGT_Communication {
      * Send message
      */
     private function send_message($subject, $message, $recipients) {
-        // Implementation for sending messages
-        // This would integrate with email/SMS services
-        return true; // Placeholder
+        // Use the Message class to send
+        $message_id = BKGT_Communication_Message::send($subject, $message, $recipients);
+        
+        if (!$message_id) {
+            bkgt_log('error', 'Failed to send message');
+            return false;
+        }
+        
+        bkgt_log('info', 'Message sent successfully', array(
+            'message_id' => $message_id,
+            'recipients' => $recipients,
+        ));
+        
+        return $message_id;
     }
     
     /**
      * Get user notifications
      */
     private function get_user_notifications($user_id) {
-        // Implementation for getting notifications
-        return array(); // Placeholder
+        // Use the Notification class to get notifications
+        $notifications = BKGT_Communication_Notification::get_notifications($user_id);
+        
+        bkgt_log('info', 'Retrieved notifications for user', array(
+            'user_id' => $user_id,
+            'count' => count($notifications),
+        ));
+        
+        return $notifications;
     }
     
     /**

@@ -23,7 +23,8 @@ class BKGT_Manufacturer {
      */
     private static function init_db() {
         if (!self::$db) {
-            self::$db = bkgt_inventory()->db;
+            global $bkgt_inventory_db;
+            self::$db = $bkgt_inventory_db;
         }
     }
     
@@ -39,13 +40,13 @@ class BKGT_Manufacturer {
             return new WP_Error('missing_data', __('Namn och kod krävs.', 'bkgt-inventory'));
         }
         
-        // Validate manufacturer ID format (4 characters)
-        if (!preg_match('/^[A-Z0-9]{4}$/', strtoupper($data['code']))) {
-            return new WP_Error('invalid_code', __('Kod måste vara 4 tecken lång och innehålla endast bokstäver och siffror.', 'bkgt-inventory'));
+        // Validate manufacturer ID format (numerical only)
+        if (!preg_match('/^\d+$/', $data['code']) || intval($data['code']) <= 0) {
+            return new WP_Error('invalid_code', __('Kod måste vara ett positivt heltal.', 'bkgt-inventory'));
         }
         
         // Check if manufacturer code already exists
-        if (self::exists(strtoupper($data['code']))) {
+        if (self::exists(intval($data['code']))) {
             return new WP_Error('code_exists', __('Tillverkarkod finns redan.', 'bkgt-inventory'));
         }
         
@@ -53,10 +54,10 @@ class BKGT_Manufacturer {
             self::$db->get_manufacturers_table(),
             array(
                 'name' => sanitize_text_field($data['name']),
-                'manufacturer_id' => strtoupper($data['code']),
+                'manufacturer_id' => intval($data['code']),
                 'contact_info' => sanitize_textarea_field($data['contact_info'] ?? ''),
             ),
-            array('%s', '%s', '%s')
+            array('%s', '%d', '%s')
         );
         
         if ($result === false) {

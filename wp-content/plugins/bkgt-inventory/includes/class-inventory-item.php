@@ -31,12 +31,39 @@ class BKGT_Inventory_Item {
         
         // Format: ####-####-#####
         $identifier = sprintf(
-            '%s-%s-%05d',
-            $manufacturer['manufacturer_id'],
-            $item_type['item_type_id'],
+            '%04d-%04d-%05d',
+            intval($manufacturer['manufacturer_id']),
+            intval($item_type['item_type_id']),
             $sequential_number
         );
         
+        return $identifier;
+    }
+    
+    /**
+     * Generate short form unique identifier (without leading zeros)
+     * Format: ####-####-# (Manufacturer-ID + ItemType-ID + Sequential Number without leading zeros)
+     */
+    public static function generate_short_unique_identifier($manufacturer_id, $item_type_id) {
+        // Get manufacturer and item type data
+        $manufacturer = BKGT_Manufacturer::get($manufacturer_id);
+        $item_type = BKGT_Item_Type::get($item_type_id);
+
+        if (!$manufacturer || !$item_type) {
+            return false;
+        }
+
+        // Get the next sequential number for this manufacturer + item type combination
+        $sequential_number = self::get_next_sequential_number($manufacturer_id, $item_type_id);
+
+        // Format: #-#-# (remove all leading zeros from all parts)
+        $identifier = sprintf(
+            '%d-%d-%d',
+            intval($manufacturer['manufacturer_id']),
+            intval($item_type['item_type_id']),
+            $sequential_number
+        );
+
         return $identifier;
     }
     

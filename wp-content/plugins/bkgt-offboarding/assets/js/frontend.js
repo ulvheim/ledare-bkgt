@@ -47,14 +47,41 @@
             });
         });
 
-        // Equipment return checkbox handler
+        // Equipment return status handler
         $('.bkgt-equipment-returned').on('change', function() {
             var $checkbox = $(this);
             var assignmentId = $checkbox.data('assignment-id');
-            var returned = $checkbox.is(':checked');
+            var status = $checkbox.is(':checked') ? 'returned' : 'assigned';
 
-            // For now, just visual feedback - full implementation would update database
-            $checkbox.closest('tr').toggleClass('returned', returned);
+            $checkbox.prop('disabled', true);
+
+            $.ajax({
+                url: bkgt_offboarding_ajax.ajax_url,
+                type: 'POST',
+                data: {
+                    action: 'bkgt_update_equipment_status',
+                    assignment_id: assignmentId,
+                    status: status,
+                    nonce: bkgt_offboarding_ajax.nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        $checkbox.closest('tr').toggleClass('returned', status === 'returned');
+                    } else {
+                        // Revert checkbox state on error
+                        $checkbox.prop('checked', status === 'assigned');
+                        alert('Error updating equipment status. Please try again.');
+                    }
+                },
+                error: function() {
+                    // Revert checkbox state on error
+                    $checkbox.prop('checked', status === 'assigned');
+                    alert('Error updating equipment status. Please try again.');
+                },
+                complete: function() {
+                    $checkbox.prop('disabled', false);
+                }
+            });
         });
 
         // Generate PDF receipt button

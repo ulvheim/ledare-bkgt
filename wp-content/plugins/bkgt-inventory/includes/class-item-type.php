@@ -23,7 +23,8 @@ class BKGT_Item_Type {
      */
     private static function init_db() {
         if (!self::$db) {
-            self::$db = bkgt_inventory()->db;
+            global $bkgt_inventory_db;
+            self::$db = $bkgt_inventory_db;
         }
     }
     
@@ -39,13 +40,13 @@ class BKGT_Item_Type {
             return new WP_Error('missing_data', __('Namn och kod krävs.', 'bkgt-inventory'));
         }
         
-        // Validate item type code format (4 characters)
-        if (!preg_match('/^[A-Z0-9]{4}$/', strtoupper($data['code']))) {
-            return new WP_Error('invalid_code', __('Kod måste vara 4 tecken lång och innehålla endast bokstäver och siffror.', 'bkgt-inventory'));
+        // Validate item type code format (numerical only)
+        if (!preg_match('/^\d+$/', $data['code']) || intval($data['code']) <= 0) {
+            return new WP_Error('invalid_code', __('Kod måste vara ett positivt heltal.', 'bkgt-inventory'));
         }
         
         // Check if item type code already exists
-        if (self::exists(strtoupper($data['code']))) {
+        if (self::exists(intval($data['code']))) {
             return new WP_Error('code_exists', __('Artikelkod finns redan.', 'bkgt-inventory'));
         }
         
@@ -53,11 +54,11 @@ class BKGT_Item_Type {
             self::$db->get_item_types_table(),
             array(
                 'name' => sanitize_text_field($data['name']),
-                'item_type_id' => strtoupper($data['code']),
+                'item_type_id' => intval($data['code']),
                 'description' => sanitize_textarea_field($data['description'] ?? ''),
                 'custom_fields' => json_encode($data['custom_fields'] ?? array()),
             ),
-            array('%s', '%s', '%s', '%s')
+            array('%s', '%d', '%s', '%s')
         );
         
         if ($result === false) {

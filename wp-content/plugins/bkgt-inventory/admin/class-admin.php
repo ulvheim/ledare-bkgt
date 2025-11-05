@@ -17,6 +17,7 @@ class BKGT_Inventory_Admin {
      * Constructor
      */
     public function __construct() {
+        // Always register hooks - capabilities will be checked in individual methods
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
         add_action('wp_ajax_bkgt_inventory_action', array($this, 'handle_ajax_actions'));
@@ -30,6 +31,11 @@ class BKGT_Inventory_Admin {
      * Add admin menu
      */
     public function add_admin_menu() {
+        // Check if user has access to inventory
+        if (!current_user_can('manage_inventory')) {
+            return;
+        }
+        
         add_menu_page(
             __('Utrustning', 'bkgt-inventory'),
             __('Utrustning', 'bkgt-inventory'),
@@ -591,9 +597,32 @@ class BKGT_Inventory_Admin {
      * Handle AJAX actions
      */
     public function handle_ajax_actions() {
-        check_ajax_referer('bkgt-inventory-nonce', 'nonce');
+        // Verify nonce for security
+        if (!bkgt_validate('verify_nonce', $_REQUEST['nonce'] ?? '', 'bkgt-inventory-nonce')) {
+            bkgt_log('warning', 'AJAX nonce verification failed for inventory', array(
+                'user_id' => get_current_user_id(),
+            ));
+            wp_send_json_error(__('Säkerhetskontroll misslyckades', 'bkgt-inventory'));
+            wp_die();
+        }
         
-        $action = isset($_POST['sub_action']) ? $_POST['sub_action'] : '';
+        // Check capability
+        if (!bkgt_can('edit_inventory')) {
+            bkgt_log('warning', 'AJAX access denied - insufficient permissions', array(
+                'user_id' => get_current_user_id(),
+                'action' => $_POST['sub_action'] ?? 'unknown',
+            ));
+            wp_send_json_error(__('Du har inte behörighet för denna åtgärd', 'bkgt-inventory'));
+            wp_die();
+        }
+        
+        $action = bkgt_validate('sanitize_text', $_POST['sub_action'] ?? '');
+        
+        if (empty($action)) {
+            bkgt_log('warning', 'AJAX request with empty action');
+            wp_send_json_error(__('Ingen åtgärd angiven', 'bkgt-inventory'));
+            wp_die();
+        }
         
         switch ($action) {
             case 'delete_manufacturer':
@@ -608,6 +637,12 @@ class BKGT_Inventory_Admin {
             case 'quick_assign':
                 $this->ajax_quick_assign();
                 break;
+            default:
+                bkgt_log('warning', 'Unknown AJAX action requested', array(
+                    'action' => $action,
+                    'user_id' => get_current_user_id(),
+                ));
+                wp_send_json_error(__('Okänd åtgärd', 'bkgt-inventory'));
         }
         
         wp_die();
@@ -616,14 +651,32 @@ class BKGT_Inventory_Admin {
     /**
      * AJAX: Delete manufacturer
      */
+    /**
+     * AJAX: Delete manufacturer
+     */
     private function ajax_delete_manufacturer() {
-        $manufacturer_id = intval($_POST['id']);
+        $manufacturer_id = intval($_POST['id'] ?? 0);
+        
+        if ($manufacturer_id <= 0) {
+            bkgt_log('warning', 'Invalid manufacturer ID for deletion', array(
+                'manufacturer_id' => $manufacturer_id,
+            ));
+            wp_send_json_error(__('Ogiltig tillverkare ID', 'bkgt-inventory'));
+            return;
+        }
         
         $result = BKGT_Manufacturer::delete($manufacturer_id);
         
         if (is_wp_error($result)) {
+            bkgt_log('error', 'Failed to delete manufacturer', array(
+                'manufacturer_id' => $manufacturer_id,
+                'error' => $result->get_error_message(),
+            ));
             wp_send_json_error($result->get_error_message());
         } else {
+            bkgt_log('info', 'Manufacturer deleted', array(
+                'manufacturer_id' => $manufacturer_id,
+            ));
             wp_send_json_success(__('Tillverkare raderad.', 'bkgt-inventory'));
         }
     }
@@ -632,13 +685,28 @@ class BKGT_Inventory_Admin {
      * AJAX: Delete item type
      */
     private function ajax_delete_item_type() {
-        $item_type_id = intval($_POST['id']);
+        $item_type_id = intval($_POST['id'] ?? 0);
+        
+        if ($item_type_id <= 0) {
+            bkgt_log('warning', 'Invalid item type ID for deletion', array(
+                'item_type_id' => $item_type_id,
+            ));
+            wp_send_json_error(__('Ogiltig artikeltyp ID', 'bkgt-inventory'));
+            return;
+        }
         
         $result = BKGT_Item_Type::delete($item_type_id);
         
         if (is_wp_error($result)) {
+            bkgt_log('error', 'Failed to delete item type', array(
+                'item_type_id' => $item_type_id,
+                'error' => $result->get_error_message(),
+            ));
             wp_send_json_error($result->get_error_message());
         } else {
+            bkgt_log('info', 'Item type deleted', array(
+                'item_type_id' => $item_type_id,
+            ));
             wp_send_json_success(__('Artikeltyp raderad.', 'bkgt-inventory'));
         }
     }
@@ -648,62 +716,101 @@ class BKGT_Inventory_Admin {
      */
     private function ajax_generate_identifier() {
         try {
-            error_log('BKGT: ajax_generate_identifier called');
-            error_log('POST data: ' . print_r($_POST, true));
+            $manufacturer_id = intval($_POST['manufacturer_id'] ?? 0);
+            $item_type_id = intval($_POST['item_type_id'] ?? 0);
             
-            $manufacturer_id = intval($_POST['manufacturer_id']);
-            $item_type_id = intval($_POST['item_type_id']);
-            
-            error_log("BKGT: manufacturer_id=$manufacturer_id, item_type_id=$item_type_id");
+            // Validate input
+            if ($manufacturer_id <= 0 || $item_type_id <= 0) {
+                bkgt_log('warning', 'Invalid manufacturer or item type ID in generate_identifier', array(
+                    'manufacturer_id' => $manufacturer_id,
+                    'item_type_id' => $item_type_id,
+                ));
+                wp_send_json_error(__('Ogiltig tillverkare eller artikeltyp.', 'bkgt-inventory'));
+                return;
+            }
             
             $manufacturer = BKGT_Manufacturer::get($manufacturer_id);
             $item_type = BKGT_Item_Type::get($item_type_id);
             
-            error_log('BKGT: manufacturer=' . print_r($manufacturer, true));
-            error_log('BKGT: item_type=' . print_r($item_type, true));
-            
             if (!$manufacturer || !$item_type) {
-                error_log('BKGT: Invalid manufacturer or item type');
+                bkgt_log('warning', 'Manufacturer or item type not found', array(
+                    'manufacturer_id' => $manufacturer_id,
+                    'item_type_id' => $item_type_id,
+                ));
                 wp_send_json_error(__('Ogiltig tillverkare eller artikeltyp.', 'bkgt-inventory'));
                 return;
             }
             
             $identifier = BKGT_Inventory_Item::generate_unique_identifier($manufacturer_id, $item_type_id);
+            $short_identifier = BKGT_Inventory_Item::generate_short_unique_identifier($manufacturer_id, $item_type_id);
             
-            error_log('BKGT: Generated identifier: ' . $identifier);
+            bkgt_log('info', 'Generated unique identifier', array(
+                'manufacturer_id' => $manufacturer_id,
+                'item_type_id' => $item_type_id,
+                'identifier' => $identifier,
+            ));
             
-            wp_send_json_success(array('identifier' => $identifier));
+            wp_send_json_success(array(
+                'identifier' => $identifier,
+                'short_identifier' => $short_identifier
+            ));
         } catch (Exception $e) {
-            error_log('BKGT: Exception in ajax_generate_identifier: ' . $e->getMessage());
-            wp_send_json_error('Exception: ' . $e->getMessage());
+            bkgt_log('error', 'Exception in ajax_generate_identifier', array(
+                'error' => $e->getMessage(),
+                'code' => $e->getCode(),
+            ));
+            wp_send_json_error(__('Ett fel uppstod vid generering av identifierare', 'bkgt-inventory'));
         }
     }
     
     /**
      * AJAX: Quick assign item
      */
+    /**
+     * AJAX: Quick assign item
+     */
     private function ajax_quick_assign() {
-        $post_id = intval($_POST['post_id']);
-        $assignment_type = sanitize_text_field($_POST['assignment_type']);
+        $post_id = intval($_POST['post_id'] ?? 0);
+        $assignment_type = bkgt_validate('sanitize_text', $_POST['assignment_type'] ?? '');
         $assigned_to = isset($_POST['assigned_to']) ? intval($_POST['assigned_to']) : 0;
         
-        // Validate assignment
-        if (!in_array($assignment_type, array('club', 'team', 'individual', 'location', 'unassign'))) {
+        // Validate post ID
+        if ($post_id <= 0) {
+            bkgt_log('warning', 'Invalid post ID for quick assign', array(
+                'post_id' => $post_id,
+            ));
+            wp_send_json_error(__('Ogiltig artikel ID', 'bkgt-inventory'));
+            return;
+        }
+        
+        // Validate assignment type
+        $valid_types = array('club', 'team', 'individual', 'location', 'unassign');
+        if (!in_array($assignment_type, $valid_types)) {
+            bkgt_log('warning', 'Invalid assignment type', array(
+                'post_id' => $post_id,
+                'assignment_type' => $assignment_type,
+            ));
             wp_send_json_error(__('Ogiltig tilldelningstyp.', 'bkgt-inventory'));
             return;
         }
         
         if ($assignment_type === 'unassign') {
-            update_post_meta($post_id, '_bkgt_assignment_type', '');
-            update_post_meta($post_id, '_bkgt_assigned_to', '');
+            bkgt_db()->update_post_meta($post_id, '_bkgt_assignment_type', '');
+            bkgt_db()->update_post_meta($post_id, '_bkgt_assigned_to', '');
         } else {
-            update_post_meta($post_id, '_bkgt_assignment_type', $assignment_type);
-            update_post_meta($post_id, '_bkgt_assigned_to', $assigned_to);
+            bkgt_db()->update_post_meta($post_id, '_bkgt_assignment_type', $assignment_type);
+            bkgt_db()->update_post_meta($post_id, '_bkgt_assigned_to', $assigned_to);
         }
         
         // Log the action
         BKGT_History::log_action($post_id, 'assignment_changed', array(
             'new_assignment_type' => $assignment_type,
+            'assigned_to' => $assigned_to,
+        ));
+        
+        bkgt_log('info', 'Item quick assigned', array(
+            'post_id' => $post_id,
+            'assignment_type' => $assignment_type,
             'assigned_to' => $assigned_to,
         ));
         
@@ -782,38 +889,52 @@ class BKGT_Inventory_Admin {
             }
         }
         
-        if (isset($_POST['submit'])) {
+        // Handle form submission if POST
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['manufacturer_nonce'])) {
             $this->handle_manufacturer_form($manufacturer_id);
-            return;
         }
         
         ?>
         <div class="wrap">
             <h1><?php echo $is_edit ? __('Redigera tillverkare', 'bkgt-inventory') : __('Lägg till tillverkare', 'bkgt-inventory'); ?></h1>
             
-            <form method="post" action="">
-                <?php wp_nonce_field('bkgt_manufacturer_form'); ?>
+            <form method="post" action="" class="bkgt-form-container" data-validate>
+                <?php BKGT_Form_Handler::nonce_field('bkgt_manufacturer_form', 'manufacturer_nonce'); ?>
+                
+                <?php settings_errors('bkgt_manufacturer'); ?>
                 
                 <table class="form-table">
                     <tr>
                         <th scope="row">
-                            <label for="manufacturer_name"><?php esc_html_e('Namn', 'bkgt-inventory'); ?> *</label>
+                            <label for="manufacturer_name"><?php esc_html_e('Namn', 'bkgt-inventory'); ?> <span class="bkgt-required-indicator">*</span></label>
                         </th>
                         <td>
-                            <input type="text" id="manufacturer_name" name="name" 
+                            <input type="text" 
+                                   id="manufacturer_name" 
+                                   name="name" 
                                    value="<?php echo $is_edit ? esc_attr($manufacturer['name']) : ''; ?>" 
-                                   class="regular-text" required>
+                                   class="regular-text"
+                                   data-validate-type="text"
+                                   data-validate-required="true"
+                                   required>
+                            <p class="description">
+                                <?php esc_html_e('Namn på tillverkaren, minst 2 tecken.', 'bkgt-inventory'); ?>
+                            </p>
                         </td>
                     </tr>
                     
                     <tr>
                         <th scope="row">
-                            <label for="manufacturer_code"><?php esc_html_e('Kod', 'bkgt-inventory'); ?> *</label>
+                            <label for="manufacturer_code"><?php esc_html_e('Kod', 'bkgt-inventory'); ?> <span class="bkgt-required-indicator">*</span></label>
                         </th>
                         <td>
-                            <input type="text" id="manufacturer_code" name="code" 
+                            <input type="text" 
+                                   id="manufacturer_code" 
+                                   name="code" 
                                    value="<?php echo $is_edit ? esc_attr($manufacturer['manufacturer_id']) : BKGT_Manufacturer::get_next_manufacturer_code(); ?>" 
-                                   class="regular-text" maxlength="4" required readonly>
+                                   class="regular-text" 
+                                   maxlength="4" 
+                                   readonly>
                             <p class="description">
                                 <?php if ($is_edit): ?>
                                     <?php esc_html_e('Kod kan inte ändras efter skapande.', 'bkgt-inventory'); ?>
@@ -829,8 +950,15 @@ class BKGT_Inventory_Admin {
                             <label for="manufacturer_contact"><?php esc_html_e('Kontaktinformation', 'bkgt-inventory'); ?></label>
                         </th>
                         <td>
-                            <textarea id="manufacturer_contact" name="contact_info" 
-                                      rows="3" class="large-text"><?php echo $is_edit ? esc_textarea($manufacturer['contact_info'] ?? '') : ''; ?></textarea>
+                            <textarea id="manufacturer_contact" 
+                                      name="contact_info" 
+                                      rows="3" 
+                                      class="large-text"
+                                      data-validate-type="text"
+                                      data-validate-max-length="500"><?php echo $is_edit ? esc_textarea($manufacturer['contact_info'] ?? '') : ''; ?></textarea>
+                            <p class="description">
+                                <?php esc_html_e('Kontaktinformation för tillverkaren (valfritt, max 500 tecken).', 'bkgt-inventory'); ?>
+                            </p>
                         </td>
                     </tr>
                 </table>
@@ -851,27 +979,65 @@ class BKGT_Inventory_Admin {
      * Handle manufacturer form submission
      */
     private function handle_manufacturer_form($manufacturer_id = 0) {
-        check_admin_referer('bkgt_manufacturer_form');
-        
-        $data = array(
-            'name' => sanitize_text_field($_POST['name']),
-            'code' => strtoupper(sanitize_text_field($_POST['code'])),
-            'contact_info' => sanitize_textarea_field($_POST['contact_info']),
-        );
-        
         $is_edit = $manufacturer_id > 0;
         
-        if ($is_edit) {
-            $result = BKGT_Manufacturer::update($manufacturer_id, $data);
-        } else {
-            $result = BKGT_Manufacturer::create($data);
-        }
+        // Use BKGT_Form_Handler to process the form with unified validation/sanitization
+        $result = BKGT_Form_Handler::process(array(
+            'nonce_action' => 'bkgt_manufacturer_form',
+            'nonce_field' => 'manufacturer_nonce',
+            'capability' => 'manage_options', // Admin-only for now
+            'entity_type' => 'manufacturer',
+            'fields' => array('name', 'code', 'contact_info'),
+            'entity_id' => $is_edit ? $manufacturer_id : null,
+            'on_success' => function($sanitized_data) use ($is_edit, $manufacturer_id) {
+                // Save to database
+                if ($is_edit) {
+                    $save_result = BKGT_Manufacturer::update($manufacturer_id, $sanitized_data);
+                } else {
+                    $save_result = BKGT_Manufacturer::create($sanitized_data);
+                }
+                
+                if (is_wp_error($save_result)) {
+                    return new WP_Error(
+                        'database_error',
+                        $save_result->get_error_message()
+                    );
+                }
+                
+                // Return success info
+                $message = $is_edit 
+                    ? __('Tillverkare uppdaterad.', 'bkgt-inventory') 
+                    : __('Tillverkare tillagd.', 'bkgt-inventory');
+                
+                return array('message' => $message);
+            },
+        ));
         
-        if (is_wp_error($result)) {
-            add_settings_error('bkgt_manufacturer', 'error', $result->get_error_message(), 'error');
+        // Display result messages
+        if ($result['success']) {
+            add_settings_error(
+                'bkgt_manufacturer',
+                'success',
+                $result['message'] ?? __('Lagrat.', 'bkgt-inventory'),
+                'success'
+            );
         } else {
-            $message = $is_edit ? __('Tillverkare uppdaterad.', 'bkgt-inventory') : __('Tillverkare tillagd.', 'bkgt-inventory');
-            add_settings_error('bkgt_manufacturer', 'success', $message, 'success');
+            // Store errors for display on re-render
+            // Note: BKGT_Form_Handler::render_errors will display from form
+            $error_message = __('Fel vid bearbetning av formulär.', 'bkgt-inventory');
+            if (!empty($result['errors'])) {
+                // Get first error message for display
+                foreach ($result['errors'] as $field_errors) {
+                    if (is_array($field_errors) && !empty($field_errors)) {
+                        $error_message = reset($field_errors);
+                        break;
+                    } elseif (is_string($field_errors)) {
+                        $error_message = $field_errors;
+                        break;
+                    }
+                }
+            }
+            add_settings_error('bkgt_manufacturer', 'error', $error_message, 'error');
         }
         
         settings_errors('bkgt_manufacturer');
@@ -949,38 +1115,52 @@ class BKGT_Inventory_Admin {
             }
         }
         
-        if (isset($_POST['submit'])) {
+        // Handle form submission if POST
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['item_type_nonce'])) {
             $this->handle_item_type_form($item_type_id);
-            return;
         }
         
         ?>
         <div class="wrap">
             <h1><?php echo $is_edit ? __('Redigera artikeltyp', 'bkgt-inventory') : __('Lägg till artikeltyp', 'bkgt-inventory'); ?></h1>
             
-            <form method="post" action="">
-                <?php wp_nonce_field('bkgt_item_type_form'); ?>
+            <form method="post" action="" class="bkgt-form-container" data-validate>
+                <?php BKGT_Form_Handler::nonce_field('bkgt_item_type_form', 'item_type_nonce'); ?>
+                
+                <?php settings_errors('bkgt_item_type'); ?>
                 
                 <table class="form-table">
                     <tr>
                         <th scope="row">
-                            <label for="item_type_name"><?php esc_html_e('Namn', 'bkgt-inventory'); ?> *</label>
+                            <label for="item_type_name"><?php esc_html_e('Namn', 'bkgt-inventory'); ?> <span class="bkgt-required-indicator">*</span></label>
                         </th>
                         <td>
-                            <input type="text" id="item_type_name" name="name" 
+                            <input type="text" 
+                                   id="item_type_name" 
+                                   name="name" 
                                    value="<?php echo $is_edit ? esc_attr($item_type['name']) : ''; ?>" 
-                                   class="regular-text" required>
+                                   class="regular-text"
+                                   data-validate-type="text"
+                                   data-validate-required="true"
+                                   required>
+                            <p class="description">
+                                <?php esc_html_e('Namn på artikeltypen, minst 2 tecken.', 'bkgt-inventory'); ?>
+                            </p>
                         </td>
                     </tr>
                     
                     <tr>
                         <th scope="row">
-                            <label for="item_type_code"><?php esc_html_e('Kod', 'bkgt-inventory'); ?> *</label>
+                            <label for="item_type_code"><?php esc_html_e('Kod', 'bkgt-inventory'); ?> <span class="bkgt-required-indicator">*</span></label>
                         </th>
                         <td>
-                            <input type="text" id="item_type_code" name="code" 
+                            <input type="text" 
+                                   id="item_type_code" 
+                                   name="code" 
                                    value="<?php echo $is_edit ? esc_attr($item_type['item_type_id']) : BKGT_Item_Type::get_next_item_type_code(); ?>" 
-                                   class="regular-text" maxlength="4" required readonly>
+                                   class="regular-text" 
+                                   maxlength="4" 
+                                   readonly>
                             <p class="description">
                                 <?php if ($is_edit): ?>
                                     <?php esc_html_e('Kod kan inte ändras efter skapande.', 'bkgt-inventory'); ?>
@@ -996,8 +1176,15 @@ class BKGT_Inventory_Admin {
                             <label for="item_type_description"><?php esc_html_e('Beskrivning', 'bkgt-inventory'); ?></label>
                         </th>
                         <td>
-                            <textarea id="item_type_description" name="description" 
-                                      rows="3" class="large-text"><?php echo $is_edit ? esc_textarea($item_type['description'] ?? '') : ''; ?></textarea>
+                            <textarea id="item_type_description" 
+                                      name="description" 
+                                      rows="3" 
+                                      class="large-text"
+                                      data-validate-type="text"
+                                      data-validate-max-length="500"><?php echo $is_edit ? esc_textarea($item_type['description'] ?? '') : ''; ?></textarea>
+                            <p class="description">
+                                <?php esc_html_e('Beskrivning av artikeltypen (valfritt, max 500 tecken).', 'bkgt-inventory'); ?>
+                            </p>
                         </td>
                     </tr>
                 </table>
@@ -1018,27 +1205,63 @@ class BKGT_Inventory_Admin {
      * Handle item type form submission
      */
     private function handle_item_type_form($item_type_id = 0) {
-        check_admin_referer('bkgt_item_type_form');
-        
-        $data = array(
-            'name' => sanitize_text_field($_POST['name']),
-            'code' => strtoupper(sanitize_text_field($_POST['code'])),
-            'description' => sanitize_textarea_field($_POST['description']),
-        );
-        
         $is_edit = $item_type_id > 0;
         
-        if ($is_edit) {
-            $result = BKGT_Item_Type::update($item_type_id, $data);
-        } else {
-            $result = BKGT_Item_Type::create($data);
-        }
+        // Use BKGT_Form_Handler to process the form with unified validation/sanitization
+        $result = BKGT_Form_Handler::process(array(
+            'nonce_action' => 'bkgt_item_type_form',
+            'nonce_field' => 'item_type_nonce',
+            'capability' => 'manage_options', // Admin-only for now
+            'entity_type' => 'item_type',
+            'fields' => array('name', 'code', 'description'),
+            'entity_id' => $is_edit ? $item_type_id : null,
+            'on_success' => function($sanitized_data) use ($is_edit, $item_type_id) {
+                // Save to database
+                if ($is_edit) {
+                    $save_result = BKGT_Item_Type::update($item_type_id, $sanitized_data);
+                } else {
+                    $save_result = BKGT_Item_Type::create($sanitized_data);
+                }
+                
+                if (is_wp_error($save_result)) {
+                    return new WP_Error(
+                        'database_error',
+                        $save_result->get_error_message()
+                    );
+                }
+                
+                // Return success info
+                $message = $is_edit 
+                    ? __('Artikeltyp uppdaterad.', 'bkgt-inventory') 
+                    : __('Artikeltyp tillagd.', 'bkgt-inventory');
+                
+                return array('message' => $message);
+            },
+        ));
         
-        if (is_wp_error($result)) {
-            add_settings_error('bkgt_item_type', 'error', $result->get_error_message(), 'error');
+        // Display result messages
+        if ($result['success']) {
+            add_settings_error(
+                'bkgt_item_type',
+                'success',
+                $result['message'] ?? __('Lagrat.', 'bkgt-inventory'),
+                'success'
+            );
         } else {
-            $message = $is_edit ? __('Artikeltyp uppdaterad.', 'bkgt-inventory') : __('Artikeltyp tillagd.', 'bkgt-inventory');
-            add_settings_error('bkgt_item_type', 'success', $message, 'success');
+            // Get error message
+            $error_message = __('Fel vid bearbetning av formulär.', 'bkgt-inventory');
+            if (!empty($result['errors'])) {
+                foreach ($result['errors'] as $field_errors) {
+                    if (is_array($field_errors) && !empty($field_errors)) {
+                        $error_message = reset($field_errors);
+                        break;
+                    } elseif (is_string($field_errors)) {
+                        $error_message = $field_errors;
+                        break;
+                    }
+                }
+            }
+            add_settings_error('bkgt_item_type', 'error', $error_message, 'error');
         }
         
         settings_errors('bkgt_item_type');
@@ -1067,7 +1290,8 @@ class BKGT_Inventory_Admin {
         // Get all meta values
         $manufacturer_id = get_post_meta($post->ID, '_bkgt_manufacturer_id', true);
         $item_type_id = get_post_meta($post->ID, '_bkgt_item_type_id', true);
-        $serial_number = get_post_meta($post->ID, '_bkgt_serial_number', true);
+        $unique_id = get_post_meta($post->ID, '_bkgt_unique_id', true);
+        $unique_id_short = get_post_meta($post->ID, '_bkgt_unique_id_short', true);
         $purchase_date = get_post_meta($post->ID, '_bkgt_purchase_date', true);
         $purchase_price = get_post_meta($post->ID, '_bkgt_purchase_price', true);
         $warranty_expiry = get_post_meta($post->ID, '_bkgt_warranty_expiry', true);
@@ -1109,15 +1333,19 @@ class BKGT_Inventory_Admin {
         $current_condition = !empty($current_condition_terms) ? $current_condition_terms[0] : '';
 
         ?>
-        <div class="bkgt-inventory-form">
+        <div class="bkgt-inventory-form" data-validate>
             <h3><?php esc_html_e('Grundläggande information', 'bkgt-inventory'); ?></h3>
             <table class="form-table">
                 <tr>
                     <th scope="row">
-                        <label for="bkgt_manufacturer_id"><?php esc_html_e('Tillverkare', 'bkgt-inventory'); ?> *</label>
+                        <label for="bkgt_manufacturer_id"><?php esc_html_e('Tillverkare', 'bkgt-inventory'); ?> <span class="bkgt-required-indicator">*</span></label>
                     </th>
                     <td>
-                        <select id="bkgt_manufacturer_id" name="bkgt_manufacturer_id" required>
+                        <select id="bkgt_manufacturer_id" 
+                                name="bkgt_manufacturer_id" 
+                                data-validate-type="select"
+                                data-validate-required="true"
+                                required>
                             <option value=""><?php esc_html_e('Välj tillverkare', 'bkgt-inventory'); ?></option>
                             <?php foreach ($manufacturers as $manufacturer): ?>
                             <option value="<?php echo $manufacturer['id']; ?>" <?php selected($manufacturer_id, $manufacturer['id']); ?>>
@@ -1130,10 +1358,14 @@ class BKGT_Inventory_Admin {
 
                 <tr>
                     <th scope="row">
-                        <label for="bkgt_item_type_id"><?php esc_html_e('Artikeltyp', 'bkgt-inventory'); ?> *</label>
+                        <label for="bkgt_item_type_id"><?php esc_html_e('Artikeltyp', 'bkgt-inventory'); ?> <span class="bkgt-required-indicator">*</span></label>
                     </th>
                     <td>
-                        <select id="bkgt_item_type_id" name="bkgt_item_type_id" required>
+                        <select id="bkgt_item_type_id" 
+                                name="bkgt_item_type_id" 
+                                data-validate-type="select"
+                                data-validate-required="true"
+                                required>
                             <option value=""><?php esc_html_e('Välj artikeltyp', 'bkgt-inventory'); ?></option>
                             <?php foreach ($item_types as $item_type): ?>
                             <option value="<?php echo $item_type['id']; ?>" <?php selected($item_type_id, $item_type['id']); ?> data-type-id="<?php echo esc_attr($item_type['item_type_id']); ?>">
@@ -1146,12 +1378,31 @@ class BKGT_Inventory_Admin {
 
                 <tr>
                     <th scope="row">
-                        <label for="bkgt_serial_number"><?php esc_html_e('Unik Identifierare', 'bkgt-inventory'); ?></label>
+                        <label for="bkgt_unique_id"><?php esc_html_e('Unik Identifierare', 'bkgt-inventory'); ?></label>
                     </th>
                     <td>
-                        <input type="text" id="bkgt_serial_number" name="bkgt_serial_number"
-                               value="<?php echo esc_attr($serial_number); ?>" class="regular-text" readonly>
+                        <input type="text" 
+                               id="bkgt_unique_id" 
+                               name="bkgt_unique_id"
+                               value="<?php echo esc_attr($unique_id); ?>" 
+                               class="regular-text" 
+                               readonly>
                         <p class="description"><?php esc_html_e('Genereras automatiskt baserat på tillverkare och artikeltyp.', 'bkgt-inventory'); ?></p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th scope="row">
+                        <label for="bkgt_unique_id_short"><?php esc_html_e('Unik Identifierare (kortform)', 'bkgt-inventory'); ?></label>
+                    </th>
+                    <td>
+                        <input type="text" 
+                               id="bkgt_unique_id_short" 
+                               name="bkgt_unique_id_short"
+                               value="<?php echo esc_attr($unique_id_short); ?>" 
+                               class="regular-text" 
+                               readonly>
+                        <p class="description"><?php esc_html_e('Kortform utan inledande nollor - perfekt för märkning av bollar och liknande.', 'bkgt-inventory'); ?></p>
                     </td>
                 </tr>
 
@@ -1184,8 +1435,11 @@ class BKGT_Inventory_Admin {
                         <label for="bkgt_purchase_date"><?php esc_html_e('Inköpsdatum', 'bkgt-inventory'); ?></label>
                     </th>
                     <td>
-                        <input type="date" id="bkgt_purchase_date" name="bkgt_purchase_date"
-                               value="<?php echo esc_attr($purchase_date); ?>">
+                        <input type="date" 
+                               id="bkgt_purchase_date" 
+                               name="bkgt_purchase_date"
+                               value="<?php echo esc_attr($purchase_date); ?>"
+                               data-validate-type="date">
                     </td>
                 </tr>
 
@@ -1194,8 +1448,14 @@ class BKGT_Inventory_Admin {
                         <label for="bkgt_purchase_price"><?php esc_html_e('Inköpspris (SEK)', 'bkgt-inventory'); ?></label>
                     </th>
                     <td>
-                        <input type="number" id="bkgt_purchase_price" name="bkgt_purchase_price"
-                               value="<?php echo esc_attr($purchase_price); ?>" step="0.01" min="0">
+                        <input type="number" 
+                               id="bkgt_purchase_price" 
+                               name="bkgt_purchase_price"
+                               value="<?php echo esc_attr($purchase_price); ?>" 
+                               step="0.01" 
+                               min="0"
+                               data-validate-type="number"
+                               data-validate-min="0">
                     </td>
                 </tr>
 
@@ -1204,8 +1464,11 @@ class BKGT_Inventory_Admin {
                         <label for="bkgt_warranty_expiry"><?php esc_html_e('Garanti utgångsdatum', 'bkgt-inventory'); ?></label>
                     </th>
                     <td>
-                        <input type="date" id="bkgt_warranty_expiry" name="bkgt_warranty_expiry"
-                               value="<?php echo esc_attr($warranty_expiry); ?>">
+                        <input type="date" 
+                               id="bkgt_warranty_expiry" 
+                               name="bkgt_warranty_expiry"
+                               value="<?php echo esc_attr($warranty_expiry); ?>"
+                               data-validate-type="date">
                     </td>
                 </tr>
             </table>
@@ -1389,6 +1652,11 @@ class BKGT_Inventory_Admin {
                 </tr>
             </table>
 
+            <p class="submit">
+                <input type="submit" name="publish" id="publish" class="button button-primary button-large" value="<?php esc_attr_e('Publicera', 'bkgt-inventory'); ?>">
+                <input type="submit" name="save" id="save-post" class="button button-secondary button-large" value="<?php esc_attr_e('Spara utkast', 'bkgt-inventory'); ?>">
+            </p>
+
             <?php
             // Show history if item exists
             if ($post->ID) {
@@ -1558,31 +1826,82 @@ class BKGT_Inventory_Admin {
             return;
         }
         
-        // Save meta fields
-        $meta_fields = array(
-            'bkgt_manufacturer_id',
-            'bkgt_item_type_id', 
-            'bkgt_serial_number',
-            'bkgt_purchase_date',
-            'bkgt_purchase_price',
-            'bkgt_warranty_expiry',
-            'bkgt_notes',
-            'bkgt_assignment_type',
-            'bkgt_assigned_to',
-            'bkgt_metadata',
+        // Extract and sanitize form data using BKGT_Sanitizer for unified data cleaning
+        $raw_data = array(
+            'bkgt_manufacturer_id' => $_POST['bkgt_manufacturer_id'] ?? '',
+            'bkgt_item_type_id' => $_POST['bkgt_item_type_id'] ?? '',
+            'bkgt_unique_id' => $_POST['bkgt_unique_id'] ?? '',
+            'bkgt_unique_id_short' => $_POST['bkgt_unique_id_short'] ?? '',
+            'bkgt_purchase_date' => $_POST['bkgt_purchase_date'] ?? '',
+            'bkgt_purchase_price' => $_POST['bkgt_purchase_price'] ?? '',
+            'bkgt_warranty_expiry' => $_POST['bkgt_warranty_expiry'] ?? '',
+            'bkgt_notes' => $_POST['bkgt_notes'] ?? '',
+            'bkgt_assignment_type' => $_POST['bkgt_assignment_type'] ?? '',
+            'bkgt_assigned_to' => $_POST['bkgt_assigned_to'] ?? '',
+            'bkgt_metadata' => $_POST['bkgt_metadata'] ?? '',
             // Conditional fields
-            'bkgt_size',
-            'bkgt_color',
-            'bkgt_material',
-            'bkgt_battery_type',
-            'bkgt_voltage',
-            'bkgt_weight',
-            'bkgt_dimensions',
+            'bkgt_size' => $_POST['bkgt_size'] ?? '',
+            'bkgt_color' => $_POST['bkgt_color'] ?? '',
+            'bkgt_material' => $_POST['bkgt_material'] ?? '',
+            'bkgt_battery_type' => $_POST['bkgt_battery_type'] ?? '',
+            'bkgt_voltage' => $_POST['bkgt_voltage'] ?? '',
+            'bkgt_weight' => $_POST['bkgt_weight'] ?? '',
+            'bkgt_dimensions' => $_POST['bkgt_dimensions'] ?? '',
         );
         
-        foreach ($meta_fields as $field) {
-            if (isset($_POST[$field])) {
-                update_post_meta($post_id, '_' . $field, sanitize_text_field($_POST[$field]));
+        // Use BKGT_Sanitizer for context-aware data cleaning
+        // Remove prefixes for sanitizer processing
+        $sanitize_data = array();
+        foreach ($raw_data as $key => $value) {
+            $clean_key = str_replace('bkgt_', '', $key);
+            $sanitize_data[$clean_key] = $value;
+        }
+        
+        $sanitize_result = BKGT_Sanitizer::process($sanitize_data, 'equipment', $post_id);
+        $sanitized_data = $sanitize_result['data'];
+        
+        // Validate using BKGT_Validator
+        $validation_result = BKGT_Validator::validate($sanitized_data, 'equipment', $post_id);
+        
+        // If validation fails, log but don't prevent save (metabox saves are expected to continue)
+        if (!empty($validation_result)) {
+            bkgt_log('warning', 'Equipment form validation issues detected', array(
+                'post_id' => $post_id,
+                'errors' => array_keys($validation_result),
+            ));
+        }
+        
+        // Save meta fields with sanitized data
+        $meta_fields = array(
+            'manufacturer_id' => 'intval',
+            'item_type_id' => 'intval',
+            'unique_id' => 'sanitize_text_field',
+            'unique_id_short' => 'sanitize_text_field',
+            'purchase_date' => 'sanitize_text_field',
+            'purchase_price' => 'floatval',
+            'warranty_expiry' => 'sanitize_text_field',
+            'notes' => 'sanitize_textarea_field',
+            'assignment_type' => 'sanitize_text_field',
+            'assigned_to' => 'intval',
+            'metadata' => 'sanitize_text_field',
+            // Conditional fields
+            'size' => 'sanitize_text_field',
+            'color' => 'sanitize_text_field',
+            'material' => 'sanitize_text_field',
+            'battery_type' => 'sanitize_text_field',
+            'voltage' => 'sanitize_text_field',
+            'weight' => 'sanitize_text_field',
+            'dimensions' => 'sanitize_text_field',
+        );
+        
+        foreach ($meta_fields as $field => $sanitizer) {
+            if (isset($sanitized_data[$field])) {
+                $value = $sanitized_data[$field];
+                // Apply field-specific sanitizer if available
+                if (is_callable($sanitizer) && !empty($value)) {
+                    $value = $sanitizer($value);
+                }
+                update_post_meta($post_id, '_bkgt_' . $field, $value);
             }
         }
         
@@ -1593,14 +1912,19 @@ class BKGT_Inventory_Admin {
         
         // Generate unique identifier if not set
         $unique_id = get_post_meta($post_id, '_bkgt_unique_id', true);
-        if (empty($unique_id) && !empty($_POST['bkgt_manufacturer_id']) && !empty($_POST['bkgt_item_type_id'])) {
-            $manufacturer = BKGT_Manufacturer::get($_POST['bkgt_manufacturer_id']);
-            $item_type = BKGT_Item_Type::get($_POST['bkgt_item_type_id']);
+        $short_unique_id = get_post_meta($post_id, '_bkgt_unique_id_short', true);
+        
+        if (empty($unique_id) && !empty($sanitized_data['manufacturer_id']) && !empty($sanitized_data['item_type_id'])) {
+            $manufacturer = BKGT_Manufacturer::get($sanitized_data['manufacturer_id']);
+            $item_type = BKGT_Item_Type::get($sanitized_data['item_type_id']);
             
             if ($manufacturer && $item_type) {
                 $inventory_item = new BKGT_Inventory_Item($post_id);
-                $unique_id = $inventory_item->generate_unique_identifier($_POST['bkgt_manufacturer_id'], $_POST['bkgt_item_type_id']);
+                $unique_id = $inventory_item->generate_unique_identifier($sanitized_data['manufacturer_id'], $sanitized_data['item_type_id']);
+                $short_unique_id = $inventory_item->generate_short_unique_identifier($sanitized_data['manufacturer_id'], $sanitized_data['item_type_id']);
+                
                 update_post_meta($post_id, '_bkgt_unique_id', $unique_id);
+                update_post_meta($post_id, '_bkgt_unique_id_short', $short_unique_id);
                 
                 // Update post title if it's "Auto Draft"
                 if ($post->post_title === 'Auto Draft' || empty($post->post_title)) {
@@ -1610,14 +1934,19 @@ class BKGT_Inventory_Admin {
                     ));
                 }
             }
+        } elseif (!empty($unique_id) && empty($short_unique_id) && !empty($sanitized_data['manufacturer_id']) && !empty($sanitized_data['item_type_id'])) {
+            // Generate short identifier for existing items that don't have it
+            $inventory_item = new BKGT_Inventory_Item($post_id);
+            $short_unique_id = $inventory_item->generate_short_unique_identifier($sanitized_data['manufacturer_id'], $sanitized_data['item_type_id']);
+            update_post_meta($post_id, '_bkgt_unique_id_short', $short_unique_id);
         }
         
         // Log changes to history
-        BKGT_History::log_action($post_id, 'item_updated', array(
-            'manufacturer_id' => $_POST['bkgt_manufacturer_id'] ?? '',
-            'item_type_id' => $_POST['bkgt_item_type_id'] ?? '',
-            'assignment_type' => $_POST['bkgt_assignment_type'] ?? '',
-            'assigned_to' => $_POST['bkgt_assigned_to'] ?? '',
+        BKGT_History::log($post_id, 'item_updated', get_current_user_id(), array(
+            'manufacturer_id' => $sanitized_data['manufacturer_id'] ?? '',
+            'item_type_id' => $sanitized_data['item_type_id'] ?? '',
+            'assignment_type' => $sanitized_data['assignment_type'] ?? '',
+            'assigned_to' => $sanitized_data['assigned_to'] ?? '',
         ));
     }
     

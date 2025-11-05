@@ -190,4 +190,3 @@ class BKGT_Team_Player_Database {
 
 // Hook into plugin activation
 register_activation_hook(BKGT_TP_PLUGIN_DIR . '/bkgt-team-player.php', array('BKGT_Team_Player_Database', 'create_tables'));
-?>

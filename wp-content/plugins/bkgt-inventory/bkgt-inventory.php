@@ -10,6 +10,7 @@
  * Domain Path: /languages
  * Requires at least: 6.0
  * Requires PHP: 8.0
+ * Requires Plugins: bkgt-core
  * License: Proprietary
  */
 
@@ -22,6 +23,17 @@ if (!defined('ABSPATH')) {
 define('BKGT_INV_VERSION', '1.0.0');
 define('BKGT_INV_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('BKGT_INV_PLUGIN_URL', plugin_dir_url(__FILE__));
+
+// Initialize plugin instance
+function bkgt_inventory() {
+    static $instance = null;
+    if ($instance === null) {
+        $instance = new stdClass();
+        global $bkgt_inventory_db;
+        $instance->db = $bkgt_inventory_db;
+    }
+    return $instance;
+}
 
 // Include required files
 require_once plugin_dir_path(__FILE__) . 'includes/class-database.php';
@@ -42,17 +54,6 @@ if (is_admin()) {
 global $bkgt_inventory_db;
 $bkgt_inventory_db = new BKGT_Inventory_Database();
 
-// Initialize plugin instance
-function bkgt_inventory() {
-    static $instance = null;
-    if ($instance === null) {
-        $instance = new stdClass();
-        global $bkgt_inventory_db;
-        $instance->db = $bkgt_inventory_db;
-    }
-    return $instance;
-}
-
 // Initialize admin class if in admin area or AJAX request
 if (is_admin() || (defined('DOING_AJAX') && DOING_AJAX)) {
     new BKGT_Inventory_Admin();
@@ -61,6 +62,15 @@ if (is_admin() || (defined('DOING_AJAX') && DOING_AJAX)) {
 // Plugin activation
 register_activation_hook(__FILE__, 'bkgt_inventory_activate');
 function bkgt_inventory_activate() {
+    // Check if BKGT Core plugin is active
+    if (!function_exists('bkgt_log')) {
+        deactivate_plugins(plugin_basename(__FILE__));
+        wp_die('BKGT Core plugin is required for BKGT Inventory to work. Please activate BKGT Core first.');
+    }
+    
+    // Start output buffering to prevent any unexpected output
+    ob_start();
+    
     add_option('bkgt_inventory_test', 'activated');
     
     // Create database tables
@@ -81,11 +91,24 @@ function bkgt_inventory_activate() {
     
     // Flush rewrite rules for custom post type
     flush_rewrite_rules();
+    
+    // Log activation
+    bkgt_log('info', 'BKGT Inventory plugin activated', array(
+        'version' => BKGT_INV_VERSION,
+    ));
+    
+    // Clean output buffer to prevent headers already sent errors
+    ob_end_clean();
 }
 
 // Plugin deactivation
 register_deactivation_hook(__FILE__, 'bkgt_inventory_deactivate');
 function bkgt_inventory_deactivate() {
+    // Log deactivation if BKGT Core is available
+    if (function_exists('bkgt_log')) {
+        bkgt_log('info', 'BKGT Inventory plugin deactivated');
+    }
+    
     delete_option('bkgt_inventory_test');
 }
 
@@ -111,7 +134,7 @@ function bkgt_inventory_register_post_type() {
             'not_found' => __('Inga artiklar hittades', 'bkgt-inventory'),
             'not_found_in_trash' => __('Inga artiklar i papperskorgen', 'bkgt-inventory'),
         ),
-        'public' => false,
+        'public' => true,
         'show_ui' => true,
         'show_in_menu' => false, // Will be shown under our custom menu
         'capability_type' => 'post',
@@ -126,7 +149,7 @@ function bkgt_inventory_register_post_type() {
         ),
         'supports' => array('custom-fields'),
         'has_archive' => false,
-        'rewrite' => false,
+        'rewrite' => array('slug' => 'utrustning/artikel'),
     ));
 }
 
@@ -212,57 +235,128 @@ function bkgt_inventory_shortcode($atts) {
         'layout' => 'table'
     ), $atts);
 
-    // Query real inventory data from database
-    $inventory_db = new BKGT_Inventory_Database();
+    // Query real inventory data from custom post types
+    $args = array(
+        'post_type' => 'bkgt_inventory_item',
+        'post_status' => 'publish',
+        'numberposts' => $atts['limit'] > 0 ? intval($atts['limit']) : -1,
+        'orderby' => 'date',
+        'order' => 'DESC'
+    );
 
-    $query = "SELECT
-        i.*,
-        m.name as manufacturer_name,
-        t.name as item_type_name,
-        pm_assignment.meta_value as assignment_type,
-        pm_assigned.meta_value as assigned_to,
-        l.name as location_name
-        FROM {$inventory_db->get_inventory_items_table()} i
-        LEFT JOIN {$inventory_db->get_manufacturers_table()} m ON i.manufacturer_id = m.id
-        LEFT JOIN {$inventory_db->get_item_types_table()} t ON i.item_type_id = t.id
-        LEFT JOIN {$wpdb->postmeta} pm_assignment ON i.post_id = pm_assignment.post_id AND pm_assignment.meta_key = '_bkgt_assignment_type'
-        LEFT JOIN {$wpdb->postmeta} pm_assigned ON i.post_id = pm_assigned.post_id AND pm_assigned.meta_key = '_bkgt_assigned_to'
-        LEFT JOIN {$inventory_db->get_locations_table()} l ON pm_assigned.meta_value = l.id AND pm_assignment.meta_value = 'location'
-        ORDER BY i.created_at DESC";
+    $inventory_posts = get_posts($args);
+    $inventory_items = array();
 
-    if ($atts['limit'] > 0) {
-        $query .= $wpdb->prepare(" LIMIT %d", intval($atts['limit']));
-    }
+    // Convert posts to objects with metadata for consistent processing
+    foreach ($inventory_posts as $post) {
+        $manufacturer_id = get_post_meta($post->ID, '_bkgt_manufacturer_id', true);
+        $item_type_id = get_post_meta($post->ID, '_bkgt_item_type_id', true);
+        $assignment_type = get_post_meta($post->ID, '_bkgt_assignment_type', true);
+        $assigned_to = get_post_meta($post->ID, '_bkgt_assigned_to', true);
 
-    $inventory_items = $wpdb->get_results($query);
+        // Get manufacturer and item type names
+        $manufacturer_name = '';
+        $item_type_name = '';
 
-    // If no items in database, show sample data for demonstration
-    if (empty($inventory_items)) {
-        $sample_items = array(
-            array('HELM001', 'Schutt F7 VTD', 'Schutt', 'Hjälm', 'Lager A1', 'normal'),
-            array('HELM002', 'Riddell SpeedFlex', 'Riddell', 'Hjälm', 'Lager A1', 'normal'),
-            array('SHIRT001', 'Nike Vapor Tröja', 'Nike', 'Tröja', 'Lager B2', 'normal'),
-            array('SHIRT002', 'Under Armour Tröja', 'Under Armour', 'Tröja', 'Lager B2', 'needs_repair'),
-            array('PANTS001', 'Nike Vapor Byxor', 'Nike', 'Byxor', 'Lager B3', 'normal'),
-            array('SHOES001', 'Nike Vapor Skor', 'Nike', 'Skor', 'Lager C1', 'normal')
+        // Map IDs to names (this is a simplified mapping - you may need to expand this)
+        $manufacturer_map = array(
+            1 => 'BKGT',
+            2 => 'Riddell',
+            3 => 'Schutt',
+            4 => 'Xenith',
+            5 => 'Wilson'
         );
 
-        // Convert sample data to objects for consistent processing
-        $inventory_items = array();
-        foreach ($sample_items as $item) {
-            $inventory_items[] = (object) array(
-                'unique_identifier' => $item[0],
-                'title' => $item[1],
-                'manufacturer_name' => $item[2],
-                'item_type_name' => $item[3],
-                'storage_location' => $item[4],
-                'condition_status' => $item[5]
-            );
+        $item_type_map = array(
+            1 => 'Hjälmar',
+            2 => 'Axelskydd',
+            3 => 'Spelarbyxor',
+            4 => 'Träningströjor',
+            5 => 'Fotbollar'
+        );
+
+        // Singular forms for individual items
+        $item_type_singular_map = array(
+            1 => 'Hjälm',
+            2 => 'Axelskydd',
+            3 => 'Spelarbyxa',
+            4 => 'Träningströja',
+            5 => 'Fotboll'
+        );
+
+        $manufacturer_name = isset($manufacturer_map[$manufacturer_id]) ? $manufacturer_map[$manufacturer_id] : '';
+        $item_type_name = isset($item_type_map[$item_type_id]) ? $item_type_map[$item_type_id] : '';
+        $item_type_name_singular = isset($item_type_singular_map[$item_type_id]) ? $item_type_singular_map[$item_type_id] : $item_type_name;
+
+        // Determine location name based on assignment
+        $location_name = '';
+        if ($assignment_type === 'location' && !empty($assigned_to)) {
+            // Get the actual location name from the database
+            $location = BKGT_Location::get_location($assigned_to);
+            $location_name = $location ? $location['name'] : 'Okänd plats';
+        } elseif (empty($assignment_type) || empty($assigned_to)) {
+            // Default assignment for items without assignment
+            $assignment_type = 'location';
+            $location_name = 'Lager';
         }
+
+        // Get additional metadata for display
+        $size = get_post_meta($post->ID, '_bkgt_size', true);
+        $material = get_post_meta($post->ID, '_bkgt_material', true);
+        $serial_number = get_post_meta($post->ID, '_bkgt_serial_number', true);
+
+        // Create a meaningful title
+        $display_title = $manufacturer_name;
+        if (!empty($item_type_name_singular)) {
+            $display_title .= ' ' . $item_type_name_singular;
+        }
+        if (!empty($size)) {
+            $display_title .= ' - ' . $size;
+        }
+
+        // Fallback to post title if we don't have manufacturer/type
+        if (empty($display_title)) {
+            $display_title = $post->post_title;
+        }
+
+        $inventory_items[] = (object) array(
+            'unique_identifier' => get_post_meta($post->ID, '_bkgt_unique_id', true),
+            'title' => $display_title, // Changed from $post->post_title to meaningful title
+            'manufacturer_name' => $manufacturer_name,
+            'item_type_name' => $item_type_name,
+            'item_type_name_singular' => $item_type_name_singular,
+            'storage_location' => '', // Could be derived from assignment
+            'condition_status' => 'normal', // Default, could be stored in meta
+            'assignment_type' => $assignment_type,
+            'location_name' => $location_name,
+            'size' => $size,
+            'material' => $material,
+            'serial_number' => $serial_number
+        );
     }
 
+    // Handle empty inventory state
     if (empty($inventory_items)) {
-        return '<p>Ingen utrustning registrerad ännu.</p>';
+        bkgt_log('info', 'Inventory shortcode: no items in database', array('user_id' => get_current_user_id()));
+        return bkgt_render_empty_state(
+            array(
+                'icon' => '📦',
+                'title' => __('Ingen utrustning registrerad', 'bkgt-inventory'),
+                'message' => __('Det finns ingen utrustning registrerad i systemet ännu.', 'bkgt-inventory'),
+                'actions' => current_user_can('manage_inventory') ? array(
+                    array(
+                        'label' => __('Lägg till utrustning', 'bkgt-inventory'),
+                        'url' => admin_url('post-new.php?post_type=bkgt_inventory_item'),
+                        'primary' => true
+                    ),
+                    array(
+                        'label' => __('Till administrationspanelen', 'bkgt-inventory'),
+                        'url' => admin_url('admin.php?page=bkgt-inventory'),
+                        'primary' => false
+                    )
+                ) : array()
+            )
+        );
     }
     
     ob_start();
@@ -310,8 +404,17 @@ function bkgt_inventory_shortcode($atts) {
                         $status_class = 'status-error';
                         break;
                 }
+                // Create searchable text including all metadata
+                $searchable_text = strtolower(($item->title ?? '') . ' ' . 
+                                           ($item->unique_identifier ?? '') . ' ' . 
+                                           ($item->manufacturer_name ?? '') . ' ' . 
+                                           ($item->item_type_name ?? '') . ' ' . 
+                                           ($item->item_type_name_singular ?? '') . ' ' . 
+                                           ($item->size ?? '') . ' ' . 
+                                           ($item->material ?? '') . ' ' . 
+                                           ($item->serial_number ?? ''));
             ?>
-            <div class="bkgt-inventory-item" data-title="<?php echo esc_attr(strtolower($item->title ?? '')); ?>">
+            <div class="bkgt-inventory-item" data-title="<?php echo esc_attr($searchable_text); ?>">
                 <div class="inventory-item-header">
                     <div class="inventory-icon">
                         <span class="dashicons <?php echo esc_attr($icon_class); ?>"></span>
@@ -322,6 +425,12 @@ function bkgt_inventory_shortcode($atts) {
                             <span class="meta-item"><strong>ID:</strong> <?php echo esc_html($item->unique_identifier ?? ''); ?></span>
                             <span class="meta-item"><strong>Tillverkare:</strong> <?php echo esc_html($item->manufacturer_name ?? ''); ?></span>
                             <span class="meta-item"><strong>Typ:</strong> <?php echo esc_html($item->item_type_name ?? ''); ?></span>
+                            <?php if (!empty($item->size)): ?>
+                            <span class="meta-item"><strong>Storlek:</strong> <?php echo esc_html($item->size); ?></span>
+                            <?php endif; ?>
+                            <?php if (!empty($item->material)): ?>
+                            <span class="meta-item"><strong>Material:</strong> <?php echo esc_html($item->material); ?></span>
+                            <?php endif; ?>
                             <span class="meta-item"><strong>Plats:</strong> <?php 
                                 if (!empty($item->assignment_type) && $item->assignment_type === 'location' && !empty($item->location_name)) {
                                     echo esc_html($item->location_name);
@@ -344,7 +453,29 @@ function bkgt_inventory_shortcode($atts) {
                     </div>
                 </div>
                 <div class="inventory-item-actions">
-                    <button class="btn btn-sm btn-outline inventory-action-btn" data-action="view">
+                    <button class="btn btn-sm btn-outline inventory-action-btn bkgt-show-details" 
+                            data-action="view"
+                            data-item-title="<?php echo esc_attr($item->title ?? ''); ?>"
+                            data-unique-id="<?php echo esc_attr($item->unique_identifier ?? ''); ?>"
+                            data-manufacturer="<?php echo esc_attr($item->manufacturer_name ?? ''); ?>"
+                            data-item-type="<?php echo esc_attr($item->item_type_name ?? ''); ?>"
+                            data-size="<?php echo esc_attr($item->size ?? ''); ?>"
+                            data-material="<?php echo esc_attr($item->material ?? ''); ?>"
+                            data-serial-number="<?php echo esc_attr($item->serial_number ?? ''); ?>"
+                            data-status="<?php echo esc_attr($item->condition_status ?? 'normal'); ?>"
+                            data-assignment="<?php 
+                                if (!empty($item->assignment_type) && $item->assignment_type === 'location' && !empty($item->location_name)) {
+                                    echo esc_attr($item->location_name);
+                                } elseif (!empty($item->assignment_type) && $item->assignment_type === 'team') {
+                                    echo 'Lag';
+                                } elseif (!empty($item->assignment_type) && $item->assignment_type === 'individual') {
+                                    echo 'Individ';
+                                } elseif (!empty($item->assignment_type) && $item->assignment_type === 'club') {
+                                    echo 'Klubben';
+                                } else {
+                                    echo esc_attr($item->storage_location ?? 'Ej tilldelad');
+                                }
+                            ?>">
                         <?php _e('Visa detaljer', 'bkgt-inventory'); ?>
                     </button>
                 </div>
@@ -544,110 +675,260 @@ function bkgt_inventory_shortcode($atts) {
             width: 100%;
         }
     }
+    
+    /* Fallback Notice Styles */
+    .bkgt-inventory-fallback-notice {
+        margin-bottom: 20px;
+    }
+    
+    .bkgt-inventory-fallback-notice .notice {
+        border-left: 4px solid;
+        padding: 12px 15px;
+        border-radius: 4px;
+        margin: 0;
+    }
+    
+    .bkgt-inventory-fallback-notice .notice-info {
+        background-color: #d1ecf1;
+        border-left-color: #0c5460;
+        color: #0c5460;
+    }
+    
+    .bkgt-inventory-fallback-notice .notice-warning {
+        background-color: #fff3cd;
+        border-left-color: #856404;
+        color: #856404;
+    }
+    
+    .bkgt-inventory-fallback-notice .notice p {
+        margin: 8px 0;
+        font-size: 14px;
+    }
+    
+    .bkgt-inventory-fallback-notice .notice strong {
+        font-weight: 600;
+        display: block;
+        margin-bottom: 4px;
+        font-size: 15px;
+    }
+    
+    .bkgt-inventory-fallback-notice .notice .button {
+        display: inline-block;
+        margin-right: 10px;
+        margin-top: 8px;
+        padding: 8px 16px;
+        border-radius: 4px;
+        text-decoration: none;
+        font-weight: 500;
+        font-size: 13px;
+        transition: all 0.2s ease;
+    }
+    
+    .bkgt-inventory-fallback-notice .notice .button-primary {
+        background-color: #0073aa;
+        color: white;
+        border: 1px solid #0073aa;
+    }
+    
+    .bkgt-inventory-fallback-notice .notice .button-primary:hover {
+        background-color: #005a87;
+        border-color: #005a87;
+    }
+    
+    .bkgt-inventory-fallback-notice .notice .button {
+        background-color: #f8f9fa;
+        color: #0073aa;
+        border: 1px solid #ddd;
+    }
+    
+    .bkgt-inventory-fallback-notice .notice .button:hover {
+        background-color: #e9ecef;
+        border-color: #0073aa;
+        color: #0073aa;
+    }
+    
+    /* Modal Styles handled by BKGTModal component from bkgt-core */
     </style>
+    
+    <!-- Item Details Modal is handled by BKGTModal component -->
+
+    <script>
+    /**
+     * BKGT Inventory Modal System
+     * Uses unified BKGTModal component from bkgt-core
+     */
+    var bkgtInventoryModal = null;
+    
+    function initBkgtInventoryModal() {
+        // Create modal instance if BKGTModal is available
+        if (typeof BKGTModal === 'undefined') {
+            bkgt_log('error', 'BKGTModal not loaded');
+            return;
+        }
+        
+        // Create detail modal
+        bkgtInventoryModal = new BKGTModal({
+            id: 'bkgt-inventory-details-modal',
+            title: '<?php esc_html_e('Artikeldetaljer', 'bkgt-inventory'); ?>',
+            size: 'medium',
+            closeButton: true,
+            overlay: true,
+            onClose: function() {
+                bkgt_log('info', 'Inventory modal closed');
+            }
+        });
+        
+        // Attach click handlers to all detail buttons
+        var detailButtons = document.querySelectorAll('.bkgt-show-details');
+        
+        detailButtons.forEach(function(button) {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                // Gather item data from button attributes
+                var itemData = {
+                    title: this.getAttribute('data-item-title') || '',
+                    unique_id: this.getAttribute('data-unique-id') || '<?php esc_html_e('Ej angivet', 'bkgt-inventory'); ?>',
+                    manufacturer: this.getAttribute('data-manufacturer') || '<?php esc_html_e('Ej angivet', 'bkgt-inventory'); ?>',
+                    item_type: this.getAttribute('data-item-type') || '<?php esc_html_e('Ej angivet', 'bkgt-inventory'); ?>',
+                    size: this.getAttribute('data-size') || '<?php esc_html_e('Ej angivet', 'bkgt-inventory'); ?>',
+                    material: this.getAttribute('data-material') || '<?php esc_html_e('Ej angivet', 'bkgt-inventory'); ?>',
+                    serial_number: this.getAttribute('data-serial-number') || '<?php esc_html_e('Ej angivet', 'bkgt-inventory'); ?>',
+                    status: this.getAttribute('data-status') || '<?php esc_html_e('Normal', 'bkgt-inventory'); ?>',
+                    assignment: this.getAttribute('data-assignment') || '<?php esc_html_e('Ej tilldelad', 'bkgt-inventory'); ?>'
+                };
+                
+                // Build modal content HTML
+                var content = '<div class="bkgt-modal-details">' +
+                    '<div class="bkgt-detail-row">' +
+                        '<label><?php esc_html_e('ID', 'bkgt-inventory'); ?>:</label>' +
+                        '<span>' + escapeHtml(itemData.unique_id) + '</span>' +
+                    '</div>' +
+                    '<div class="bkgt-detail-row">' +
+                        '<label><?php esc_html_e('Tillverkare', 'bkgt-inventory'); ?>:</label>' +
+                        '<span>' + escapeHtml(itemData.manufacturer) + '</span>' +
+                    '</div>' +
+                    '<div class="bkgt-detail-row">' +
+                        '<label><?php esc_html_e('Typ', 'bkgt-inventory'); ?>:</label>' +
+                        '<span>' + escapeHtml(itemData.item_type) + '</span>' +
+                    '</div>' +
+                    '<div class="bkgt-detail-row">' +
+                        '<label><?php esc_html_e('Storlek', 'bkgt-inventory'); ?>:</label>' +
+                        '<span>' + escapeHtml(itemData.size) + '</span>' +
+                    '</div>' +
+                    '<div class="bkgt-detail-row">' +
+                        '<label><?php esc_html_e('Material', 'bkgt-inventory'); ?>:</label>' +
+                        '<span>' + escapeHtml(itemData.material) + '</span>' +
+                    '</div>' +
+                    '<div class="bkgt-detail-row">' +
+                        '<label><?php esc_html_e('Serienummer', 'bkgt-inventory'); ?>:</label>' +
+                        '<span>' + escapeHtml(itemData.serial_number) + '</span>' +
+                    '</div>' +
+                    '<div class="bkgt-detail-row">' +
+                        '<label><?php esc_html_e('Tilldelning', 'bkgt-inventory'); ?>:</label>' +
+                        '<span>' + escapeHtml(itemData.assignment) + '</span>' +
+                    '</div>' +
+                    '<div class="bkgt-detail-row">' +
+                        '<label><?php esc_html_e('Status', 'bkgt-inventory'); ?>:</label>' +
+                        '<span>' + escapeHtml(itemData.status) + '</span>' +
+                    '</div>' +
+                '</div>';
+                
+                // Update modal title and content
+                bkgtInventoryModal.options.title = itemData.title;
+                bkgtInventoryModal.setContent(content);
+                
+                // Set footer with close button
+                bkgtInventoryModal.setFooter(
+                    '<button class="btn btn-sm btn-secondary" onclick="bkgtInventoryModal.close();">' +
+                        '<?php esc_html_e('Stäng', 'bkgt-inventory'); ?>' +
+                    '</button>'
+                );
+                
+                // Open the modal
+                bkgtInventoryModal.open();
+                
+                bkgt_log('info', 'Inventory detail modal opened for: ' + itemData.title);
+            });
+        });
+        
+        bkgt_log('info', 'Inventory modal system initialized with ' + detailButtons.length + ' buttons');
+    }
+    
+    /**
+     * Escape HTML special characters to prevent XSS
+     */
+    function escapeHtml(text) {
+        var div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Initialize when BKGTModal is ready - with robust timing handling
+    (function() {
+        var initialized = false;
+        
+        // Function to attempt initialization
+        function attemptInit() {
+            if (initialized) return;
+            
+            if (typeof BKGTModal !== 'undefined') {
+                try {
+                    initBkgtInventoryModal();
+                    initialized = true;
+                    if (typeof bkgt_log === 'function') {
+                        bkgt_log('info', 'BKGT Inventory modal system initialized successfully');
+                    }
+                } catch (e) {
+                    if (typeof bkgt_log === 'function') {
+                        bkgt_log('error', 'Error initializing inventory modal: ' + e.message);
+                    }
+                    console.error('BKGT Inventory Modal Init Error:', e);
+                }
+            }
+        }
+        
+        // Try immediate initialization
+        attemptInit();
+        
+        // If not initialized, try on DOMContentLoaded
+        if (!initialized) {
+            document.addEventListener('DOMContentLoaded', function() {
+                attemptInit();
+            });
+        }
+        
+        // If still not initialized, try on load event (fallback)
+        if (!initialized) {
+            window.addEventListener('load', function() {
+                attemptInit();
+            });
+        }
+        
+        // Final fallback: check periodically for max 10 seconds
+        if (!initialized) {
+            var checkCount = 0;
+            var checkInterval = setInterval(function() {
+                checkCount++;
+                attemptInit();
+                
+                // Stop checking after 100 attempts (roughly 10 seconds at 100ms intervals)
+                if (initialized || checkCount > 100) {
+                    clearInterval(checkInterval);
+                    if (!initialized) {
+                        if (typeof bkgt_log === 'function') {
+                            bkgt_log('error', 'BKGTModal component not available after timeout');
+                        }
+                        console.warn('BKGT Inventory: BKGTModal not available, inventory details button will not work');
+                    }
+                }
+            }, 100);
+        }
+    })();
+    </script>
+    
     <?php
     return ob_get_clean();
-}
-
-/**
- * Create database tables
- */
-function bkgt_inventory_create_tables() {
-    global $wpdb;
-    $charset_collate = $wpdb->get_charset_collate();
-    
-    // Manufacturers table
-    $manufacturers_table = $wpdb->prefix . 'bkgt_manufacturers';
-    $manufacturers_sql = "CREATE TABLE IF NOT EXISTS $manufacturers_table (
-        id int(11) NOT NULL AUTO_INCREMENT,
-        name varchar(255) NOT NULL,
-        manufacturer_id varchar(4) NOT NULL UNIQUE,
-        created_at datetime DEFAULT CURRENT_TIMESTAMP,
-        updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        PRIMARY KEY (id),
-        UNIQUE KEY manufacturer_id (manufacturer_id)
-    ) $charset_collate;";
-    
-    // Item types table
-    $item_types_table = $wpdb->prefix . 'bkgt_item_types';
-    $item_types_sql = "CREATE TABLE IF NOT EXISTS $item_types_table (
-        id int(11) NOT NULL AUTO_INCREMENT,
-        name varchar(255) NOT NULL,
-        item_type_id varchar(4) NOT NULL UNIQUE,
-        created_at datetime DEFAULT CURRENT_TIMESTAMP,
-        updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        PRIMARY KEY (id),
-        UNIQUE KEY item_type_id (item_type_id)
-    ) $charset_collate;";
-    
-    // Inventory items table
-    $inventory_items_table = $wpdb->prefix . 'bkgt_inventory_items';
-    $inventory_items_sql = "CREATE TABLE IF NOT EXISTS $inventory_items_table (
-        id int(11) NOT NULL AUTO_INCREMENT,
-        unique_identifier varchar(20) NOT NULL UNIQUE,
-        manufacturer_id int(11) NOT NULL,
-        item_type_id int(11) NOT NULL,
-        title varchar(255) NOT NULL,
-        storage_location varchar(255),
-        condition_status enum('normal','needs_repair','repaired','reported_lost','scrapped') DEFAULT 'normal',
-        condition_date datetime,
-        condition_reason text,
-        metadata longtext,
-        sticker_code varchar(50),
-        created_at datetime DEFAULT CURRENT_TIMESTAMP,
-        updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        PRIMARY KEY (id),
-        UNIQUE KEY unique_identifier (unique_identifier),
-        FOREIGN KEY (manufacturer_id) REFERENCES $manufacturers_table(id),
-        FOREIGN KEY (item_type_id) REFERENCES $item_types_table(id)
-    ) $charset_collate;";
-    
-    // Assignments table
-    $assignments_table = $wpdb->prefix . 'bkgt_assignments';
-    $assignments_sql = "CREATE TABLE IF NOT EXISTS $assignments_table (
-        id int(11) NOT NULL AUTO_INCREMENT,
-        item_id int(11) NOT NULL,
-        assignee_type enum('location','team','user') NOT NULL,
-        assignee_id int(11) NOT NULL,
-        assigned_date datetime DEFAULT CURRENT_TIMESTAMP,
-        assigned_by int(11) NOT NULL,
-        unassigned_date datetime NULL,
-        unassigned_by int(11) NULL,
-        notes text,
-        PRIMARY KEY (id),
-        FOREIGN KEY (item_id) REFERENCES $inventory_items_table(id),
-        UNIQUE KEY unique_active_assignment (item_id, unassigned_date)
-    ) $charset_collate;";
-    
-    // Locations table
-    $locations_table = $wpdb->prefix . 'bkgt_locations';
-    $locations_sql = "CREATE TABLE IF NOT EXISTS $locations_table (
-        id int(11) NOT NULL AUTO_INCREMENT,
-        name varchar(255) NOT NULL,
-        slug varchar(255) NOT NULL UNIQUE,
-        parent_id int(11) DEFAULT NULL,
-        location_type enum('storage','repair','locker','warehouse','other') DEFAULT 'storage',
-        address text,
-        contact_person varchar(255),
-        contact_phone varchar(50),
-        contact_email varchar(255),
-        capacity int(11) DEFAULT NULL,
-        access_restrictions text,
-        notes text,
-        is_active tinyint(1) DEFAULT 1,
-        created_at datetime DEFAULT CURRENT_TIMESTAMP,
-        updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        PRIMARY KEY (id),
-        UNIQUE KEY slug (slug),
-        FOREIGN KEY (parent_id) REFERENCES $locations_table(id) ON DELETE SET NULL
-    ) $charset_collate;";
-    
-    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-    dbDelta($manufacturers_sql);
-    dbDelta($item_types_sql);
-    dbDelta($inventory_items_sql);
-    dbDelta($assignments_sql);
-    dbDelta($locations_sql);
 }
 
 /**

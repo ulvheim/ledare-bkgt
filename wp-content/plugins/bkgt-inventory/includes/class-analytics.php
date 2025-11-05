@@ -80,7 +80,7 @@ class BKGT_Inventory_Analytics {
     private static function get_historical_usage_data($item_type_id = null) {
         global $wpdb;
 
-        $where_clause = $item_type_id ? $wpdb->prepare("WHERE p.bkgt_item_type_id = %d", $item_type_id) : "";
+        $where_clause = $item_type_id ? $wpdb->prepare("AND pm.meta_value = %d", $item_type_id) : "";
 
         $usage_data = $wpdb->get_results("
             SELECT
@@ -92,8 +92,9 @@ class BKGT_Inventory_Analytics {
                 MAX(a.assignment_date) as last_assignment
             FROM {$wpdb->prefix}bkgt_inventory_assignments a
             JOIN {$wpdb->posts} p ON a.item_id = p.ID
-            JOIN {$wpdb->prefix}bkgt_item_types it ON p.bkgt_item_type_id = it.id
-            {$where_clause}
+            JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id AND pm.meta_key = '_bkgt_item_type_id'
+            JOIN {$wpdb->prefix}bkgt_item_types it ON pm.meta_value = it.id
+            WHERE 1=1 {$where_clause}
             GROUP BY it.id, it.name
             ORDER BY total_assignments DESC
         ");
@@ -107,7 +108,7 @@ class BKGT_Inventory_Analytics {
     private static function calculate_seasonal_patterns($item_type_id = null) {
         global $wpdb;
 
-        $where_clause = $item_type_id ? $wpdb->prepare("AND p.bkgt_item_type_id = %d", $item_type_id) : "";
+        $where_clause = $item_type_id ? $wpdb->prepare("AND pm.meta_value = %d", $item_type_id) : "";
 
         $seasonal_data = $wpdb->get_results("
             SELECT
@@ -116,7 +117,8 @@ class BKGT_Inventory_Analytics {
                 it.name as item_type
             FROM {$wpdb->prefix}bkgt_inventory_assignments a
             JOIN {$wpdb->posts} p ON a.item_id = p.ID
-            JOIN {$wpdb->prefix}bkgt_item_types it ON p.bkgt_item_type_id = it.id
+            JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id AND pm.meta_key = '_bkgt_item_type_id'
+            JOIN {$wpdb->prefix}bkgt_item_types it ON pm.meta_value = it.id
             WHERE YEAR(a.assignment_date) >= YEAR(CURDATE()) - 2
             {$where_clause}
             GROUP BY MONTH(a.assignment_date), it.id, it.name
@@ -148,8 +150,9 @@ class BKGT_Inventory_Analytics {
         // Get current inventory count
         $current_count = $wpdb->get_var($wpdb->prepare("
             SELECT COUNT(*) FROM {$wpdb->posts} p
+            JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id AND pm.meta_key = '_bkgt_item_type_id'
             WHERE p.post_type = 'bkgt_inventory_item'
-            AND p.bkgt_item_type_id = %d
+            AND pm.meta_value = %d
         ", $item_type_id));
 
         // Find usage data for this item type

@@ -1,0 +1,508 @@
+/**
+ * BKGT Ledare - Design System CSS Variables
+ * 
+ * Complete set of CSS custom properties for consistent theming across the platform
+ * Reference: DESIGN_SYSTEM.md
+ * 
+ * Usage:
+ *   color: var(--color-primary);
+ *   padding: var(--spacing-md);
+ *   font-size: var(--font-size-body);
+ */
+
+:root {
+    /* ========================================
+       COLOR PALETTE - Primary Colors
+       ======================================== */
+    
+    /* Ledare Blue - Primary Brand Color */
+    --color-primary: #0056B3;
+    --color-primary-light: #0070E0;
+    --color-primary-dark: #003D82;
+    --color-primary-bg: #F0F5FF;
+    
+    /* Accent Teal - Secondary Brand Color */
+    --color-secondary: #17A2B8;
+    --color-secondary-light: #20C9A6;
+    --color-secondary-dark: #0E7C86;
+    --color-secondary-bg: #F0FFFE;
+    
+    /* ========================================
+       SEMANTIC COLORS - Status & Meaning
+       ======================================== */
+    
+    /* Success - Positive/Completed */
+    --color-success: #28A745;
+    --color-success-light: #D4EDDA;
+    --color-success-dark: #1E8449;
+    --color-success-text: #155724;
+    
+    /* Warning - Caution/Attention */
+    --color-warning: #FFC107;
+    --color-warning-light: #FFF3CD;
+    --color-warning-dark: #E0A800;
+    --color-warning-text: #856404;
+    
+    /* Danger - Critical/Error */
+    --color-danger: #DC3545;
+    --color-danger-light: #F8D7DA;
+    --color-danger-dark: #BD2130;
+    --color-danger-text: #721C24;
+    
+    /* Information - Informational */
+    --color-info: #0C5FF4;
+    --color-info-light: #CFE2FF;
+    --color-info-dark: #084298;
+    --color-info-text: #084298;
+    
+    /* ========================================
+       TEXT COLORS - Typography
+       ======================================== */
+    
+    /* Primary Text - Main content, headings */
+    --color-text-primary: #1D2327;
+    
+    /* Secondary Text - Secondary information, metadata */
+    --color-text-secondary: #646970;
+    
+    /* Light Text - Disabled, placeholder, muted */
+    --color-text-light: #B5BACA;
+    
+    /* Inverted Text - On dark backgrounds */
+    --color-text-inverted: #FFFFFF;
+    
+    /* ========================================
+       BACKGROUND COLORS
+       ======================================== */
+    
+    /* Primary Background - Main page background */
+    --color-bg-primary: #FFFFFF;
+    
+    /* Secondary Background - Alternate sections */
+    --color-bg-secondary: #F8F9FA;
+    
+    /* Tertiary Background - Subtle alternation */
+    --color-bg-tertiary: #F1F3F5;
+    
+    /* Light Background - Very subtle */
+    --color-bg-light: #F8F9FA;
+    
+    /* ========================================
+       BORDER & SEPARATOR COLORS
+       ======================================== */
+    
+    /* Standard Border */
+    --color-border: #E1E5E9;
+    
+    /* Light Border - Subtle dividers */
+    --color-border-light: #E9ECEF;
+    
+    /* Dark Border - Emphasis */
+    --color-border-dark: #ADB5BD;
+    
+    /* ========================================
+       FOCUS & INTERACTION COLORS
+       ======================================== */
+    
+    /* Focus Ring Color */
+    --color-focus: #0056B3;
+    --color-focus-ring: rgba(0, 86, 179, 0.1);
+    
+    /* Hover State Overlay */
+    --color-hover-overlay: rgba(0, 0, 0, 0.05);
+    
+    /* Active State */
+    --color-active: #003D82;
+    
+    /* ========================================
+       SPACING SYSTEM - 4px Base Unit
+       ======================================== */
+    
+    /* Extra Small - 4px (1 unit) */
+    --spacing-xs: 4px;
+    
+    /* Small - 8px (2 units) */
+    --spacing-sm: 8px;
+    
+    /* Medium - 16px (4 units) - STANDARD */
+    --spacing-md: 16px;
+    
+    /* Large - 24px (6 units) */
+    --spacing-lg: 24px;
+    
+    /* Extra Large - 32px (8 units) */
+    --spacing-xl: 32px;
+    
+    /* 2X Large - 48px (12 units) */
+    --spacing-2xl: 48px;
+    
+    /* 3X Large - 64px (16 units) */
+    --spacing-3xl: 64px;
+    
+    /* ========================================
+       TYPOGRAPHY - Font Families
+       ======================================== */
+    
+    /* System Font Stack - Heading Font */
+    --font-family-heading: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    
+    /* System Font Stack - Body Font */
+    --font-family-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    
+    /* Monospace Font - Code */
+    --font-family-monospace: SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    
+    /* ========================================
+       TYPOGRAPHY - Font Sizes
+       ======================================== */
+    
+    /* Display - 48px / 700 weight */
+    --font-size-display: 48px;
+    --font-size-display-line: 72px;
+    
+    /* Heading 1 - 32px / 700 weight */
+    --font-size-h1: 32px;
+    --font-size-h1-line: 48px;
+    
+    /* Heading 2 - 24px / 600 weight */
+    --font-size-h2: 24px;
+    --font-size-h2-line: 36px;
+    
+    /* Heading 3 - 18px / 600 weight */
+    --font-size-h3: 18px;
+    --font-size-h3-line: 27px;
+    
+    /* Large Body - 16px / 400 weight */
+    --font-size-lg: 16px;
+    --font-size-lg-line: 24px;
+    
+    /* Regular Body - 14px / 400 weight - STANDARD */
+    --font-size-body: 14px;
+    --font-size-body-line: 21px;
+    
+    /* Small - 12px / 400 weight */
+    --font-size-sm: 12px;
+    --font-size-sm-line: 18px;
+    
+    /* Code - 13px monospace */
+    --font-size-code: 13px;
+    
+    /* ========================================
+       TYPOGRAPHY - Font Weights
+       ======================================== */
+    
+    /* Thin */
+    --font-weight-thin: 100;
+    
+    /* Light */
+    --font-weight-light: 300;
+    
+    /* Regular */
+    --font-weight-regular: 400;
+    
+    /* Medium */
+    --font-weight-medium: 500;
+    
+    /* Semibold */
+    --font-weight-semibold: 600;
+    
+    /* Bold */
+    --font-weight-bold: 700;
+    
+    /* Extra Bold */
+    --font-weight-extrabold: 800;
+    
+    /* ========================================
+       TYPOGRAPHY - Line Height
+       ======================================== */
+    
+    /* Tight - 1.2 */
+    --line-height-tight: 1.2;
+    
+    /* Normal - 1.5 */
+    --line-height-normal: 1.5;
+    
+    /* Relaxed - 1.75 */
+    --line-height-relaxed: 1.75;
+    
+    /* ========================================
+       TYPOGRAPHY - Letter Spacing
+       ======================================== */
+    
+    /* Tight */
+    --letter-spacing-tight: -0.5px;
+    
+    /* Normal */
+    --letter-spacing-normal: 0px;
+    
+    /* Wide */
+    --letter-spacing-wide: 0.5px;
+    
+    /* ========================================
+       BORDER RADIUS - Corner Rounding
+       ======================================== */
+    
+    /* No radius - Sharp corners */
+    --border-radius-none: 0px;
+    
+    /* Small - 4px (buttons, inputs) */
+    --border-radius-sm: 4px;
+    
+    /* Medium - 6px (cards) */
+    --border-radius-md: 6px;
+    
+    /* Large - 8px (modals, containers) */
+    --border-radius-lg: 8px;
+    
+    /* Full - 50% (avatars, badges) */
+    --border-radius-full: 50%;
+    
+    /* ========================================
+       SHADOWS - Elevation System
+       ======================================== */
+    
+    /* Elevation 1 - Subtle */
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+    
+    /* Elevation 2 - Cards */
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.08);
+    
+    /* Elevation 3 - Floating elements */
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
+    
+    /* Elevation 4 - Modals, dropdowns */
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.16);
+    
+    /* Elevation 5 - Maximum elevation */
+    --shadow-xl: 0 12px 32px rgba(0, 0, 0, 0.20);
+    
+    /* Focus Shadow */
+    --shadow-focus: 0 0 0 3px rgba(0, 86, 179, 0.1);
+    
+    /* ========================================
+       BORDER WIDTHS
+       ======================================== */
+    
+    /* Thin border */
+    --border-width-thin: 1px;
+    
+    /* Standard border */
+    --border-width: 1px;
+    
+    /* Medium border */
+    --border-width-md: 2px;
+    
+    /* Thick border */
+    --border-width-lg: 3px;
+    
+    /* ========================================
+       TRANSITIONS & ANIMATIONS
+       ======================================== */
+    
+    /* Fast transition */
+    --transition-fast: 150ms ease-in-out;
+    
+    /* Standard transition */
+    --transition: 200ms ease-in-out;
+    
+    /* Slow transition */
+    --transition-slow: 300ms ease-in-out;
+    
+    /* ========================================
+       Z-INDEX SCALE
+       ======================================== */
+    
+    /* Default element */
+    --z-index-default: 1;
+    
+    /* Dropdown/Popover */
+    --z-index-dropdown: 100;
+    
+    /* Sticky/Fixed header */
+    --z-index-sticky: 50;
+    
+    /* Modal overlay */
+    --z-index-modal: 1000;
+    
+    /* Modal content */
+    --z-index-modal-content: 1001;
+    
+    /* Tooltip */
+    --z-index-tooltip: 1100;
+    
+    /* Notification */
+    --z-index-notification: 1050;
+    
+    /* ========================================
+       COMPONENT-SPECIFIC VARIABLES
+       ======================================== */
+    
+    /* Buttons */
+    --button-padding-sm: var(--spacing-sm) var(--spacing-md);
+    --button-padding-md: var(--spacing-md) var(--spacing-lg);
+    --button-padding-lg: var(--spacing-lg) var(--spacing-xl);
+    --button-border-radius: var(--border-radius-sm);
+    --button-font-weight: var(--font-weight-medium);
+    --button-transition: var(--transition);
+    
+    /* Cards */
+    --card-padding: var(--spacing-lg);
+    --card-padding-sm: var(--spacing-md);
+    --card-border-radius: var(--border-radius-md);
+    --card-shadow: var(--shadow-sm);
+    --card-shadow-hover: var(--shadow-md);
+    
+    /* Forms */
+    --form-input-padding: 8px 12px;
+    --form-input-border-radius: var(--border-radius-sm);
+    --form-input-font-size: var(--font-size-body);
+    --form-input-line-height: var(--line-height-normal);
+    --form-label-font-weight: var(--font-weight-semibold);
+    --form-label-margin-bottom: var(--spacing-sm);
+    
+    /* Tables */
+    --table-cell-padding: var(--spacing-md);
+    --table-border: 1px solid var(--color-border);
+    --table-header-bg: var(--color-bg-secondary);
+    --table-header-font-weight: var(--font-weight-semibold);
+    --table-row-hover-bg: var(--color-bg-light);
+    
+    /* Modals */
+    --modal-padding: var(--spacing-lg);
+    --modal-border-radius: var(--border-radius-lg);
+    --modal-shadow: var(--shadow-lg);
+    --modal-backdrop: rgba(0, 0, 0, 0.5);
+    
+    /* ========================================
+       ACCESSIBILITY VARIABLES
+       ======================================== */
+    
+    /* Reduced motion preference */
+    --motion-safe-transition: var(--transition);
+    --motion-safe-animation-duration: 500ms;
+    
+    /* High contrast mode adjustments */
+    --focus-outline-width: 2px;
+    --focus-outline-offset: 2px;
+}
+
+/* ========================================
+   REDUCED MOTION - Respect user preferences
+   ======================================== */
+@media (prefers-reduced-motion: reduce) {
+    :root {
+        --transition-fast: 0ms;
+        --transition: 0ms;
+        --transition-slow: 0ms;
+        --motion-safe-transition: 0ms;
+    }
+}
+
+/* ========================================
+   DARK MODE - Optional dark theme
+   ======================================== */
+@media (prefers-color-scheme: dark) {
+    :root {
+        /* Text Colors - Inverted for dark mode */
+        --color-text-primary: #E8EAED;
+        --color-text-secondary: #B8BBC3;
+        --color-text-light: #5F6368;
+        
+        /* Background Colors - Dark versions */
+        --color-bg-primary: #202124;
+        --color-bg-secondary: #292A2D;
+        --color-bg-tertiary: #303134;
+        --color-bg-light: #292A2D;
+        
+        /* Border Colors - Adjusted for contrast */
+        --color-border: #3C4043;
+        --color-border-light: #424547;
+        --color-border-dark: #5F6368;
+        
+        /* Color Adjustments - Lighter variants for visibility */
+        --color-primary: #5B9EFF;
+        --color-secondary: #5FD7DE;
+        
+        /* Shadows - Adjusted for dark backgrounds */
+        --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.30);
+        --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.40);
+        --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.50);
+        --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.60);
+    }
+}
+
+/* ========================================
+   HIGH CONTRAST MODE - Accessibility
+   ======================================== */
+@media (prefers-contrast: more) {
+    :root {
+        /* Increase border weight */
+        --border-width: 2px;
+        
+        /* Increase focus outline */
+        --focus-outline-width: 3px;
+        
+        /* Higher contrast colors */
+        --color-text-primary: #000000;
+        --color-bg-secondary: #EEEEEE;
+    }
+}
+
+/* ========================================
+   PRINT STYLES - Print-friendly variables
+   ======================================== */
+@media print {
+    :root {
+        /* Remove all transitions for print */
+        --transition-fast: 0ms;
+        --transition: 0ms;
+        --transition-slow: 0ms;
+        
+        /* Hide shadows in print */
+        --shadow-xs: none;
+        --shadow-sm: none;
+        --shadow-md: none;
+        --shadow-lg: none;
+    }
+}
+
+/* ========================================
+   DOCUMENTATION
+   ========================================
+   
+   How to Use These Variables:
+   
+   1. COLORS:
+      color: var(--color-primary);
+      background-color: var(--color-bg-secondary);
+      border-color: var(--color-border);
+      
+   2. SPACING:
+      padding: var(--spacing-md);
+      margin: var(--spacing-lg);
+      gap: var(--spacing-sm);
+      
+   3. TYPOGRAPHY:
+      font-family: var(--font-family-body);
+      font-size: var(--font-size-body);
+      font-weight: var(--font-weight-semibold);
+      line-height: var(--line-height-normal);
+      
+   4. BORDERS & RADIUS:
+      border-radius: var(--border-radius-md);
+      border: var(--border-width) solid var(--color-border);
+      
+   5. SHADOWS:
+      box-shadow: var(--shadow-md);
+      
+   6. TRANSITIONS:
+      transition: color var(--transition);
+      
+   Benefits:
+   - ✓ Consistent design system
+   - ✓ Easy maintenance
+   - ✓ Theme support (light/dark)
+   - ✓ Accessibility built-in
+   - ✓ Easy to update globally
+   
+   ======================================== */

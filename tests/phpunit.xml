@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.1/phpunit.xsd"
+         bootstrap="bootstrap.php"
+         cacheDirectory=".phpunit.cache"
+         executionOrder="depends,defects"
+         requireCoverageMetadata="true"
+         beStrictAboutCoverageMetadata="true"
+         beStrictAboutOutputDuringTests="true"
+         beStrictAboutTodoAnnotatedTests="true"
+         failOnRisky="true"
+         failOnWarning="true">
+    <testsuites>
+        <testsuite name="BKGT Plugin Tests">
+            <directory>./unit</directory>
+            <directory>./integration</directory>
+            <directory>./functional</directory>
+        </testsuite>
+    </testsuites>
+
+    <coverage>
+        <include>
+            <directory suffix=".php">../wp-content/plugins</directory>
+        </include>
+        <exclude>
+            <directory>../wp-content/plugins/*/vendor</directory>
+        </exclude>
+    </coverage>
+
+    <source>
+        <include>
+            <directory suffix=".php">../wp-content/plugins</directory>
+        </include>
+    </source>
+</phpunit>

@@ -212,30 +212,41 @@
             });
         });
 
-        // Share document modal
-        $(document).on('click', '.bkgt-share-document', function(e) {
-            e.preventDefault();
-
-            var documentId = $(this).data('document-id');
-            var shareUrl = window.location.origin + '/wp-admin/admin-ajax.php?action=bkgt_share_document&document_id=' + documentId;
-
-            // Create modal
-            var modal = $('<div class="bkgt-modal"><div class="bkgt-modal-content"><div class="bkgt-modal-header"><h2>Dela dokument</h2><span class="bkgt-modal-close">&times;</span></div><div class="bkgt-modal-body"><p>Kopiera denna länk för att dela dokumentet:</p><input type="text" readonly value="' + shareUrl + '" style="width:100%;padding:8px;"><p><small>Denna länk kräver inloggning och rättigheter för att visa dokumentet.</small></p></div></div></div>');
-
-            $('body').append(modal);
-            modal.show();
-
-            // Close modal
-            modal.find('.bkgt-modal-close').on('click', function() {
-                modal.remove();
+        // Share document modal - using BKGTModal from bkgt-core
+        if (typeof BKGTModal !== 'undefined') {
+            var shareDocumentModal = new BKGTModal({
+                id: 'bkgt-share-document-modal',
+                title: bkgt_document_ajax.strings && bkgt_document_ajax.strings.share_document || 'Dela dokument',
+                size: 'medium'
             });
+            
+            $(document).on('click', '.bkgt-share-document', function(e) {
+                e.preventDefault();
 
-            $(document).on('click', function(e) {
-                if ($(e.target).hasClass('bkgt-modal')) {
-                    modal.remove();
-                }
+                var documentId = $(this).data('document-id');
+                var shareUrl = window.location.origin + '/wp-admin/admin-ajax.php?action=bkgt_share_document&document_id=' + documentId;
+
+                // Build modal content
+                var content = '<p>' + (bkgt_document_ajax.strings && bkgt_document_ajax.strings.copy_share_link || 'Kopiera denna länk för att dela dokumentet:') + '</p>' +
+                    '<input type="text" readonly value="' + shareUrl + '" style="width:100%;padding:8px;margin:10px 0;" onclick="this.select();" />' +
+                    '<p><small>' + (bkgt_document_ajax.strings && bkgt_document_ajax.strings.share_link_requires_login || 'Denna länk kräver inloggning och rättigheter för att visa dokumentet.') + '</small></p>';
+
+                // Set footer
+                shareDocumentModal.setFooter(
+                    '<button class="button button-secondary" onclick="shareDocumentModal.close();">' +
+                        (bkgt_document_ajax.strings && bkgt_document_ajax.strings.close || 'Stäng') +
+                    '</button>'
+                );
+
+                // Set content and open
+                shareDocumentModal.setContent(content);
+                shareDocumentModal.open();
+                
+                bkgt_log('info', 'Share document modal opened for document: ' + documentId);
             });
-        });
+        } else {
+            bkgt_log('warning', 'BKGTModal not available, share document feature may not work');
+        }
 
         // Initialize access target type
         $('#bkgt_access_target_type').trigger('change');

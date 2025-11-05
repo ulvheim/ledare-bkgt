@@ -47,7 +47,7 @@ class BKGT_Inventory_Database {
         $this->manufacturers_table = $wpdb->prefix . 'bkgt_manufacturers';
         $this->item_types_table = $wpdb->prefix . 'bkgt_item_types';
         $this->inventory_items_table = $wpdb->prefix . 'bkgt_inventory_items';
-        $this->assignments_table = $wpdb->prefix . 'bkgt_assignments';
+        $this->assignments_table = $wpdb->prefix . 'bkgt_inventory_assignments';
         $this->locations_table = $wpdb->prefix . 'bkgt_locations';
     }
     
@@ -63,7 +63,7 @@ class BKGT_Inventory_Database {
         $manufacturers_sql = "CREATE TABLE {$this->manufacturers_table} (
             id int(11) NOT NULL AUTO_INCREMENT,
             name varchar(255) NOT NULL,
-            manufacturer_id varchar(4) NOT NULL UNIQUE,
+            manufacturer_id int(11) NOT NULL UNIQUE,
             contact_info text,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -75,7 +75,7 @@ class BKGT_Inventory_Database {
         $item_types_sql = "CREATE TABLE {$this->item_types_table} (
             id int(11) NOT NULL AUTO_INCREMENT,
             name varchar(255) NOT NULL,
-            item_type_id varchar(4) NOT NULL UNIQUE,
+            item_type_id int(11) NOT NULL UNIQUE,
             description text,
             custom_fields longtext,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
@@ -101,24 +101,26 @@ class BKGT_Inventory_Database {
             updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             UNIQUE KEY unique_identifier (unique_identifier),
-            FOREIGN KEY (manufacturer_id) REFERENCES {$this->manufacturers_table}(id),
-            FOREIGN KEY (item_type_id) REFERENCES {$this->item_types_table}(id)
+            KEY manufacturer_id (manufacturer_id),
+            KEY item_type_id (item_type_id)
         ) $charset_collate;";
         
         // Assignments table
         $assignments_sql = "CREATE TABLE {$this->assignments_table} (
             id int(11) NOT NULL AUTO_INCREMENT,
-            item_id int(11) NOT NULL,
-            assignee_type enum('location','team','user') NOT NULL,
-            assignee_id int(11) NOT NULL,
-            assigned_date datetime DEFAULT CURRENT_TIMESTAMP,
-            assigned_by int(11) NOT NULL,
-            unassigned_date datetime NULL,
-            unassigned_by int(11) NULL,
+            item_id bigint(20) NOT NULL,
+            assignee_id bigint(20) DEFAULT NULL,
+            assignee_name varchar(255) DEFAULT NULL,
+            assignment_date datetime DEFAULT CURRENT_TIMESTAMP,
+            due_date date DEFAULT NULL,
+            return_date date DEFAULT NULL,
+            location_id int(11) DEFAULT NULL,
             notes text,
             PRIMARY KEY (id),
-            FOREIGN KEY (item_id) REFERENCES {$this->inventory_items_table}(id),
-            UNIQUE KEY unique_active_assignment (item_id, unassigned_date)
+            KEY item_id (item_id),
+            KEY assignee_id (assignee_id),
+            KEY assignment_date (assignment_date),
+            KEY due_date (due_date)
         ) $charset_collate;";
         
         // Locations table
@@ -140,7 +142,7 @@ class BKGT_Inventory_Database {
             updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             UNIQUE KEY slug (slug),
-            FOREIGN KEY (parent_id) REFERENCES {$this->locations_table}(id) ON DELETE SET NULL
+            KEY parent_id (parent_id)
         ) $charset_collate;";
         
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');

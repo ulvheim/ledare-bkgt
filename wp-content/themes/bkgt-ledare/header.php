@@ -43,12 +43,12 @@
                         </a>
                     </li>
                     <li>
-                        <a href="<?php echo esc_url(home_url('/lag')); ?>">
+                        <a href="<?php echo esc_url(home_url('/lag-oversikt')); ?>">
                             <?php esc_html_e('Lag', 'bkgt-ledare'); ?>
                         </a>
                     </li>
                     <li>
-                        <a href="<?php echo esc_url(home_url('/spelare')); ?>">
+                        <a href="<?php echo esc_url(home_url('/?page_id=52')); ?>">
                             <?php esc_html_e('Spelare', 'bkgt-ledare'); ?>
                         </a>
                     </li>
@@ -81,7 +81,7 @@
                 <h4 class="nav-section-title"><?php esc_html_e('Konfidentiellt', 'bkgt-ledare'); ?></h4>
                 <ul class="nav-menu">
                     <li>
-                        <a href="<?php echo esc_url(home_url('/utvardering')); ?>">
+                        <a href="<?php echo esc_url(home_url('/?page_id=53')); ?>">
                             <?php esc_html_e('Utvärdering', 'bkgt-ledare'); ?>
                         </a>
                     </li>
@@ -115,7 +115,7 @@
                             <a href="#"><?php esc_html_e('Huvudmeny', 'bkgt-ledare'); ?></a>
                             <div class="dropdown-content">
                                 <a href="<?php echo esc_url(home_url('/')); ?>"><?php esc_html_e('Dashboard', 'bkgt-ledare'); ?></a>
-                                <a href="<?php echo esc_url(home_url('/lag')); ?>"><?php esc_html_e('Lag', 'bkgt-ledare'); ?></a>
+                                <a href="<?php echo esc_url(home_url('/lag-oversikt')); ?>"><?php esc_html_e('Lag', 'bkgt-ledare'); ?></a>
                                 <a href="<?php echo esc_url(home_url('/spelare')); ?>"><?php esc_html_e('Spelare', 'bkgt-ledare'); ?></a>
                             </div>
                         </li>

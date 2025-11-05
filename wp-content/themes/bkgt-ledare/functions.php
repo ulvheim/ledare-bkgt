@@ -283,3 +283,13 @@ function bkgt_ledare_require_login() {
     }
 }
 add_action('template_redirect', 'bkgt_ledare_require_login');
+
+/**
+ * Add viewport meta tag and other important meta tags
+ */
+function bkgt_ledare_add_meta_tags() {
+    echo '<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">' . "\n";
+    echo '<meta name="format-detection" content="telephone=no">' . "\n";
+    echo '<meta name="theme-color" content="#1e40af">' . "\n"; // BKGT blue color
+}
+add_action('wp_head', 'bkgt_ledare_add_meta_tags', 1);

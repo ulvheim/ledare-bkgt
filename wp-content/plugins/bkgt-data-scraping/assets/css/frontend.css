@@ -1,66 +1,67 @@
 /**
  * Frontend CSS for BKGT Data Scraping plugin
+ * Uses CSS variables from theme's variables.css
  */
 
 /* Players Grid */
 .bkgt-players-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 20px;
-    margin: 20px 0;
+    gap: var(--spacing-md);
+    margin: var(--spacing-md) 0;
 }
 
 .bkgt-player-card {
-    background: #fff;
-    border: 1px solid #e1e1e1;
-    border-radius: 8px;
-    padding: 20px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    background: var(--color-white);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-md);
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.2s ease, box-shadow var(--transition-standard);
 }
 
 .bkgt-player-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: var(--shadow-lg);
 }
 
 .bkgt-player-avatar {
     width: 80px;
     height: 80px;
     border-radius: 50%;
-    background: #f0f0f0;
+    background: var(--color-background-secondary);
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 0 auto 15px;
-    font-size: 24px;
-    color: #666;
+    margin: 0 auto var(--spacing-md);
+    font-size: var(--font-size-xl);
+    color: var(--color-text-secondary);
 }
 
 .bkgt-player-name {
-    font-size: 18px;
+    font-size: var(--font-size-lg);
     font-weight: 600;
     text-align: center;
-    margin-bottom: 5px;
-    color: #1d2327;
+    margin-bottom: var(--spacing-xs);
+    color: var(--color-text-primary);
 }
 
 .bkgt-player-position {
     text-align: center;
-    color: #666;
-    font-size: 14px;
-    margin-bottom: 10px;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    margin-bottom: var(--spacing-sm);
 }
 
 .bkgt-player-number {
     display: inline-block;
-    background: #2271b1;
-    color: #fff;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 12px;
+    background: var(--color-primary);
+    color: var(--color-text-white);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    font-size: var(--font-size-xs);
     font-weight: 600;
-    margin-bottom: 10px;
+    margin-bottom: var(--spacing-sm);
 }
 
 .bkgt-player-stats {
@@ -74,9 +75,9 @@
 }
 
 .bkgt-player-stat-value {
-    font-size: 18px;
+    font-size: var(--font-size-lg);
     font-weight: 600;
-    color: #2271b1;
+    color: var(--color-primary);
     display: block;
 }
 

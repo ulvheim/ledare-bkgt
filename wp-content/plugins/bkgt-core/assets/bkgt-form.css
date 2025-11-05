@@ -1,0 +1,532 @@
+/**
+ * BKGT Form Styling System
+ * 
+ * Provides consistent form styling across all plugins.
+ * Supports multiple layouts, accessibility, and responsive design.
+ * Uses CSS variables from bkgt-variables.css for consistent theming.
+ * 
+ * @package BKGT_Core
+ * @since 1.0.0
+ */
+
+/* ==========================================
+   Form Container & Layout
+   ========================================== */
+
+.bkgt-form {
+    width: 100%;
+    max-width: 600px;
+    margin: 0;
+    padding: 0;
+}
+
+.bkgt-form-vertical {
+    display: flex;
+    flex-direction: column;
+}
+
+.bkgt-form-horizontal {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.bkgt-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--bkgt-spacing-lg, 1.5rem);
+}
+
+/* ==========================================
+   Form Fields Group
+   ========================================== */
+
+.bkgt-form-fields {
+    display: flex;
+    flex-direction: column;
+    gap: var(--bkgt-spacing-lg, 1.5rem);
+    margin-bottom: var(--bkgt-spacing-xl, 2rem);
+}
+
+.bkgt-form-group {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.bkgt-form-horizontal .bkgt-form-group {
+    flex: 1 1 calc(50% - 0.75rem);
+    min-width: 150px;
+}
+
+/* ==========================================
+   Labels
+   ========================================== */
+
+.bkgt-form-label {
+    display: block;
+    margin-bottom: var(--bkgt-spacing-xs, 0.5rem);
+    font-weight: var(--bkgt-font-weight-semibold, 600);
+    font-size: var(--bkgt-font-size-base, 0.95rem);
+    color: var(--bkgt-text-primary, #333);
+    line-height: var(--bkgt-line-height-normal, 1.4);
+}
+
+.bkgt-form-label .bkgt-required {
+    color: var(--bkgt-color-danger, #e74c3c);
+    margin-left: var(--bkgt-spacing-xs, 0.25rem);
+    font-weight: bold;
+}
+
+/* ==========================================
+   Form Inputs - Text, Email, Password, etc.
+   ========================================== */
+
+.bkgt-form-input {
+    width: 100%;
+    padding: var(--bkgt-form-padding, 0.75rem 0.875rem);
+    border: var(--bkgt-border-width-1, 1px) solid var(--bkgt-form-border-color, #ddd);
+    border-radius: var(--bkgt-form-border-radius, 4px);
+    font-size: var(--bkgt-font-size-base, 1rem);
+    font-family: inherit;
+    line-height: var(--bkgt-line-height-normal, 1.5);
+    color: var(--bkgt-text-primary, #333);
+    background-color: var(--bkgt-form-background, #fff);
+    transition: var(--bkgt-transition-all, all 200ms ease);
+    box-sizing: border-box;
+}
+
+.bkgt-form-input:focus {
+    outline: none;
+    border-color: var(--bkgt-form-focus-color, #3498db);
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+    background-color: var(--bkgt-form-focus-background, #fafafa);
+}
+
+.bkgt-form-input:disabled {
+    background-color: var(--bkgt-form-disabled-background, #f5f5f5);
+    color: var(--bkgt-text-muted, #999);
+    cursor: not-allowed;
+    opacity: var(--bkgt-opacity-60, 0.6);
+}
+
+.bkgt-form-input::placeholder {
+    color: var(--bkgt-text-muted, #999);
+}
+
+/* ==========================================
+   Textarea
+   ========================================== */
+
+.bkgt-form-textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.bkgt-form-textarea:focus {
+    outline: none;
+    border-color: var(--bkgt-form-focus-color, #3498db);
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+/* ==========================================
+   Select Dropdowns
+   ========================================== */
+
+.bkgt-form-select {
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right var(--bkgt-form-padding, 0.75rem) center;
+    background-size: var(--bkgt-spacing-lg, 1.5rem);
+    padding-right: var(--bkgt-spacing-xl, 2.5rem);
+}
+
+.bkgt-form-select:focus {
+    outline: none;
+    border-color: var(--bkgt-form-focus-color, #3498db);
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+/* ==========================================
+   Checkboxes & Radio Buttons
+   ========================================== */
+
+.bkgt-form-checkbox,
+.bkgt-form-radio {
+    display: flex;
+    align-items: center;
+    gap: var(--bkgt-spacing-sm, 0.5rem);
+    margin-bottom: var(--bkgt-spacing-md, 0.75rem);
+}
+
+.bkgt-form-checkbox input[type="checkbox"],
+.bkgt-form-radio input[type="radio"] {
+    width: var(--bkgt-spacing-lg, 1.25rem);
+    height: var(--bkgt-spacing-lg, 1.25rem);
+    margin: 0;
+    cursor: pointer;
+    accent-color: var(--bkgt-color-primary, #3498db);
+    flex-shrink: 0;
+}
+
+.bkgt-form-checkbox input[type="checkbox"]:focus,
+.bkgt-form-radio input[type="radio"]:focus {
+    outline: var(--bkgt-border-width-2, 2px) solid var(--bkgt-color-primary, #3498db);
+    outline-offset: var(--bkgt-spacing-xs, 2px);
+}
+
+.bkgt-form-checkbox-label,
+.bkgt-form-radio-label {
+    cursor: pointer;
+    user-select: none;
+    margin-bottom: 0;
+    font-weight: normal;
+}
+
+.bkgt-form-radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--bkgt-spacing-md, 0.75rem);
+}
+
+/* ==========================================
+   Help Text
+   ========================================== */
+
+.bkgt-form-help {
+    display: block;
+    margin-top: var(--bkgt-spacing-xs, 0.375rem);
+    font-size: var(--bkgt-font-size-sm, 0.875rem);
+    color: var(--bkgt-text-muted, #666);
+    line-height: var(--bkgt-line-height-normal, 1.4);
+}
+
+/* ==========================================
+   Error State
+   ========================================== */
+
+.bkgt-form-error {
+    display: none;
+    margin-top: var(--bkgt-spacing-xs, 0.375rem);
+    padding: var(--bkgt-spacing-sm, 0.5rem) var(--bkgt-spacing-md, 0.75rem);
+    background-color: var(--bkgt-color-danger-lightest, #fde8e8);
+    border-left: var(--bkgt-border-width-3, 3px) solid var(--bkgt-color-danger, #e74c3c);
+    font-size: var(--bkgt-font-size-sm, 0.875rem);
+    color: var(--bkgt-text-danger, #c0392b);
+    line-height: var(--bkgt-line-height-normal, 1.4);
+    border-radius: 0 var(--bkgt-border-radius-md, 4px) var(--bkgt-border-radius-md, 4px) 0;
+}
+
+.bkgt-form-error-state .bkgt-form-input,
+.bkgt-form-error-state .bkgt-form-select,
+.bkgt-form-error-state .bkgt-form-textarea {
+    border-color: var(--bkgt-color-danger, #e74c3c);
+    background-color: var(--bkgt-form-error-background, #fffaf9);
+}
+
+.bkgt-form-error-state .bkgt-form-input:focus,
+.bkgt-form-error-state .bkgt-form-select:focus,
+.bkgt-form-error-state .bkgt-form-textarea:focus {
+    box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.1);
+}
+
+/* ==========================================
+   Form Footer (Buttons)
+   ========================================== */
+
+.bkgt-form-footer {
+    display: flex;
+    gap: var(--bkgt-spacing-md, 0.75rem);
+    padding-top: var(--bkgt-spacing-lg, 1.5rem);
+    border-top: var(--bkgt-border-width-1, 1px) solid var(--bkgt-color-gray-200, #eee);
+}
+
+/* ==========================================
+   Buttons
+   ========================================== */
+
+.bkgt-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.5;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.bkgt-btn:focus {
+    outline: 2px solid #3498db;
+    outline-offset: 2px;
+}
+
+.bkgt-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.bkgt-btn-primary {
+    background-color: #3498db;
+    color: white;
+}
+
+.bkgt-btn-primary:hover:not(:disabled) {
+    background-color: #2980b9;
+    box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+}
+
+.bkgt-btn-primary:active:not(:disabled) {
+    background-color: #1f618d;
+    transform: scale(0.98);
+}
+
+.bkgt-btn-secondary {
+    background-color: #ecf0f1;
+    color: #333;
+}
+
+.bkgt-btn-secondary:hover:not(:disabled) {
+    background-color: #d5dbdb;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.bkgt-btn-secondary:active:not(:disabled) {
+    background-color: #bdc3c7;
+    transform: scale(0.98);
+}
+
+.bkgt-btn-danger {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.bkgt-btn-danger:hover:not(:disabled) {
+    background-color: #c0392b;
+    box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
+}
+
+/* ==========================================
+   Button States
+   ========================================== */
+
+.bkgt-btn.bkgt-loading {
+    position: relative;
+}
+
+.bkgt-spinner {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: bkgt-spin 0.6s linear infinite;
+}
+
+@keyframes bkgt-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ==========================================
+   Responsive Design
+   ========================================== */
+
+@media (max-width: 768px) {
+    .bkgt-form-horizontal .bkgt-form-group {
+        flex: 1 1 100%;
+    }
+    
+    .bkgt-form-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .bkgt-form-footer {
+        flex-direction: column;
+    }
+    
+    .bkgt-btn {
+        width: 100%;
+    }
+}
+
+/* ==========================================
+   Accessibility
+   ========================================== */
+
+/* High contrast mode support */
+@media (prefers-contrast: more) {
+    .bkgt-form-input,
+    .bkgt-form-select,
+    .bkgt-form-textarea {
+        border-width: var(--bkgt-border-width-2, 2px);
+    }
+    
+    .bkgt-form-label {
+        font-weight: var(--bkgt-font-weight-bold, 700);
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .bkgt-form-input,
+    .bkgt-form-select,
+    .bkgt-form-textarea,
+    .bkgt-btn,
+    .bkgt-spinner {
+        transition: none;
+        animation: none;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .bkgt-form-input,
+    .bkgt-form-select,
+    .bkgt-form-textarea {
+        background-color: var(--bkgt-dark-form-background, #2a2a2a);
+        color: var(--bkgt-dark-text-primary, #f0f0f0);
+        border-color: var(--bkgt-dark-border-color, #444);
+    }
+    
+    .bkgt-form-input:focus,
+    .bkgt-form-select:focus,
+    .bkgt-form-textarea:focus {
+        background-color: var(--bkgt-dark-form-focus-background, #333);
+        box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+    }
+    
+    .bkgt-form-label {
+        color: var(--bkgt-dark-text-primary, #f0f0f0);
+    }
+    
+    .bkgt-form-help {
+        color: var(--bkgt-dark-text-muted, #aaa);
+    }
+    
+    .bkgt-form-error {
+        background-color: var(--bkgt-dark-error-background, #3a1f1f);
+        border-left-color: var(--bkgt-color-danger, #e74c3c);
+        color: var(--bkgt-dark-error-text, #ff7b7b);
+    }
+}
+
+/* ==========================================
+   Integration with BKGTModal
+   ========================================== */
+
+.bkgt-modal .bkgt-form {
+    max-width: 100%;
+}
+
+.bkgt-modal .bkgt-form-footer {
+    border-top: none;
+    padding-top: 1rem;
+    margin-top: 1rem;
+}
+
+/* ==========================================
+   Form Validation States
+   ========================================== */
+
+.bkgt-form-success {
+    padding: var(--bkgt-spacing-lg, 1rem);
+    background-color: var(--bkgt-color-success-lightest, #d5f4e6);
+    border-left: var(--bkgt-border-width-4, 4px) solid var(--bkgt-color-success, #27ae60);
+    border-radius: 0 var(--bkgt-border-radius-md, 4px) var(--bkgt-border-radius-md, 4px) 0;
+    color: var(--bkgt-text-success, #145a32);
+    margin-bottom: var(--bkgt-spacing-lg, 1rem);
+}
+
+.bkgt-form-warning {
+    padding: var(--bkgt-spacing-lg, 1rem);
+    background-color: var(--bkgt-color-warning-lightest, #fef5e7);
+    border-left: var(--bkgt-border-width-4, 4px) solid var(--bkgt-color-warning, #f39c12);
+    border-radius: 0 var(--bkgt-border-radius-md, 4px) var(--bkgt-border-radius-md, 4px) 0;
+    color: var(--bkgt-text-warning, #5a3a0e);
+    margin-bottom: var(--bkgt-spacing-lg, 1rem);
+}
+
+/* ==========================================
+   Inline Form Elements
+   ========================================== */
+
+.bkgt-form-inline {
+    display: flex;
+    gap: var(--bkgt-spacing-md, 0.75rem);
+    align-items: flex-end;
+}
+
+.bkgt-form-inline .bkgt-form-group {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+.bkgt-form-inline .bkgt-btn {
+    flex-shrink: 0;
+    margin-bottom: 0;
+}
+
+/* ==========================================
+   Multi-Column Forms
+   ========================================== */
+
+.bkgt-form-columns-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--bkgt-spacing-xl, 1.5rem);
+}
+
+.bkgt-form-columns-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--bkgt-spacing-xl, 1.5rem);
+}
+
+@media (max-width: 768px) {
+    .bkgt-form-columns-2,
+    .bkgt-form-columns-3 {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ==========================================
+   Fieldset Styling
+   ========================================== */
+
+.bkgt-form-fieldset {
+    padding: var(--bkgt-spacing-lg, 1rem);
+    border: var(--bkgt-border-width-1, 1px) solid var(--bkgt-color-gray-300, #ddd);
+    border-radius: var(--bkgt-border-radius-md, 4px);
+    margin-bottom: var(--bkgt-spacing-xl, 1.5rem);
+}
+
+.bkgt-form-fieldset legend {
+    padding: 0 var(--bkgt-spacing-sm, 0.5rem);
+    font-weight: var(--bkgt-font-weight-semibold, 600);
+    color: var(--bkgt-text-primary, #333);
+}
+
+/* ==========================================
+   Required vs Optional Indicators
+   ========================================== */
+
+.bkgt-form-required {
+    color: var(--bkgt-color-danger, #e74c3c);
+    font-weight: var(--bkgt-font-weight-bold, bold);
+}
+
+.bkgt-form-optional {
+    color: var(--bkgt-text-muted, #999);
+    font-weight: normal;
+    font-size: var(--bkgt-font-size-sm, 0.875rem);
+}

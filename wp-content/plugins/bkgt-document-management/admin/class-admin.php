@@ -55,22 +55,6 @@ class BKGT_Document_Admin {
 
         add_submenu_page(
             'bkgt-documents',
-            __('Alla dokument', 'bkgt-document-management'),
-            __('Alla dokument', 'bkgt-document-management'),
-            'edit_documents',
-            'edit.php?post_type=bkgt_document'
-        );
-
-        add_submenu_page(
-            'bkgt-documents',
-            __('Lägg till nytt', 'bkgt-document-management'),
-            __('Lägg till nytt', 'bkgt-document-management'),
-            'edit_documents',
-            'post-new.php?post_type=bkgt_document'
-        );
-
-        add_submenu_page(
-            'bkgt-documents',
             __('Kategorier', 'bkgt-document-management'),
             __('Kategorier', 'bkgt-document-management'),
             'manage_categories',

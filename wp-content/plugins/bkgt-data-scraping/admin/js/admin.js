@@ -160,39 +160,101 @@
     }
 
     /**
-     * Initialize modal dialogs
+     * Initialize modal dialogs - using BKGTModal from bkgt-core
      */
     function initModals() {
-        // Close modal when clicking outside or on close button
-        $(document).on('click', '.bkgt-modal-close, .bkgt-modal-cancel', function() {
-            $(this).closest('.bkgt-modal').hide();
+        if (typeof BKGTModal === 'undefined') {
+            bkgt_log('warning', 'BKGTModal not available, using fallback modal handling');
+            // Fallback for old jQuery modals if BKGTModal not available
+            $(document).on('click', '.bkgt-modal-close, .bkgt-modal-cancel', function() {
+                $(this).closest('.bkgt-modal').hide();
+            });
+            $(document).on('click', '.bkgt-modal', function(e) {
+                if (e.target === this) {
+                    $(this).hide();
+                }
+            });
+            return;
+        }
+        
+        // Create modal instances using BKGTModal
+        window.bkgtPlayerModal = new BKGTModal({
+            id: 'bkgt-player-modal',
+            title: bkgt_ajax.strings && bkgt_ajax.strings.add_player || 'Lägg till spelare',
+            size: 'medium'
         });
-
-        // Close modal when clicking outside modal content
-        $(document).on('click', '.bkgt-modal', function(e) {
-            if (e.target === this) {
-                $(this).hide();
-            }
+        
+        window.bkgtEventModal = new BKGTModal({
+            id: 'bkgt-event-modal',
+            title: bkgt_ajax.strings && bkgt_ajax.strings.add_event || 'Lägg till event',
+            size: 'medium'
         });
+        
+        window.bkgtAssignmentModal = new BKGTModal({
+            id: 'bkgt-assignment-modal',
+            title: bkgt_ajax.strings && bkgt_ajax.strings.assign_players || 'Tilldela spelare',
+            size: 'large'
+        });
+        
+        bkgt_log('info', 'Data scraping modals initialized with BKGTModal');
     }
 
     /**
      * Initialize player management
      */
     function initPlayerManagement() {
+        if (typeof bkgtPlayerModal === 'undefined') {
+            bkgt_log('warning', 'Player modal not initialized');
+            return;
+        }
+        
         // Add new player
         $('#bkgt-add-player').on('click', function() {
             resetPlayerForm();
-            $('#bkgt-player-modal-title').text(bkgt_ajax.strings.add_player || 'Add New Player');
-            $('#bkgt-player-modal').show();
+            bkgtPlayerModal.options.title = bkgt_ajax.strings && bkgt_ajax.strings.add_player || 'Lägg till spelare';
+            
+            var formContent = $('#bkgt-player-form').html();
+            bkgtPlayerModal.setContent('<div id="bkgt-player-form-modal">' + formContent + '</div>');
+            bkgtPlayerModal.setFooter(
+                '<button type="button" class="button button-secondary" onclick="bkgtPlayerModal.close();">' + 
+                    (bkgt_ajax.strings && bkgt_ajax.strings.cancel || 'Avbryt') + 
+                '</button>' +
+                '<button type="submit" class="button button-primary" id="bkgt-save-player-btn">' + 
+                    (bkgt_ajax.strings && bkgt_ajax.strings.save || 'Spara') + 
+                '</button>'
+            );
+            bkgtPlayerModal.open();
+            
+            // Rebind form handler in modal
+            $('#bkgt-player-form-modal #bkgt-player-form').on('submit', function(e) {
+                e.preventDefault();
+                savePlayer();
+            });
         });
 
         // Edit player
         $(document).on('click', '.bkgt-edit-player', function() {
             var playerData = $(this).data('player');
             populatePlayerForm(playerData);
-            $('#bkgt-player-modal-title').text(bkgt_ajax.strings.edit_player || 'Edit Player');
-            $('#bkgt-player-modal').show();
+            bkgtPlayerModal.options.title = bkgt_ajax.strings && bkgt_ajax.strings.edit_player || 'Redigera spelare';
+            
+            var formContent = $('#bkgt-player-form').html();
+            bkgtPlayerModal.setContent('<div id="bkgt-player-form-modal">' + formContent + '</div>');
+            bkgtPlayerModal.setFooter(
+                '<button type="button" class="button button-secondary" onclick="bkgtPlayerModal.close();">' + 
+                    (bkgt_ajax.strings && bkgt_ajax.strings.cancel || 'Avbryt') + 
+                '</button>' +
+                '<button type="submit" class="button button-primary" id="bkgt-save-player-btn">' + 
+                    (bkgt_ajax.strings && bkgt_ajax.strings.save || 'Spara') + 
+                '</button>'
+            );
+            bkgtPlayerModal.open();
+            
+            // Rebind form handler in modal
+            $('#bkgt-player-form-modal #bkgt-player-form').on('submit', function(e) {
+                e.preventDefault();
+                savePlayer();
+            });
         });
 
         // Delete player
@@ -216,19 +278,58 @@
      * Initialize event management
      */
     function initEventManagement() {
+        if (typeof bkgtEventModal === 'undefined') {
+            bkgt_log('warning', 'Event modal not initialized');
+            return;
+        }
+        
         // Add new event
         $('#bkgt-add-event').on('click', function() {
             resetEventForm();
-            $('#bkgt-event-modal-title').text(bkgt_ajax.strings.add_event || 'Add New Event');
-            $('#bkgt-event-modal').show();
+            bkgtEventModal.options.title = bkgt_ajax.strings && bkgt_ajax.strings.add_event || 'Lägg till event';
+            
+            var formContent = $('#bkgt-event-form').html();
+            bkgtEventModal.setContent('<div id="bkgt-event-form-modal">' + formContent + '</div>');
+            bkgtEventModal.setFooter(
+                '<button type="button" class="button button-secondary" onclick="bkgtEventModal.close();">' + 
+                    (bkgt_ajax.strings && bkgt_ajax.strings.cancel || 'Avbryt') + 
+                '</button>' +
+                '<button type="submit" class="button button-primary" id="bkgt-save-event-btn">' + 
+                    (bkgt_ajax.strings && bkgt_ajax.strings.save || 'Spara') + 
+                '</button>'
+            );
+            bkgtEventModal.open();
+            
+            // Rebind form handler in modal
+            $('#bkgt-event-form-modal #bkgt-event-form').on('submit', function(e) {
+                e.preventDefault();
+                saveEvent();
+            });
         });
 
         // Edit event
         $(document).on('click', '.bkgt-edit-event', function() {
             var eventData = $(this).data('event');
             populateEventForm(eventData);
-            $('#bkgt-event-modal-title').text(bkgt_ajax.strings.edit_event || 'Edit Event');
-            $('#bkgt-event-modal').show();
+            bkgtEventModal.options.title = bkgt_ajax.strings && bkgt_ajax.strings.edit_event || 'Redigera event';
+            
+            var formContent = $('#bkgt-event-form').html();
+            bkgtEventModal.setContent('<div id="bkgt-event-form-modal">' + formContent + '</div>');
+            bkgtEventModal.setFooter(
+                '<button type="button" class="button button-secondary" onclick="bkgtEventModal.close();">' + 
+                    (bkgt_ajax.strings && bkgt_ajax.strings.cancel || 'Avbryt') + 
+                '</button>' +
+                '<button type="submit" class="button button-primary" id="bkgt-save-event-btn">' + 
+                    (bkgt_ajax.strings && bkgt_ajax.strings.save || 'Spara') + 
+                '</button>'
+            );
+            bkgtEventModal.open();
+            
+            // Rebind form handler in modal
+            $('#bkgt-event-form-modal #bkgt-event-form').on('submit', function(e) {
+                e.preventDefault();
+                saveEvent();
+            });
         });
 
         // Delete event
@@ -299,6 +400,11 @@
         $(document).on('submit', '.bkgt-schedule-form', function(e) {
             e.preventDefault();
             saveScraperSchedule($(this));
+        });
+
+        // Handle cleanup teams button
+        $(document).on('click', '#bkgt-cleanup-teams', function() {
+            cleanupTeams();
         });
     }
 
@@ -936,10 +1042,56 @@
     }
 
     /**
+     * Clean up fake/synthetic teams
+     */
+    function cleanupTeams() {
+        if (!confirm('Är du säker på att du vill rensa bort falska lag? Detta kan inte ångras.')) {
+            return;
+        }
+
+        var $status = $('#bkgt-cleanup-status');
+        var $message = $('#bkgt-cleanup-message');
+        var $progress = $('.bkgt-progress-fill');
+
+        $status.show();
+        $progress.css('width', '50%');
+        $message.text('Rensar falska lag...');
+
+        // Disable button during cleanup
+        $('#bkgt-cleanup-teams').prop('disabled', true);
+
+        $.ajax({
+            url: bkgt_ajax.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'bkgt_cleanup_teams',
+                nonce: bkgt_ajax.nonce
+            },
+            success: function(response) {
+                $progress.css('width', '100%');
+
+                if (response.success) {
+                    $message.text(response.data.message);
+                    setTimeout(function() {
+                        location.reload(); // Refresh to show updated data
+                    }, 2000);
+                } else {
+                    $message.text(response.data.message || bkgt_ajax.strings.error);
+                    $('#bkgt-cleanup-teams').prop('disabled', false);
+                }
+            },
+            error: function() {
+                $progress.css('width', '0%');
+                $message.text(bkgt_ajax.strings.error);
+                $('#bkgt-cleanup-teams').prop('disabled', false);
+            }
+        });
+    }
+
+    /**
      * Scrape data
      */
     function scrapeData(dataType) {
-        $.ajax({
             url: bkgt_ajax.ajax_url,
             type: 'POST',
             data: {

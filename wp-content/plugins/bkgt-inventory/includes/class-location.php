@@ -28,8 +28,8 @@ class BKGT_Location {
     public static function get_all_locations($include_inactive = false) {
         global $wpdb;
         
-        $db = bkgt_inventory()->db;
-        $locations_table = $db->get_locations_table();
+        global $bkgt_inventory_db;
+        $locations_table = $bkgt_inventory_db->get_locations_table();
         
         $where = $include_inactive ? '' : 'WHERE is_active = 1';
         
@@ -47,8 +47,8 @@ class BKGT_Location {
     public static function get_location($location_id) {
         global $wpdb;
         
-        $db = bkgt_inventory()->db;
-        $locations_table = $db->get_locations_table();
+        global $bkgt_inventory_db;
+        $locations_table = $bkgt_inventory_db->get_locations_table();
         
         $sql = $wpdb->prepare(
             "SELECT * FROM {$locations_table} WHERE id = %d",
@@ -78,8 +78,8 @@ class BKGT_Location {
     public static function get_child_locations($parent_id) {
         global $wpdb;
         
-        $db = bkgt_inventory()->db;
-        $locations_table = $db->get_locations_table();
+        global $bkgt_inventory_db;
+        $locations_table = $bkgt_inventory_db->get_locations_table();
         
         $sql = $wpdb->prepare(
             "SELECT * FROM {$locations_table} WHERE parent_id = %d AND is_active = 1 ORDER BY name ASC",
@@ -95,8 +95,8 @@ class BKGT_Location {
     public static function create_location($data) {
         global $wpdb;
         
-        $db = bkgt_inventory()->db;
-        $locations_table = $db->get_locations_table();
+        global $bkgt_inventory_db;
+        $locations_table = $bkgt_inventory_db->get_locations_table();
         
         // Validate required fields
         if (empty($data['name'])) {
@@ -180,8 +180,8 @@ class BKGT_Location {
     public static function update_location($location_id, $data) {
         global $wpdb;
         
-        $db = bkgt_inventory()->db;
-        $locations_table = $db->get_locations_table();
+        global $bkgt_inventory_db;
+        $locations_table = $bkgt_inventory_db->get_locations_table();
         
         // Check if location exists
         if (!self::location_exists($location_id)) {
@@ -259,8 +259,8 @@ class BKGT_Location {
     public static function delete_location($location_id) {
         global $wpdb;
         
-        $db = bkgt_inventory()->db;
-        $locations_table = $db->get_locations_table();
+        global $bkgt_inventory_db;
+        $locations_table = $bkgt_inventory_db->get_locations_table();
         
         // Check if location exists
         if (!self::location_exists($location_id)) {
@@ -304,8 +304,8 @@ class BKGT_Location {
     public static function get_location_item_count($location_id) {
         global $wpdb;
         
-        $db = bkgt_inventory()->db;
-        $assignments_table = $db->get_assignments_table();
+        global $bkgt_inventory_db;
+        $assignments_table = $bkgt_inventory_db->get_assignments_table();
         
         $sql = $wpdb->prepare(
             "SELECT COUNT(*) FROM {$assignments_table} 
@@ -371,8 +371,8 @@ class BKGT_Location {
     public static function location_exists($location_id) {
         global $wpdb;
         
-        $db = bkgt_inventory()->db;
-        $locations_table = $db->get_locations_table();
+        global $bkgt_inventory_db;
+        $locations_table = $bkgt_inventory_db->get_locations_table();
         
         $sql = $wpdb->prepare(
             "SELECT COUNT(*) FROM {$locations_table} WHERE id = %d",
@@ -388,8 +388,8 @@ class BKGT_Location {
     public static function slug_exists($slug, $exclude_id = null) {
         global $wpdb;
         
-        $db = bkgt_inventory()->db;
-        $locations_table = $db->get_locations_table();
+        global $bkgt_inventory_db;
+        $locations_table = $bkgt_inventory_db->get_locations_table();
         
         $sql = $wpdb->prepare(
             "SELECT COUNT(*) FROM {$locations_table} WHERE slug = %s",

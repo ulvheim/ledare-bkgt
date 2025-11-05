@@ -46,11 +46,16 @@ get_header(); ?>
 
             <div class="card">
                 <div class="card-body">
-                    <?php the_content(); ?>
+                    <?php 
+                    // Only show the_content() if it's not an utrustning page
+                    $page_slug = get_post_field('post_name', get_post());
+                    if (!($page_slug === 'utrustning' || strpos(strtolower(get_the_title()), 'utrustning') !== false)) {
+                        the_content();
+                    }
+                    ?>
 
                     <?php
                     // Add BKGT shortcodes based on page slug
-                    $page_slug = get_post_field('post_name', get_post());
 
                     if ($page_slug === 'spelare' || strpos(strtolower(get_the_title()), 'spelare') !== false) {
                         echo '<div class="bkgt-section">';

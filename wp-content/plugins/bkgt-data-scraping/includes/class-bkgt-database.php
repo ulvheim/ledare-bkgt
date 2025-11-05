@@ -9,9 +9,11 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * BKGT Database Class
+ * BKGT_DataScraping_Database Class
+ * 
+ * Renamed from BKGT_Database to avoid conflicts with bkgt-core
  */
-class BKGT_Database {
+class BKGT_DataScraping_Database {
 
     /**
      * Database table names
@@ -23,6 +25,10 @@ class BKGT_Database {
      */
     public function __construct() {
         global $wpdb;
+
+        if (!isset($wpdb)) {
+            throw new Exception('WordPress database object not available');
+        }
 
         $this->tables = array(
             'players' => $wpdb->prefix . 'bkgt_players',
@@ -41,6 +47,13 @@ class BKGT_Database {
         global $wpdb;
         $charset_collate = $wpdb->get_charset_collate();
 
+        $current_version = get_option('bkgt_db_version', '0.0.0');
+
+        // If tables already exist, skip creation
+        if ($this->table_exists('players') && $this->table_exists('teams') && $this->table_exists('events')) {
+            return true;
+        }
+
         // Players table
         $players_table = "CREATE TABLE {$this->tables['players']} (
             id int(11) NOT NULL AUTO_INCREMENT,
@@ -54,9 +67,7 @@ class BKGT_Database {
             status enum('active','inactive','injured','suspended') DEFAULT 'active',
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            UNIQUE KEY player_id (player_id),
-            KEY status (status)
+            PRIMARY KEY (id)
         ) $charset_collate;";
 
         // Events table
@@ -73,28 +84,24 @@ class BKGT_Database {
             status enum('scheduled','completed','cancelled') DEFAULT 'scheduled',
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            UNIQUE KEY event_id (event_id),
-            KEY event_date (event_date),
-            KEY event_type (event_type),
-            KEY status (status)
+            PRIMARY KEY (id)
         ) $charset_collate;";
 
-        // Teams table
+        // Teams table - remove the problematic unique constraint for now
         $teams_table = "CREATE TABLE {$this->tables['teams']} (
             id int(11) NOT NULL AUTO_INCREMENT,
             name varchar(100) NOT NULL,
             category enum('senior','junior','youth') DEFAULT 'senior',
             season varchar(20) DEFAULT '',
             coach varchar(100),
+            source_id varchar(50) DEFAULT NULL,
+            source_url varchar(500) DEFAULT NULL,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            UNIQUE KEY name_season (name, season),
-            KEY category (category)
+            PRIMARY KEY (id)
         ) $charset_collate;";
 
-        // Statistics table
+        // Statistics table - remove foreign keys from CREATE TABLE to avoid issues
         $statistics_table = "CREATE TABLE {$this->tables['statistics']} (
             id int(11) NOT NULL AUTO_INCREMENT,
             player_id int(11) NOT NULL,
@@ -106,12 +113,7 @@ class BKGT_Database {
             red_cards int(11) DEFAULT 0,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            UNIQUE KEY player_event (player_id, event_id),
-            KEY player_id (player_id),
-            KEY event_id (event_id),
-            FOREIGN KEY (player_id) REFERENCES {$this->tables['players']}(id) ON DELETE CASCADE,
-            FOREIGN KEY (event_id) REFERENCES {$this->tables['events']}(id) ON DELETE CASCADE
+            PRIMARY KEY (id)
         ) $charset_collate;";
 
         // Sources table for tracking data sources
@@ -151,16 +153,233 @@ class BKGT_Database {
 
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 
-        // Execute table creation
-        dbDelta($players_table);
-        dbDelta($events_table);
-        dbDelta($teams_table);
-        dbDelta($statistics_table);
-        dbDelta($sources_table);
-        dbDelta($scraping_logs_table);
+        // Execute table creation with error handling
+        try {
+            dbDelta($players_table);
+            dbDelta($events_table);
+            dbDelta($teams_table);
+            dbDelta($statistics_table);
+            dbDelta($sources_table);
+            dbDelta($scraping_logs_table);
 
-        // Update database version
-        update_option('bkgt_db_version', '1.0.0');
+            // Update database version to indicate tables are created
+            update_option('bkgt_db_version', '0.1.0');
+        } catch (Exception $e) {
+            error_log('BKGT Database: Error creating tables: ' . $e->getMessage());
+            // Don't update version if there were errors
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Upgrade database tables
+     */
+    public function upgrade_tables() {
+        global $wpdb;
+
+        $current_version = get_option('bkgt_db_version', '0.0.0');
+        error_log("BKGT Database: Starting upgrade from version $current_version");
+
+        // If already at latest version, skip
+        if (version_compare($current_version, '1.0.0', '>=')) {
+            error_log('BKGT Database: Already at latest version, skipping upgrade');
+            return true;
+        }
+
+        // Only upgrade if tables are created (version 0.1.0 or higher)
+        if (version_compare($current_version, '0.1.0', '<')) {
+            error_log('BKGT Database: Tables not created yet, skipping upgrade');
+            return false;
+        }
+
+        try {
+            // Clean up duplicate teams data that might conflict with unique constraints
+            if ($this->table_exists('teams')) {
+                error_log('BKGT Database: Teams table exists, checking for duplicates');
+
+                // First, let's check what duplicates exist
+                $duplicates = $wpdb->get_results("
+                    SELECT name, season, COUNT(*) as cnt, GROUP_CONCAT(id ORDER BY id DESC) as ids
+                    FROM {$this->tables['teams']}
+                    GROUP BY name, season
+                    HAVING cnt > 1
+                ");
+
+                error_log('BKGT Database: Found ' . count($duplicates) . ' duplicate groups');
+
+                if (!empty($duplicates)) {
+                    error_log('BKGT Database: Cleaning up duplicates...');
+                    foreach ($duplicates as $dup) {
+                        $ids = explode(',', $dup->ids);
+                        error_log('BKGT Database: Processing duplicate group: ' . $dup->name . ' (' . $dup->season . ') - IDs: ' . $dup->ids);
+                        // Keep the first (highest) ID, delete the rest
+                        array_shift($ids);
+                        if (!empty($ids)) {
+                            $ids_str = implode(',', $ids);
+                            $result = $wpdb->query("DELETE FROM {$this->tables['teams']} WHERE id IN ($ids_str)");
+                            error_log('BKGT Database: Deleted ' . $wpdb->rows_affected . ' duplicate rows');
+                        }
+                    }
+                }
+
+                // Now try to add all the necessary constraints and indexes
+                error_log('BKGT Database: Attempting to add constraints and indexes');
+                
+                // Add indexes and constraints for all tables
+                $this->add_index_safe('players', 'player_id', 'player_id');
+                $this->add_index_safe('players', 'status', 'status');
+                
+                $this->add_index_safe('events', 'event_id', 'event_id');
+                $this->add_index_safe('events', 'event_date', 'event_date');
+                $this->add_index_safe('events', 'event_type', 'event_type');
+                $this->add_index_safe('events', 'status', 'status');
+                
+                $this->add_index_safe('teams', 'category', 'category');
+                
+                $this->add_index_safe('statistics', 'player_id', 'player_id');
+                $this->add_index_safe('statistics', 'event_id', 'event_id');
+                $this->add_index_safe('statistics', 'player_event', 'player_id, event_id');
+                
+                $this->add_index_safe('sources', 'source_type', 'source_type');
+                $this->add_index_safe('sources', 'last_scraped', 'last_scraped');
+                
+                $this->add_index_safe('scraping_logs', 'scrape_type', 'scrape_type');
+                $this->add_index_safe('scraping_logs', 'status', 'status');
+                $this->add_index_safe('scraping_logs', 'started_at', 'started_at');
+                
+                // Add unique constraints
+                $this->add_unique_constraint_safe('teams', 'name_season', 'name', 'season');
+                $this->add_unique_constraint_safe('players', 'player_id_unique', 'player_id', null);
+                $this->add_unique_constraint_safe('events', 'event_id_unique', 'event_id', null);
+                $this->add_unique_constraint_safe('statistics', 'player_event_unique', 'player_id', 'event_id');
+            } else {
+                error_log('BKGT Database: Teams table does not exist');
+            }
+
+            update_option('bkgt_db_version', '1.0.0');
+            error_log('BKGT Database: Upgrade completed successfully');
+            return true;
+
+        } catch (Exception $e) {
+            error_log('BKGT Database: Error upgrading tables: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Check if table exists
+     */
+    private function table_exists($table_key) {
+        global $wpdb;
+
+        if (!isset($this->tables[$table_key])) {
+            return false;
+        }
+
+        $table_name = $this->tables[$table_key];
+        $result = $wpdb->get_var("SHOW TABLES LIKE '$table_name'");
+
+        return !empty($result);
+    }
+
+    /**
+     * Add index if it doesn't exist
+     */
+    private function add_index_safe($table_key, $index_name, $columns) {
+        global $wpdb;
+
+        if (!isset($this->tables[$table_key])) {
+            return false;
+        }
+
+        $table_name = $this->tables[$table_key];
+
+        try {
+            // Check if index already exists
+            $existing = $wpdb->get_results("SHOW INDEX FROM $table_name WHERE Key_name = '$index_name'");
+
+            if (empty($existing)) {
+                // Add the index
+                $sql = "ALTER TABLE $table_name ADD KEY $index_name ($columns)";
+                $result = $wpdb->query($sql);
+
+                if ($result === false) {
+                    error_log("BKGT Database: Failed to add index $index_name to $table_name");
+                    return false;
+                } else {
+                    error_log("BKGT Database: Successfully added index $index_name to $table_name");
+                    return true;
+                }
+            } else {
+                error_log("BKGT Database: Index $index_name already exists on $table_name");
+                return true;
+            }
+        } catch (Exception $e) {
+            error_log('BKGT Database: Error adding index: ' . $e->getMessage());
+            return false;
+        }
+    }
+    private function add_unique_constraint_safe($table_key, $constraint_name, $col1, $col2) {
+        global $wpdb;
+
+        if (!isset($this->tables[$table_key])) {
+            return false;
+        }
+
+        $table_name = $this->tables[$table_key];
+
+        try {
+            // Check if constraint already exists
+            $existing = $wpdb->get_results("SHOW INDEX FROM $table_name WHERE Key_name = '$constraint_name'");
+
+            if (empty($existing)) {
+                // Build the columns part
+                $columns = $col2 ? "($col1, $col2)" : "($col1)";
+
+                // Add the constraint
+                $sql = "ALTER TABLE $table_name ADD UNIQUE KEY $constraint_name $columns";
+                $result = $wpdb->query($sql);
+
+                if ($result === false) {
+                    error_log("BKGT Database: Failed to add unique constraint $constraint_name to $table_name");
+                    return false;
+                } else {
+                    error_log("BKGT Database: Successfully added unique constraint $constraint_name to $table_name");
+                    return true;
+                }
+            } else {
+                error_log("BKGT Database: Unique constraint $constraint_name already exists on $table_name");
+                return true;
+            }
+        } catch (Exception $e) {
+            error_log('BKGT Database: Error adding unique constraint: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Add unique constraint if it doesn't exist
+     */
+    private function add_unique_constraint($table_key, $constraint_name, $columns) {
+        global $wpdb;
+
+        if (!isset($this->tables[$table_key])) {
+            return false;
+        }
+
+        $table_name = $this->tables[$table_key];
+
+        // Check if constraint already exists
+        $existing = $wpdb->get_results("SHOW INDEX FROM $table_name WHERE Key_name = '$constraint_name'");
+
+        if (empty($existing)) {
+            // Add the constraint
+            $wpdb->query("ALTER TABLE $table_name ADD UNIQUE KEY $constraint_name $columns");
+        }
+
+        return true;
     }
 
     /**
@@ -225,18 +444,33 @@ class BKGT_Database {
     public function insert_team($data) {
         global $wpdb;
 
+        // Check if team with this source_id already exists
+        if (!empty($data['source_id'])) {
+            $existing = $wpdb->get_var($wpdb->prepare(
+                "SELECT id FROM {$this->tables['teams']} WHERE source_id = %s",
+                $data['source_id']
+            ));
+
+            if ($existing) {
+                // Team already exists, return false to indicate no new insertion
+                return false;
+            }
+        }
+
         $result = $wpdb->insert(
             $this->tables['teams'],
             array(
                 'name' => $data['name'],
                 'category' => isset($data['category']) ? $data['category'] : 'senior',
                 'season' => isset($data['season']) ? $data['season'] : date('Y'),
-                'coach' => isset($data['coach']) ? $data['coach'] : null
+                'coach' => isset($data['coach']) ? $data['coach'] : null,
+                'source_id' => isset($data['source_id']) ? $data['source_id'] : null,
+                'source_url' => isset($data['source_url']) ? $data['source_url'] : null
             ),
-            array('%s', '%s', '%s', '%s')
+            array('%s', '%s', '%s', '%s', '%s', '%s')
         );
 
-        return $result ? $wpdb->insert_id : false;
+        return $result ? true : false;
     }
 
     /**
@@ -720,7 +954,6 @@ class BKGT_Database {
 
         return $stats;
     }
-}
 
     /**
      * Get player stats (alias for get_player_statistics)
@@ -743,5 +976,40 @@ class BKGT_Database {
              ORDER BY e.event_date DESC",
             $player_id
         ), ARRAY_A);
+    }
+
+    /**
+     * Get team statistics overview
+     */
+    public function get_team_stats() {
+        global $wpdb;
+
+        $stats = new stdClass();
+
+        // Total players
+        $stats->total_players = (int) $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$this->tables['players']}"
+        );
+
+        // Active players (all players in database are considered active since no status column)
+        $stats->active_players = $stats->total_players;
+
+        // Upcoming matches (events in the future)
+        $stats->upcoming_matches = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$this->tables['events']}
+             WHERE event_date >= %s AND status = %s",
+            current_time('Y-m-d'),
+            'scheduled'
+        ));
+
+        // Total teams (all teams in database)
+        $stats->total_teams = (int) $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$this->tables['teams']}"
+        );
+
+        // Active teams (all teams in database are considered active)
+        $stats->active_teams = $stats->total_teams;
+
+        return $stats;
     }
 }

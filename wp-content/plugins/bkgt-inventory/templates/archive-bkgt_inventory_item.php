@@ -153,6 +153,34 @@ get_header();
                 $manufacturer = $manufacturer_id ? BKGT_Manufacturer::get($manufacturer_id) : null;
                 $item_type = $item_type_id ? BKGT_Item_Type::get($item_type_id) : null;
                 $conditions = wp_get_post_terms($post_id, 'bkgt_condition');
+                
+                // Build assignment label for modal
+                $assignment_label = '';
+                if (empty($assignment_type)) {
+                    $assignment_label = __('Ej tilldelad', 'bkgt-inventory');
+                } else {
+                    $type_labels = array(
+                        'club' => __('Klubben', 'bkgt-inventory'),
+                        'team' => __('Lag', 'bkgt-inventory'),
+                        'individual' => __('Individ', 'bkgt-inventory'),
+                    );
+                    
+                    $assignment_label = isset($type_labels[$assignment_type]) ? $type_labels[$assignment_type] : $assignment_type;
+                    
+                    if ($assignment_type === 'team' && $assigned_to) {
+                        if (function_exists('bkgt_get_team')) {
+                            $team = bkgt_get_team($assigned_to);
+                            if ($team) {
+                                $assignment_label .= ': ' . esc_html($team->name);
+                            }
+                        }
+                    } elseif ($assignment_type === 'individual' && $assigned_to) {
+                        $user = get_userdata($assigned_to);
+                        if ($user) {
+                            $assignment_label .= ': ' . esc_html($user->display_name);
+                        }
+                    }
+                }
                 ?>
                 
                 <div class="bkgt-inventory-item">
@@ -218,9 +246,16 @@ get_header();
                     </div>
                     
                     <div class="bkgt-item-actions">
-                        <a href="<?php the_permalink(); ?>" class="bkgt-button bkgt-button-secondary">
+                        <button type="button" class="bkgt-button bkgt-button-secondary bkgt-show-details" 
+                                data-item-id="<?php echo esc_attr($post->ID); ?>"
+                                data-item-title="<?php echo esc_attr(get_the_title()); ?>"
+                                data-unique-id="<?php echo esc_attr($unique_id); ?>"
+                                data-manufacturer="<?php echo esc_attr($manufacturer ? $manufacturer->name : ''); ?>"
+                                data-item-type="<?php echo esc_attr($item_type ? $item_type->name : ''); ?>"
+                                data-serial-number="<?php echo esc_attr($serial_number); ?>"
+                                data-assignment="<?php echo esc_attr($assignment_label); ?>">
                             <?php esc_html_e('Visa detaljer', 'bkgt-inventory'); ?>
-                        </a>
+                        </button>
                         
                         <?php if (current_user_can('manage_inventory')): ?>
                         <a href="<?php echo get_edit_post_link(); ?>" class="bkgt-button">
@@ -239,5 +274,79 @@ get_header();
     
     <?php wp_reset_postdata(); ?>
 </div>
+
+<!-- Item Details Modal -->
+<div id="bkgt-item-modal" class="bkgt-modal" style="display: none;">
+    <div class="bkgt-modal-overlay"></div>
+    <div class="bkgt-modal-content">
+        <div class="bkgt-modal-header">
+            <h2 id="modal-item-title"></h2>
+            <button type="button" class="bkgt-modal-close">&times;</button>
+        </div>
+        <div class="bkgt-modal-body">
+            <div class="bkgt-modal-details">
+                <div class="bkgt-detail-row">
+                    <label><?php esc_html_e('Unikt ID', 'bkgt-inventory'); ?>:</label>
+                    <span id="modal-unique-id"></span>
+                </div>
+                <div class="bkgt-detail-row">
+                    <label><?php esc_html_e('Tillverkare', 'bkgt-inventory'); ?>:</label>
+                    <span id="modal-manufacturer"></span>
+                </div>
+                <div class="bkgt-detail-row">
+                    <label><?php esc_html_e('Artikeltyp', 'bkgt-inventory'); ?>:</label>
+                    <span id="modal-item-type"></span>
+                </div>
+                <div class="bkgt-detail-row">
+                    <label><?php esc_html_e('Serienummer', 'bkgt-inventory'); ?>:</label>
+                    <span id="modal-serial-number"></span>
+                </div>
+                <div class="bkgt-detail-row">
+                    <label><?php esc_html_e('Tilldelning', 'bkgt-inventory'); ?>:</label>
+                    <span id="modal-assignment"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+console.log('BKGT Inventory template script starting...');
+
+try {
+    console.log('Modal script loaded');
+    
+    // Handle show details button clicks
+    var detailButtons = document.querySelectorAll('.bkgt-show-details');
+    console.log('Found', detailButtons.length, 'detail buttons');
+    
+    if (detailButtons.length === 0) {
+        console.error('No detail buttons found! Check if .bkgt-show-details class exists');
+    }
+    
+    detailButtons.forEach(function(button, index) {
+        console.log('Attaching listener to button', index);
+        button.addEventListener('click', function() {
+            console.log('Button clicked!');
+            
+            var itemTitle = this.getAttribute('data-item-title');
+            console.log('Item title:', itemTitle);
+            
+            // Show modal
+            var modal = document.getElementById('bkgt-item-modal');
+            if (modal) {
+                modal.style.display = 'block';
+                console.log('Modal should be visible now');
+            } else {
+                console.error('Modal element not found!');
+            }
+        });
+    });
+    
+    console.log('Script initialization complete');
+} catch (error) {
+    console.error('Script error:', error);
+}
+</script>
 
 <?php get_footer(); ?>

@@ -613,6 +613,23 @@ if (!defined('ABSPATH')) {
                             </button>
                         </div>
                     </div>
+
+                    <div class="bkgt-settings-card">
+                        <h3><?php _e('Datarensning', 'bkgt-data-scraping'); ?> <span class="dashicons dashicons-trash"></span></h3>
+                        <p><?php _e('Rensa bort falska eller duplicerade lag som inte kommer från svenskalag.se', 'bkgt-data-scraping'); ?></p>
+                        <div class="bkgt-form-row">
+                            <button type="button" class="button button-secondary" id="bkgt-cleanup-teams">
+                                <span class="dashicons dashicons-editor-removeformatting"></span>
+                                <?php _e('Rensa Falska Lag', 'bkgt-data-scraping'); ?>
+                            </button>
+                        </div>
+                        <div id="bkgt-cleanup-status" style="display: none; margin-top: 10px;">
+                            <div class="bkgt-progress-bar">
+                                <div class="bkgt-progress-fill"></div>
+                            </div>
+                            <p id="bkgt-cleanup-message"><?php _e('Rensar...', 'bkgt-data-scraping'); ?></p>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="bkgt-form-actions">

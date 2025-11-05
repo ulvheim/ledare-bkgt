@@ -19,9 +19,18 @@ class BKGT_Scraper {
     private $db;
 
     /**
+     * Session cookies for authenticated requests
+     */
+    private $cookies = array();
+
+    /**
      * Constructor
      */
     public function __construct($db) {
+        if (!$db instanceof BKGT_DataScraping_Database) {
+            throw new Exception('Invalid database instance provided');
+        }
+
         $this->db = $db;
         $this->init_hooks();
     }
@@ -103,7 +112,10 @@ class BKGT_Scraper {
         $log_id = $this->db->start_scraping_log('teams', $teams_url);
 
         try {
-            $html = $this->fetch_url($teams_url);
+            // Authenticate first
+            $this->login_to_svenskalag();
+
+            $html = $this->fetch_url($teams_url, true); // Use authenticated request
             $teams = $this->parse_teams_html($html);
 
             $count = 0;
@@ -135,6 +147,9 @@ class BKGT_Scraper {
     private function scrape_players() {
         $source_url = get_option('bkgt_scraping_source_url', 'https://www.svenskalag.se/bkgt');
 
+        // Authenticate first
+        $this->login_to_svenskalag();
+
         // Get all teams first
         $teams = $this->db->get_teams('all');
         $total_players = 0;
@@ -148,7 +163,7 @@ class BKGT_Scraper {
             $log_id = $this->db->start_scraping_log('players', $players_url, $team->id);
 
             try {
-                $html = $this->fetch_url($players_url);
+                $html = $this->fetch_url($players_url, true); // Use authenticated request
                 $players = $this->parse_players_html($html, $team->id);
 
                 $count = 0;
@@ -178,7 +193,7 @@ class BKGT_Scraper {
                 $log_id2 = $this->db->start_scraping_log('players', $general_players_url, $team->id);
 
                 try {
-                    $html = $this->fetch_url($general_players_url);
+                    $html = $this->fetch_url($general_players_url, true); // Use authenticated request
                     $players = $this->parse_players_html($html, $team->id);
 
                     $count = 0;
@@ -215,12 +230,15 @@ class BKGT_Scraper {
         $source_url = get_option('bkgt_scraping_source_url', 'https://www.svenskalag.se/bkgt');
         $events_url = $source_url . '/matcher'; // This page doesn't exist
 
+        // Authenticate first
+        $this->login_to_svenskalag();
+
         // Start logging
         $log_id = $this->db->start_scraping_log('events', $events_url);
 
         try {
             // Try the main events page first
-            $html = $this->fetch_url($events_url);
+            $html = $this->fetch_url($events_url, true); // Use authenticated request
             $events = $this->parse_events_html($html);
 
             $count = 0;
@@ -251,25 +269,140 @@ class BKGT_Scraper {
     }
 
     /**
-     * Fetch URL content
+     * Login to svenskalag.se
      */
-    private function fetch_url($url) {
-        $response = wp_remote_get($url, array(
+    private function login_to_svenskalag() {
+        $stored_username = get_option('bkgt_scraping_username');
+        $stored_password = get_option('bkgt_scraping_password');
+
+        // Check if credentials are encrypted (base64 encoded) or plain text
+        $admin = new BKGT_Admin($this->db);
+
+        // If it looks like base64 (has padding =), try to decrypt
+        if (strpos($stored_username, '=') !== false && strpos($stored_username, '/') !== false) {
+            $username = $admin->decrypt_credential($stored_username);
+            $password = $admin->decrypt_credential($stored_password);
+        } else {
+            // Assume plain text
+            $username = $stored_username;
+            $password = $stored_password;
+        }
+
+        if (empty($username) || empty($password)) {
+            throw new Exception(__('Scraping credentials not configured', 'bkgt-data-scraping'));
+        }
+
+        // First, get the login page to extract any CSRF tokens or form data
+        $login_page_url = 'https://www.svenskalag.se/login';
+        $response = wp_remote_get($login_page_url, array(
             'timeout' => 30,
             'user-agent' => 'BKGT Data Scraping Plugin/1.0.0'
         ));
 
         if (is_wp_error($response)) {
-            throw new Exception(__('Failed to fetch URL: ', 'bkgt-data-scraping') . $response->get_error_message());
+            throw new Exception(__('Failed to access login page: ', 'bkgt-data-scraping') . $response->get_error_message());
+        }
+
+        $login_html = wp_remote_retrieve_body($response);
+
+        // Extract form fields (this might need adjustment based on actual form structure)
+        $csrf_token = $this->extract_csrf_token($login_html);
+
+        // Prepare login data
+        $login_data = array(
+            'username' => $username,
+            'password' => $password,
+        );
+
+        if ($csrf_token) {
+            $login_data['_token'] = $csrf_token; // Adjust field name as needed
+        }
+
+        // Submit login form
+        $login_response = wp_remote_post($login_page_url, array(
+            'timeout' => 30,
+            'user-agent' => 'BKGT Data Scraping Plugin/1.0.0',
+            'body' => $login_data,
+            'cookies' => array() // Start with empty cookies
+        ));
+
+        if (is_wp_error($login_response)) {
+            throw new Exception(__('Login failed: ', 'bkgt-data-scraping') . $login_response->get_error_message());
+        }
+
+        // Store cookies from login response
+        $this->cookies = wp_remote_retrieve_cookies($login_response);
+
+        // Check if login was successful by looking for redirect or success indicators
+        $login_body = wp_remote_retrieve_body($login_response);
+        if (strpos($login_body, 'login') !== false && strpos($login_body, 'error') !== false) {
+            throw new Exception(__('Login credentials incorrect or login failed', 'bkgt-data-scraping'));
+        }
+
+        return true;
+    }
+
+    /**
+     * Extract CSRF token from login form
+     */
+    private function extract_csrf_token($html) {
+        // Look for common CSRF token patterns
+        $patterns = array(
+            '/name="_token" value="([^"]+)"/i',
+            '/name="csrf_token" value="([^"]+)"/i',
+            '/name="_csrf" value="([^"]+)"/i'
+        );
+
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $html, $matches)) {
+                return $matches[1];
+            }
+        }
+
+        return null; // No CSRF token found
+    }
+
+    /**
+     * Enhanced fetch_url with authentication support
+     */
+    private function fetch_url($url, $authenticated = false) {
+        $args = array(
+            'timeout' => 30,
+            'user-agent' => 'BKGT Data Scraping Plugin/1.0.0'
+        );
+
+        // Add cookies if we have authenticated session
+        if ($authenticated && !empty($this->cookies)) {
+            $args['cookies'] = $this->cookies;
+        }
+
+        $response = wp_remote_get($url, $args);
+
+        if (is_wp_error($response)) {
+            throw new Exception(__('Failed to fetch URL: ', 'bkgt-data-scraping') . $url . ' - ' . $response->get_error_message());
         }
 
         $body = wp_remote_retrieve_body($response);
-        if (empty($body)) {
-            throw new Exception(__('Empty response from URL', 'bkgt-data-scraping'));
+
+        // Check if we got redirected to login page (session expired)
+        if ($authenticated && strpos($body, 'login') !== false) {
+            // Try to re-authenticate
+            $this->login_to_svenskalag();
+            // Retry the request with new session
+            $args['cookies'] = $this->cookies;
+            $response = wp_remote_get($url, $args);
+
+            if (is_wp_error($response)) {
+                throw new Exception(__('Failed to fetch URL after re-authentication: ', 'bkgt-data-scraping') . $url);
+            }
+
+            $body = wp_remote_retrieve_body($response);
         }
 
         return $body;
     }
+
+
 
     /**
      * Parse teams HTML
@@ -285,43 +418,69 @@ class BKGT_Scraper {
 
         $xpath = new DOMXPath($dom);
 
-        // Example selectors - these will need to be adjusted based on actual site structure
-        // Looking for team listing elements
-        $team_elements = $xpath->query("//div[contains(@class, 'team')] | //a[contains(@href, 'lag')]");
+        // Look for team links in navigation menus
+        // Teams are listed as links like /bkgt-p2013, /bkgt-p2014, etc.
+        $team_links = $xpath->query("//a[contains(@href, '/bkgt-p20')]");
 
-        foreach ($team_elements as $element) {
-            $team_data = $this->extract_team_data($element, $xpath);
+        foreach ($team_links as $link) {
+            $href = $link->getAttribute('href');
+            $text = trim($link->textContent);
 
-            if (!empty($team_data['name'])) {
-                $teams[] = $team_data;
+            // Extract team info from URL and text
+            if (preg_match('/\/bkgt-(p\d{4})/i', $href, $matches)) {
+                $team_code = strtoupper($matches[1]); // e.g., P2013
+
+                $team_data = array(
+                    'name' => $text ?: $team_code,
+                    'source_id' => $team_code,
+                    'source_url' => 'https://www.svenskalag.se' . $href,
+                    'category' => $this->determine_team_category($team_code),
+                    'season' => date('Y')
+                );
+
+                // Avoid duplicates
+                $duplicate = false;
+                foreach ($teams as $existing_team) {
+                    if ($existing_team['source_id'] === $team_code) {
+                        $duplicate = true;
+                        break;
+                    }
+                }
+
+                if (!$duplicate) {
+                    $teams[] = $team_data;
+                }
             }
         }
 
-        // If no teams found, create default teams based on common BKGT structure
-        if (empty($teams)) {
-            $teams = array(
-                array(
-                    'name' => 'BKGT Herrar',
-                    'category' => 'Senior',
-                    'season' => date('Y'),
-                    'coach' => 'Johan Karlsson'
-                ),
-                array(
-                    'name' => 'BKGT Damer',
-                    'category' => 'Senior',
-                    'season' => date('Y'),
-                    'coach' => 'Anna Svensson'
-                ),
-                array(
-                    'name' => 'BKGT U17',
-                    'category' => 'Junior',
-                    'season' => date('Y'),
-                    'coach' => 'Erik Johansson'
-                )
-            );
+        // If no teams found, return empty array (don't create synthetic data)
+        return $teams;
+    }
+
+    /**
+     * Determine team category based on team code
+     */
+    private function determine_team_category($team_code) {
+        // Extract year from team code (e.g., P2013 -> 2013)
+        if (preg_match('/P(\d{4})/', $team_code, $matches)) {
+            $birth_year = (int)$matches[1];
+            $current_year = (int)date('Y');
+            $age = $current_year - $birth_year;
+
+            // Categorization based on age:
+            // Barn: age < 14 (born after current_year - 14)
+            // Ungdom: 14 <= age < 21 (born between current_year - 21 and current_year - 14)
+            // Senior: age >= 21 (born before current_year - 21)
+            if ($age < 14) {
+                return 'Barn';
+            } elseif ($age < 21) {
+                return 'Ungdom';
+            } else {
+                return 'Senior';
+            }
         }
 
-        return $teams;
+        return 'Senior';
     }
 
     /**
@@ -355,8 +514,7 @@ class BKGT_Scraper {
 
     /**
      * Parse players HTML
-     * This is a placeholder implementation - will need to be customized
-     * based on the actual HTML structure of svenskalag.se
+     * Extracts only essential player data: player_id (unique key), first_name, last_name, jersey_number (if assigned)
      */
     private function parse_players_html($html, $team_id = null) {
         $players = array();
@@ -367,14 +525,14 @@ class BKGT_Scraper {
 
         $xpath = new DOMXPath($dom);
 
-        // Example selectors - these will need to be adjusted based on actual site structure
-        // Looking for player listing elements
-        $player_elements = $xpath->query("//div[contains(@class, 'player')] | //tr[contains(@class, 'player')]");
+        // Look for player listing elements (table rows, player cards, etc.)
+        $player_elements = $xpath->query("//tr[contains(@class, 'player')] | //div[contains(@class, 'player')] | //tbody/tr | //ul/li[contains(@class, 'player')]");
 
         foreach ($player_elements as $element) {
             $player_data = $this->extract_player_data($element, $xpath, $team_id);
 
-            if (!empty($player_data['player_id'])) {
+            // Only add if we have valid required data
+            if (!empty($player_data) && !empty($player_data['first_name']) && !empty($player_data['last_name'])) {
                 $players[] = $player_data;
             }
         }
@@ -384,20 +542,21 @@ class BKGT_Scraper {
 
     /**
      * Extract player data from HTML element
+     * Only extracts: player_id (unique key), first_name, last_name, jersey_number (if assigned)
      */
     private function extract_player_data($element, $xpath, $team_id = null) {
         $player_data = array(
             'player_id' => '',
-            'team_id' => null,
+            'team_id' => $team_id,
             'first_name' => '',
             'last_name' => '',
-            'position' => '',
-            'birth_date' => null,
+            'position' => '', // Not needed but keep for database compatibility
+            'birth_date' => null, // Not needed
             'jersey_number' => null,
             'status' => 'active'
         );
 
-        // Extract player ID (could be from URL, data attribute, etc.)
+        // Extract player ID (unique key from URL)
         $link = $xpath->query(".//a", $element)->item(0);
         if ($link) {
             $href = $link->getAttribute('href');
@@ -408,8 +567,8 @@ class BKGT_Scraper {
             }
         }
 
-        // Extract name
-        $name_element = $xpath->query(".//h3 | .//.name | .//td[1]", $element)->item(0);
+        // Extract first and last name (required)
+        $name_element = $xpath->query(".//h3 | .//*[contains(@class, 'name')] | .//td[1]", $element)->item(0);
         if ($name_element) {
             $full_name = trim($name_element->textContent);
             $name_parts = explode(' ', $full_name, 2);
@@ -417,19 +576,20 @@ class BKGT_Scraper {
             $player_data['last_name'] = isset($name_parts[1]) ? $name_parts[1] : '';
         }
 
-        // Extract position
-        $position_element = $xpath->query(".//.position | .//td[2]", $element)->item(0);
-        if ($position_element) {
-            $player_data['position'] = trim($position_element->textContent);
-        }
-
-        // Extract jersey number
-        $jersey_element = $xpath->query(".//.jersey | .//td[3]", $element)->item(0);
+        // Extract jersey number (if assigned)
+        $jersey_element = $xpath->query(".//*[contains(@class, 'jersey')] | .//td[2] | .//td[3]", $element)->item(0);
         if ($jersey_element) {
             $jersey_text = trim($jersey_element->textContent);
-            if (is_numeric($jersey_text)) {
-                $player_data['jersey_number'] = (int)$jersey_text;
+            // Remove any non-numeric characters and check if it's a valid jersey number
+            $jersey_clean = preg_replace('/[^\d]/', '', $jersey_text);
+            if (is_numeric($jersey_clean) && $jersey_clean > 0 && $jersey_clean <= 99) {
+                $player_data['jersey_number'] = (int)$jersey_clean;
             }
+        }
+
+        // Validate required fields
+        if (empty($player_data['first_name']) || empty($player_data['last_name'])) {
+            return array(); // Return empty array if required fields missing
         }
 
         return $player_data;

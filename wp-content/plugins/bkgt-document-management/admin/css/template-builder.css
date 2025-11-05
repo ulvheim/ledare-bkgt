@@ -1,53 +1,53 @@
 /* Template Builder Styles */
 
 .bkgt-template-builder {
-    margin-top: 20px;
+    margin-top: var(--spacing-md);
 }
 
 .bkgt-builder-toolbar {
-    background: #fff;
-    border: 1px solid #ccd0d4;
-    border-radius: 4px;
-    padding: 15px 20px;
-    margin-bottom: 20px;
+    background: var(--color-white);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    margin-bottom: var(--spacing-md);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    box-shadow: var(--shadow-sm);
 }
 
 .bkgt-toolbar-left {
     display: flex;
-    gap: 15px;
+    gap: var(--spacing-sm);
     align-items: center;
 }
 
 .bkgt-toolbar-right {
     display: flex;
-    gap: 10px;
+    gap: var(--spacing-sm);
     align-items: center;
 }
 
 .bkgt-builder-content {
     display: flex;
-    gap: 20px;
+    gap: var(--spacing-md);
     min-height: 600px;
 }
 
 .bkgt-component-library {
     flex: 0 0 250px;
-    background: #fff;
-    border: 1px solid #ccd0d4;
-    border-radius: 4px;
-    padding: 20px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    background: var(--color-white);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-sm);
+    padding: var(--spacing-md);
+    box-shadow: var(--shadow-sm);
 }
 
 .bkgt-component-library h3 {
     margin-top: 0;
-    margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #eee;
+    margin-bottom: var(--spacing-sm);
+    padding-bottom: var(--spacing-xs);
+    border-bottom: 1px solid var(--color-background-secondary);
 }
 
 .bkgt-component-list {
@@ -59,18 +59,18 @@
 .bkgt-component-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    background: #f8f9fa;
-    border: 1px solid #e1e5e9;
-    border-radius: 4px;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--color-background-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-sm);
     cursor: grab;
-    transition: all 0.2s ease;
+    transition: var(--transition-standard);
 }
 
 .bkgt-component-item:hover {
     background: #e9ecef;
-    border-color: #007cba;
+    border-color: var(--color-primary);
 }
 
 .bkgt-component-item.dragging {
@@ -79,7 +79,7 @@
 }
 
 .bkgt-component-item i {
-    color: #666;
+    color: var(--color-text-secondary);
     font-size: 16px;
 }
 
@@ -90,12 +90,12 @@
 
 .bkgt-canvas {
     flex: 1;
-    background: #fff;
-    border: 1px solid #ccd0d4;
-    border-radius: 4px;
+    background: var(--color-white);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-sm);
     display: flex;
     flex-direction: column;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    box-shadow: var(--shadow-sm);
 }
 
 .bkgt-canvas-header {

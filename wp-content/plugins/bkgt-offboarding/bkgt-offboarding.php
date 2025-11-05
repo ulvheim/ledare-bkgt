@@ -7,6 +7,7 @@
  * Author: BKGT Amerikansk Fotboll
  * License: GPL v2 or later
  * Text Domain: bkgt-offboarding
+ * Requires Plugins: bkgt-core
  */
 
 if (!defined('ABSPATH')) {
@@ -16,6 +17,25 @@ if (!defined('ABSPATH')) {
 define('BKGT_OFFBOARDING_VERSION', '1.0.0');
 define('BKGT_OFFBOARDING_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('BKGT_OFFBOARDING_PLUGIN_URL', plugin_dir_url(__FILE__));
+
+// Plugin activation hook
+register_activation_hook(__FILE__, 'bkgt_offboarding_activate');
+
+function bkgt_offboarding_activate() {
+    if (!function_exists('bkgt_log')) {
+        die(__('BKGT Core plugin must be activated first.', 'bkgt-offboarding'));
+    }
+    bkgt_log('info', 'Offboarding plugin activated');
+}
+
+// Plugin deactivation hook
+register_deactivation_hook(__FILE__, 'bkgt_offboarding_deactivate');
+
+function bkgt_offboarding_deactivate() {
+    if (function_exists('bkgt_log')) {
+        bkgt_log('info', 'Offboarding plugin deactivated');
+    }
+}
 
 /**
  * Main Plugin Class
@@ -269,12 +289,12 @@ class BKGT_Offboarding_System {
         $equipment = get_post_meta($post->ID, '_bkgt_offboarding_equipment', true);
 
         if (empty($equipment)) {
-            echo '<p>' . __('No equipment assigned to this person.', 'bkgt-offboarding') . '</p>';
+            echo '<p>' . __('Ingen utrustning tilldelad denna person.', 'bkgt-offboarding') . '</p>';
             return;
         }
 
         echo '<table class="wp-list-table widefat fixed striped bkgt-equipment-table">';
-        echo '<thead><tr><th>' . __('Item', 'bkgt-offboarding') . '</th><th>' . __('Type', 'bkgt-offboarding') . '</th><th>' . __('Manufacturer', 'bkgt-offboarding') . '</th><th>' . __('Status', 'bkgt-offboarding') . '</th></tr></thead>';
+        echo '<thead><tr><th>' . __('Objekt', 'bkgt-offboarding') . '</th><th>' . __('Typ', 'bkgt-offboarding') . '</th><th>' . __('Tillverkare', 'bkgt-offboarding') . '</th><th>' . __('Status', 'bkgt-offboarding') . '</th></tr></thead>';
         echo '<tbody>';
 
         foreach ($equipment as $item) {
@@ -287,10 +307,10 @@ class BKGT_Offboarding_System {
             echo '<td>' . esc_html($item->manufacturer_name) . '</td>';
             echo '<td>';
             echo '<select class="bkgt-equipment-status" data-assignment-id="' . $assignment_id . '">';
-            echo '<option value="assigned" ' . selected($current_status, 'assigned', false) . '>' . __('Assigned', 'bkgt-offboarding') . '</option>';
-            echo '<option value="returned" ' . selected($current_status, 'returned', false) . '>' . __('Returned', 'bkgt-offboarding') . '</option>';
-            echo '<option value="damaged" ' . selected($current_status, 'damaged', false) . '>' . __('Damaged', 'bkgt-offboarding') . '</option>';
-            echo '<option value="lost" ' . selected($current_status, 'lost', false) . '>' . __('Lost', 'bkgt-offboarding') . '</option>';
+            echo '<option value="assigned" ' . selected($current_status, 'assigned', false) . '>' . __('Tilldelad', 'bkgt-offboarding') . '</option>';
+            echo '<option value="returned" ' . selected($current_status, 'returned', false) . '>' . __('Returnerad', 'bkgt-offboarding') . '</option>';
+            echo '<option value="damaged" ' . selected($current_status, 'damaged', false) . '>' . __('Skadad', 'bkgt-offboarding') . '</option>';
+            echo '<option value="lost" ' . selected($current_status, 'lost', false) . '>' . __('Förlorad', 'bkgt-offboarding') . '</option>';
             echo '</select>';
             echo '</td>';
             echo '</tr>';
@@ -298,17 +318,17 @@ class BKGT_Offboarding_System {
 
         echo '</tbody></table>';
 
-        echo '<p><button class="button bkgt-generate-receipt" data-post-id="' . $post->ID . '">' . __('Generate PDF Receipt', 'bkgt-offboarding') . '</button></p>';
+        echo '<p><button class="button bkgt-generate-receipt" data-post-id="' . $post->ID . '">' . __('Generera PDF-kvitto', 'bkgt-offboarding') . '</button></p>';
     }
 
     public function display_actions_meta_box($post) {
         $status = get_post_meta($post->ID, '_bkgt_offboarding_status', true);
 
         if ($status !== 'completed') {
-            echo '<p><button class="button button-primary bkgt-complete-offboarding" data-post-id="' . $post->ID . '">' . __('Complete Offboarding', 'bkgt-offboarding') . '</button></p>';
-            echo '<p><small>' . __('This will deactivate the user account and mark the process as completed.', 'bkgt-offboarding') . '</small></p>';
+            echo '<p><button class="button button-primary bkgt-complete-offboarding" data-post-id="' . $post->ID . '">' . __('Avsluta avslutningsprocess', 'bkgt-offboarding') . '</button></p>';
+            echo '<p><small>' . __('Detta kommer att inaktivera användarkontot och markera processen som slutförd.', 'bkgt-offboarding') . '</small></p>';
         } else {
-            echo '<p><strong>' . __('Process Completed', 'bkgt-offboarding') . '</strong></p>';
+            echo '<p><strong>' . __('Process Slutförd', 'bkgt-offboarding') . '</strong></p>';
         }
 
         echo '<hr>';
@@ -650,26 +670,26 @@ class BKGT_Offboarding_System {
     // Shortcode implementations
     public function offboarding_dashboard_shortcode($atts) {
         if (!is_user_logged_in()) {
-            return '<p>' . __('Please log in to view your offboarding dashboard.', 'bkgt-offboarding') . '</p>';
+            return '<p>' . __('Vänligen logga in för att visa din avslutningsprocess.', 'bkgt-offboarding') . '</p>';
         }
 
         $user_id = get_current_user_id();
         $processes = $this->get_user_offboarding_processes($user_id);
 
         if (empty($processes)) {
-            return '<p>' . __('No offboarding processes found.', 'bkgt-offboarding') . '</p>';
+            return '<p>' . __('Ingen avslutningsprocess hittades.', 'bkgt-offboarding') . '</p>';
         }
 
         ob_start();
         ?>
         <div class="bkgt-offboarding-dashboard">
-            <h2><?php _e('Your Offboarding Process', 'bkgt-offboarding'); ?></h2>
+            <h2><?php _e('Din Avslutningsprocess', 'bkgt-offboarding'); ?></h2>
 
             <?php foreach ($processes as $process): ?>
                 <div class="bkgt-offboarding-process">
                     <h3><?php echo esc_html($process->post_title); ?></h3>
-                    <p><strong><?php _e('Status:', 'bkgt-offboarding'); ?></strong> <?php echo esc_html(get_post_meta($process->ID, '_bkgt_offboarding_status', true)); ?></p>
-                    <p><strong><?php _e('End Date:', 'bkgt-offboarding'); ?></strong> <?php echo esc_html(get_post_meta($process->ID, '_bkgt_offboarding_end_date', true)); ?></p>
+                    <p><strong><?php _e('Status:', 'bkgt-offboarding'); ?></strong> <?php echo esc_html($this->translate_status(get_post_meta($process->ID, '_bkgt_offboarding_status', true))); ?></p>
+                    <p><strong><?php _e('Slutdatum:', 'bkgt-offboarding'); ?></strong> <?php echo esc_html(get_post_meta($process->ID, '_bkgt_offboarding_end_date', true)); ?></p>
 
                     <?php $this->display_task_checklist($process->ID); ?>
                     <?php $this->display_equipment_receipt($process->ID); ?>
@@ -694,6 +714,15 @@ class BKGT_Offboarding_System {
         ));
     }
 
+    private function translate_status($status) {
+        $translations = array(
+            'active' => __('Aktiv', 'bkgt-offboarding'),
+            'completed' => __('Avslutad', 'bkgt-offboarding'),
+            'pending' => __('Väntande', 'bkgt-offboarding'),
+        );
+        return isset($translations[$status]) ? $translations[$status] : $status;
+    }
+
     private function display_task_checklist($post_id) {
         $tasks = get_post_meta($post_id, '_bkgt_offboarding_tasks', true);
 
@@ -712,10 +741,10 @@ class BKGT_Offboarding_System {
 
         echo '<div class="bkgt-task-progress">';
         echo '<div class="bkgt-progress-bar"><div class="bkgt-progress-fill" style="width: ' . $progress_percentage . '%"></div></div>';
-        echo '<p>' . sprintf(__('Progress: %d of %d tasks completed (%d%%)', 'bkgt-offboarding'), $completed_count, count($tasks), $progress_percentage) . '</p>';
+        echo '<p>' . sprintf(__('Framsteg: %d av %d uppgifter slutförda (%d%%)', 'bkgt-offboarding'), $completed_count, count($tasks), $progress_percentage) . '</p>';
         echo '</div>';
 
-        echo '<h4>' . __('Task Checklist', 'bkgt-offboarding') . '</h4>';
+        echo '<h4>' . __('Checklista', 'bkgt-offboarding') . '</h4>';
         echo '<ul class="bkgt-task-list">';
 
         foreach ($tasks as $index => $task) {
@@ -744,17 +773,19 @@ class BKGT_Offboarding_System {
             return;
         }
 
-        echo '<h4>' . __('Equipment to Return', 'bkgt-offboarding') . '</h4>';
+        echo '<h4>' . __('Utrustning att returnera', 'bkgt-offboarding') . '</h4>';
         echo '<table class="bkgt-equipment-table">';
-        echo '<thead><tr><th>' . __('Item', 'bkgt-offboarding') . '</th><th>' . __('Type', 'bkgt-offboarding') . '</th><th>' . __('Manufacturer', 'bkgt-offboarding') . '</th><th>' . __('Status', 'bkgt-offboarding') . '</th></tr></thead>';
+        echo '<thead><tr><th>' . __('Objekt', 'bkgt-offboarding') . '</th><th>' . __('Typ', 'bkgt-offboarding') . '</th><th>' . __('Tillverkare', 'bkgt-offboarding') . '</th><th>' . __('Status', 'bkgt-offboarding') . '</th></tr></thead>';
         echo '<tbody>';
 
         foreach ($equipment as $item) {
-            echo '<tr>';
+            $status = get_post_meta($post_id, '_bkgt_equipment_' . $item->id . '_status', true) ?: 'assigned';
+            $checked = $status === 'returned' ? 'checked' : '';
+            echo '<tr class="' . ($status === 'returned' ? 'returned' : '') . '">';
             echo '<td>' . esc_html($item->item_name) . '</td>';
             echo '<td>' . esc_html($item->type_name) . '</td>';
             echo '<td>' . esc_html($item->manufacturer_name) . '</td>';
-            echo '<td><input type="checkbox" class="bkgt-equipment-returned" data-assignment-id="' . $item->id . '"> ' . __('Returned', 'bkgt-offboarding') . '</td>';
+            echo '<td><input type="checkbox" class="bkgt-equipment-returned" data-assignment-id="' . $item->id . '" ' . $checked . '> ' . __('Returnerad', 'bkgt-offboarding') . '</td>';
             echo '</tr>';
         }
 
@@ -765,8 +796,107 @@ class BKGT_Offboarding_System {
 
     // AJAX handlers
     public function ajax_start_offboarding() {
-        // Implementation for AJAX start offboarding
-        wp_send_json_success();
+        // Verify nonce and permissions
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'bkgt_start_offboarding_nonce')) {
+            wp_send_json_error(__('Security check failed', 'bkgt-offboarding'), 403);
+            return;
+        }
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('You do not have permission to perform this action', 'bkgt-offboarding'), 403);
+            return;
+        }
+
+        // Validate required fields
+        if (empty($_POST['user_id']) || empty($_POST['end_date'])) {
+            wp_send_json_error(__('Missing required fields', 'bkgt-offboarding'), 400);
+            return;
+        }
+
+        $user_id = intval($_POST['user_id']);
+        $end_date = sanitize_text_field($_POST['end_date']);
+        $notes = isset($_POST['notes']) ? sanitize_textarea_field($_POST['notes']) : '';
+
+        // Validate user exists and is not already inactive
+        $user = get_userdata($user_id);
+        if (!$user) {
+            wp_send_json_error(__('Invalid user selected', 'bkgt-offboarding'), 404);
+            return;
+        }
+
+        if (in_array('inactive', $user->roles)) {
+            wp_send_json_error(__('User is already inactive', 'bkgt-offboarding'), 400);
+            return;
+        }
+
+        // Validate end date is in the future
+        if (strtotime($end_date) < strtotime('today')) {
+            wp_send_json_error(__('End date must be in the future', 'bkgt-offboarding'), 400);
+            return;
+        }
+
+        // Check if offboarding process already exists for this user
+        $existing = new WP_Query(array(
+            'post_type' => 'bkgt_offboarding',
+            'posts_per_page' => 1,
+            'meta_query' => array(
+                array(
+                    'key' => '_bkgt_offboarding_user_id',
+                    'value' => $user_id,
+                    'compare' => '='
+                ),
+                array(
+                    'key' => '_bkgt_offboarding_status',
+                    'value' => 'active',
+                    'compare' => '='
+                )
+            )
+        ));
+
+        if ($existing->have_posts()) {
+            wp_send_json_error(__('An active offboarding process already exists for this user', 'bkgt-offboarding'), 400);
+            return;
+        }
+
+        // Create offboarding process post
+        $post_data = array(
+            'post_title' => $user->display_name,
+            'post_type' => 'bkgt_offboarding',
+            'post_status' => 'publish',
+            'post_author' => get_current_user_id(),
+        );
+
+        $post_id = wp_insert_post($post_data);
+
+        if (!$post_id || is_wp_error($post_id)) {
+            wp_send_json_error(__('Failed to create offboarding process', 'bkgt-offboarding'), 500);
+            return;
+        }
+
+        // Save metadata
+        update_post_meta($post_id, '_bkgt_offboarding_user_id', $user_id);
+        update_post_meta($post_id, '_bkgt_offboarding_end_date', $end_date);
+        update_post_meta($post_id, '_bkgt_offboarding_status', 'active');
+        update_post_meta($post_id, '_bkgt_offboarding_notes', $notes);
+        update_post_meta($post_id, '_bkgt_offboarding_started_by', get_current_user_id());
+        update_post_meta($post_id, '_bkgt_offboarding_started_date', current_time('mysql'));
+
+        // Generate task checklist based on user role
+        $this->generate_task_checklist($post_id, $user);
+
+        // Generate equipment receipt
+        $this->generate_equipment_receipt($post_id, $user_id);
+
+        // Log the action
+        if (function_exists('bkgt_log')) {
+            bkgt_log('info', sprintf('Offboarding process started for user %d (%s) by user %d', $user_id, $user->display_name, get_current_user_id()));
+        }
+
+        wp_send_json_success(array(
+            'message' => sprintf(__('Offboarding process started for %s', 'bkgt-offboarding'), $user->display_name),
+            'post_id' => $post_id,
+            'edit_url' => admin_url('post.php?post=' . $post_id . '&action=edit')
+        ));
     }
 
     public function ajax_update_offboarding_task() {
@@ -800,13 +930,36 @@ class BKGT_Offboarding_System {
     }
 
     public function ajax_update_equipment_status() {
+        // Verify nonce
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'bkgt_offboarding_nonce')) {
+            wp_send_json_error(__('Säkerhetskontroll misslyckades', 'bkgt-offboarding'), 403);
+            return;
+        }
+
+        if (!is_user_logged_in()) {
+            wp_send_json_error(__('Du måste vara inloggad', 'bkgt-offboarding'), 403);
+            return;
+        }
+
         $assignment_id = intval($_POST['assignment_id']);
         $status = sanitize_text_field($_POST['status']);
+
+        // Validate status value
+        $valid_statuses = array('assigned', 'returned', 'damaged', 'lost');
+        if (!in_array($status, $valid_statuses)) {
+            wp_send_json_error(__('Ogiltigt status värde', 'bkgt-offboarding'), 400);
+            return;
+        }
+
+        if (empty($assignment_id)) {
+            wp_send_json_error(__('Tilldelnings-ID saknas', 'bkgt-offboarding'), 400);
+            return;
+        }
 
         global $wpdb;
 
         // Update equipment assignment status
-        $wpdb->update(
+        $result = $wpdb->update(
             $wpdb->prefix . 'bkgt_assignments',
             array('status' => $status),
             array('id' => $assignment_id),
@@ -814,7 +967,24 @@ class BKGT_Offboarding_System {
             array('%d')
         );
 
-        wp_send_json_success();
+        if (false === $result) {
+            wp_send_json_error(__('Det gick inte att uppdatera utrustningsstatus', 'bkgt-offboarding'), 500);
+            return;
+        }
+
+        wp_send_json_success(array(
+            'message' => sprintf(__('Utrustningen markerad som %s', 'bkgt-offboarding'), $this->translate_equipment_status($status))
+        ));
+    }
+
+    private function translate_equipment_status($status) {
+        $translations = array(
+            'assigned' => __('tilldelad', 'bkgt-offboarding'),
+            'returned' => __('returnerad', 'bkgt-offboarding'),
+            'damaged' => __('skadad', 'bkgt-offboarding'),
+            'lost' => __('förlorad', 'bkgt-offboarding'),
+        );
+        return isset($translations[$status]) ? $translations[$status] : $status;
     }
 
     public function ajax_add_notification() {

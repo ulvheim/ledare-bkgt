@@ -2,49 +2,49 @@
 
 /* General Admin Styles */
 .bkgt-admin-dashboard {
-    margin-top: 20px;
+    margin-top: var(--spacing-md);
 }
 
 .bkgt-admin-section {
-    background: #fff;
-    border: 1px solid #ccd0d4;
-    border-radius: 4px;
-    padding: 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    background: var(--color-white);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-sm);
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+    box-shadow: var(--shadow-sm);
 }
 
 .bkgt-admin-section h3 {
     margin-top: 0;
-    margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #eee;
+    margin-bottom: var(--spacing-sm);
+    padding-bottom: var(--spacing-xs);
+    border-bottom: 1px solid var(--color-background-secondary);
 }
 
 /* Document List Styles */
 .bkgt-document-list {
-    margin-top: 20px;
+    margin-top: var(--spacing-md);
 }
 
 .bkgt-document-item {
     display: flex;
     align-items: center;
-    padding: 15px;
-    border: 1px solid #e1e5e9;
-    border-radius: 4px;
-    margin-bottom: 10px;
-    background: #fff;
-    transition: all 0.2s ease;
+    padding: var(--spacing-sm);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-sm);
+    margin-bottom: var(--spacing-xs);
+    background: var(--color-white);
+    transition: var(--transition-standard);
 }
 
 .bkgt-document-item:hover {
-    border-color: #007cba;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-sm);
 }
 
 .bkgt-document-icon {
-    margin-right: 15px;
-    color: #666;
+    margin-right: var(--spacing-sm);
+    color: var(--color-text-secondary);
     font-size: 24px;
 }
 
@@ -56,29 +56,29 @@
     font-size: 16px;
     font-weight: 600;
     margin-bottom: 5px;
-    color: #333;
+    color: var(--color-text-primary);
 }
 
 .bkgt-document-meta {
     font-size: 14px;
-    color: #666;
+    color: var(--color-text-secondary);
 }
 
 .bkgt-document-actions {
     display: flex;
-    gap: 10px;
+    gap: var(--spacing-sm);
 }
 
 /* Form Styles */
 .bkgt-form-row {
-    margin-bottom: 15px;
+    margin-bottom: var(--spacing-sm);
 }
 
 .bkgt-form-row label {
     display: block;
     font-weight: 600;
     margin-bottom: 5px;
-    color: #333;
+    color: var(--color-text-primary);
 }
 
 .bkgt-form-row input[type="text"],
@@ -88,8 +88,8 @@
 .bkgt-form-row select {
     width: 100%;
     padding: 8px 12px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--border-radius-sm);
     font-size: 14px;
 }
 
