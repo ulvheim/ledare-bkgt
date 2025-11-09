@@ -28,6 +28,7 @@ class BKGT_API_Endpoints {
      */
     public function register_routes() {
         $this->register_auth_routes();
+        $this->register_health_routes();
         $this->register_team_routes();
         $this->register_player_routes();
         $this->register_event_routes();
@@ -36,6 +37,7 @@ class BKGT_API_Endpoints {
         $this->register_stats_routes();
         $this->register_user_routes();
         $this->register_admin_routes();
+        $this->register_docs_routes();
     }
 
     /**
@@ -84,6 +86,17 @@ class BKGT_API_Endpoints {
         register_rest_route($this->namespace, '/auth/me', array(
             'methods' => 'GET',
             'callback' => array($this, 'get_current_user'),
+            'permission_callback' => array($this, 'validate_token'),
+        ));
+    }
+
+    /**
+     * Register health check routes
+     */
+    private function register_health_routes() {
+        register_rest_route($this->namespace, '/health', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_health_status'),
             'permission_callback' => array($this, 'validate_token'),
         ));
     }
@@ -320,243 +333,261 @@ class BKGT_API_Endpoints {
      * Register equipment routes
      */
     private function register_equipment_routes() {
-        // Equipment items
-        register_rest_route($this->namespace, '/equipment', array(
-            'methods' => 'GET',
-            'callback' => array($this, 'get_equipment'),
-            'permission_callback' => array($this, 'validate_token'),
-            'args' => $this->get_pagination_args(array(
-                'manufacturer_id' => array(
-                    'type' => 'integer',
-                    'validate_callback' => array($this, 'validate_numeric'),
-                ),
-                'item_type_id' => array(
-                    'type' => 'integer',
-                    'validate_callback' => array($this, 'validate_numeric'),
-                ),
-                'condition_status' => array(
-                    'type' => 'string',
-                    'enum' => array('normal', 'needs_repair', 'repaired', 'reported_lost', 'scrapped'),
-                ),
-                'assigned_to' => array(
-                    'type' => 'string',
-                    'enum' => array('club', 'team', 'individual'),
-                ),
-                'location_id' => array(
-                    'type' => 'integer',
-                    'validate_callback' => array($this, 'validate_numeric'),
-                ),
-                'search' => array(
-                    'type' => 'string',
-                    'sanitize_callback' => 'sanitize_text_field',
-                ),
-            )),
-        ));
-
-        register_rest_route($this->namespace, '/equipment/(?P<id>\d+)', array(
-            'methods' => 'GET',
-            'callback' => array($this, 'get_equipment_item'),
-            'permission_callback' => array($this, 'validate_token'),
-            'args' => array(
-                'id' => array(
-                    'type' => 'integer',
-                    'required' => true,
-                    'validate_callback' => array($this, 'validate_numeric'),
-                ),
-            ),
-        ));
-
-        register_rest_route($this->namespace, '/equipment', array(
-            'methods' => 'POST',
-            'callback' => array($this, 'create_equipment_item'),
-            'permission_callback' => array($this, 'validate_admin_token'),
-            'args' => array(
-                'manufacturer_id' => array(
-                    'type' => 'integer',
-                    'required' => true,
-                    'validate_callback' => array($this, 'validate_numeric'),
-                ),
-                'item_type_id' => array(
-                    'type' => 'integer',
-                    'required' => true,
-                    'validate_callback' => array($this, 'validate_numeric'),
-                ),
-                'title' => array(
-                    'type' => 'string',
-                    'required' => true,
-                    'sanitize_callback' => 'sanitize_text_field',
-                    'validate_callback' => array($this, 'validate_required'),
-                ),
-                'storage_location' => array(
-                    'type' => 'string',
-                    'sanitize_callback' => 'sanitize_text_field',
-                ),
-                'sticker_code' => array(
-                    'type' => 'string',
-                    'sanitize_callback' => 'sanitize_text_field',
-                ),
-            ),
-        ));
-
-        register_rest_route($this->namespace, '/equipment/(?P<id>\d+)', array(
-            'methods' => 'PUT',
-            'callback' => array($this, 'update_equipment_item'),
-            'permission_callback' => array($this, 'validate_admin_token'),
-            'args' => array(
-                'id' => array(
-                    'type' => 'integer',
-                    'required' => true,
-                    'validate_callback' => array($this, 'validate_numeric'),
-                ),
-                'title' => array(
-                    'type' => 'string',
-                    'sanitize_callback' => 'sanitize_text_field',
-                ),
-                'condition_status' => array(
-                    'type' => 'string',
-                    'enum' => array('normal', 'needs_repair', 'repaired', 'reported_lost', 'scrapped'),
-                ),
-                'condition_reason' => array(
-                    'type' => 'string',
-                    'sanitize_callback' => 'sanitize_text_field',
-                ),
-                'storage_location' => array(
-                    'type' => 'string',
-                    'sanitize_callback' => 'sanitize_text_field',
-                ),
-                'sticker_code' => array(
-                    'type' => 'string',
-                    'sanitize_callback' => 'sanitize_text_field',
-                ),
-            ),
-        ));
-
-        register_rest_route($this->namespace, '/equipment/(?P<id>\d+)', array(
-            'methods' => 'DELETE',
-            'callback' => array($this, 'delete_equipment_item'),
-            'permission_callback' => array($this, 'validate_admin_token'),
-            'args' => array(
-                'id' => array(
-                    'type' => 'integer',
-                    'required' => true,
-                    'validate_callback' => array($this, 'validate_numeric'),
-                ),
-            ),
-        ));
-
-        // Manufacturers
+        // Equipment manufacturers - Full CRUD
         register_rest_route($this->namespace, '/equipment/manufacturers', array(
-            'methods' => 'GET',
-            'callback' => array($this, 'get_manufacturers'),
-            'permission_callback' => array($this, 'validate_token'),
+            array(
+                'methods' => 'GET',
+                'callback' => array($this, 'get_manufacturers'),
+                'permission_callback' => array($this, 'validate_token'),
+            ),
+            array(
+                'methods' => 'POST',
+                'callback' => array($this, 'create_manufacturer'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'name' => array(
+                        'required' => true,
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                        'validate_callback' => array($this, 'validate_required'),
+                    ),
+                    'description' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_textarea_field',
+                    ),
+                    'website' => array(
+                        'type' => 'string',
+                        'validate_callback' => 'wp_http_validate_url',
+                    ),
+                    'contact_email' => array(
+                        'type' => 'string',
+                        'validate_callback' => 'is_email',
+                    ),
+                ),
+            ),
         ));
 
         register_rest_route($this->namespace, '/equipment/manufacturers/(?P<id>\d+)', array(
-            'methods' => 'GET',
-            'callback' => array($this, 'get_manufacturer'),
-            'permission_callback' => array($this, 'validate_token'),
-            'args' => array(
-                'id' => array(
-                    'type' => 'integer',
-                    'required' => true,
-                    'validate_callback' => array($this, 'validate_numeric'),
+            array(
+                'methods' => 'GET',
+                'callback' => array($this, 'get_manufacturer'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'id' => array(
+                        'type' => 'integer',
+                        'required' => true,
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                ),
+            ),
+            array(
+                'methods' => 'PUT',
+                'callback' => array($this, 'update_manufacturer'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'id' => array(
+                        'type' => 'integer',
+                        'required' => true,
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                    'name' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'description' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_textarea_field',
+                    ),
+                    'website' => array(
+                        'type' => 'string',
+                        'validate_callback' => 'wp_http_validate_url',
+                    ),
+                    'contact_email' => array(
+                        'type' => 'string',
+                        'validate_callback' => 'is_email',
+                    ),
+                ),
+            ),
+            array(
+                'methods' => 'DELETE',
+                'callback' => array($this, 'delete_manufacturer'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'id' => array(
+                        'type' => 'integer',
+                        'required' => true,
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
                 ),
             ),
         ));
 
-        // Item Types
+        // Equipment item types - Full CRUD
         register_rest_route($this->namespace, '/equipment/types', array(
-            'methods' => 'GET',
-            'callback' => array($this, 'get_item_types'),
-            'permission_callback' => array($this, 'validate_token'),
+            array(
+                'methods' => 'GET',
+                'callback' => array($this, 'get_item_types'),
+                'permission_callback' => array($this, 'validate_token'),
+            ),
+            array(
+                'methods' => 'POST',
+                'callback' => array($this, 'create_item_type'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'name' => array(
+                        'required' => true,
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                        'validate_callback' => array($this, 'validate_required'),
+                    ),
+                    'description' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_textarea_field',
+                    ),
+                    'category' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                ),
+            ),
         ));
 
         register_rest_route($this->namespace, '/equipment/types/(?P<id>\d+)', array(
-            'methods' => 'GET',
-            'callback' => array($this, 'get_item_type'),
-            'permission_callback' => array($this, 'validate_token'),
-            'args' => array(
-                'id' => array(
-                    'type' => 'integer',
-                    'required' => true,
-                    'validate_callback' => array($this, 'validate_numeric'),
+            array(
+                'methods' => 'GET',
+                'callback' => array($this, 'get_item_type'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'id' => array(
+                        'type' => 'integer',
+                        'required' => true,
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                ),
+            ),
+            array(
+                'methods' => 'PUT',
+                'callback' => array($this, 'update_item_type'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'id' => array(
+                        'type' => 'integer',
+                        'required' => true,
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                    'name' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'description' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_textarea_field',
+                    ),
+                    'category' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                ),
+            ),
+            array(
+                'methods' => 'DELETE',
+                'callback' => array($this, 'delete_item_type'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'id' => array(
+                        'type' => 'integer',
+                        'required' => true,
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
                 ),
             ),
         ));
 
-        // Assignments
-        register_rest_route($this->namespace, '/equipment/(?P<id>\d+)/assign', array(
-            'methods' => 'POST',
-            'callback' => array($this, 'assign_equipment'),
-            'permission_callback' => array($this, 'validate_admin_token'),
-            'args' => array(
-                'id' => array(
-                    'type' => 'integer',
-                    'required' => true,
-                    'validate_callback' => array($this, 'validate_numeric'),
-                ),
-                'assignment_type' => array(
-                    'type' => 'string',
-                    'required' => true,
-                    'enum' => array('individual', 'team', 'club'),
-                    'validate_callback' => array($this, 'validate_required'),
-                ),
-                'assignee_id' => array(
-                    'type' => 'integer',
-                    'validate_callback' => array($this, 'validate_numeric'),
-                ),
-                'due_date' => array(
-                    'type' => 'string',
-                    'format' => 'date',
-                ),
-                'notes' => array(
-                    'type' => 'string',
-                    'sanitize_callback' => 'sanitize_text_field',
-                ),
-            ),
-        ));
-
-        register_rest_route($this->namespace, '/equipment/(?P<id>\d+)/return', array(
-            'methods' => 'POST',
-            'callback' => array($this, 'return_equipment'),
-            'permission_callback' => array($this, 'validate_admin_token'),
-            'args' => array(
-                'id' => array(
-                    'type' => 'integer',
-                    'required' => true,
-                    'validate_callback' => array($this, 'validate_numeric'),
-                ),
-                'return_date' => array(
-                    'type' => 'string',
-                    'format' => 'date',
-                ),
-                'condition_status' => array(
-                    'type' => 'string',
-                    'enum' => array('normal', 'needs_repair', 'repaired', 'reported_lost', 'scrapped'),
-                ),
-                'notes' => array(
-                    'type' => 'string',
-                    'sanitize_callback' => 'sanitize_text_field',
-                ),
-            ),
-        ));
-
-        // Locations
+        // Equipment locations - Full CRUD
         register_rest_route($this->namespace, '/equipment/locations', array(
-            'methods' => 'GET',
-            'callback' => array($this, 'get_locations'),
-            'permission_callback' => array($this, 'validate_token'),
+            array(
+                'methods' => 'GET',
+                'callback' => array($this, 'get_locations'),
+                'permission_callback' => array($this, 'validate_token'),
+            ),
+            array(
+                'methods' => 'POST',
+                'callback' => array($this, 'create_location'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'name' => array(
+                        'required' => true,
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                        'validate_callback' => array($this, 'validate_required'),
+                    ),
+                    'description' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_textarea_field',
+                    ),
+                    'address' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_textarea_field',
+                    ),
+                    'capacity' => array(
+                        'type' => 'integer',
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                ),
+            ),
         ));
 
         register_rest_route($this->namespace, '/equipment/locations/(?P<id>\d+)', array(
-            'methods' => 'GET',
-            'callback' => array($this, 'get_location'),
-            'permission_callback' => array($this, 'validate_token'),
-            'args' => array(
-                'id' => array(
-                    'type' => 'integer',
-                    'required' => true,
-                    'validate_callback' => array($this, 'validate_numeric'),
+            array(
+                'methods' => 'GET',
+                'callback' => array($this, 'get_location'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'id' => array(
+                        'type' => 'integer',
+                        'required' => true,
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                ),
+            ),
+            array(
+                'methods' => 'PUT',
+                'callback' => array($this, 'update_location'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'id' => array(
+                        'type' => 'integer',
+                        'required' => true,
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                    'name' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'description' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_textarea_field',
+                    ),
+                    'address' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_textarea_field',
+                    ),
+                    'capacity' => array(
+                        'type' => 'integer',
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                ),
+            ),
+            array(
+                'methods' => 'DELETE',
+                'callback' => array($this, 'delete_location'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'id' => array(
+                        'type' => 'integer',
+                        'required' => true,
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
                 ),
             ),
         ));
@@ -597,46 +628,201 @@ class BKGT_API_Endpoints {
                 ),
             ),
         ));
+
+        register_rest_route($this->namespace, '/equipment/analytics/overview', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_equipment_analytics_overview'),
+            'permission_callback' => array($this, 'validate_token'),
+        ));
+
+        // Main equipment CRUD endpoints - READ ONLY (CREATE/UPDATE/DELETE handled by bkgt-inventory plugin)
+        register_rest_route($this->namespace, '/equipment', array(
+            array(
+                'methods' => 'GET',
+                'callback' => array($this, 'get_equipment'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'page' => array(
+                        'type' => 'integer',
+                        'default' => 1,
+                        'minimum' => 1,
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                    'per_page' => array(
+                        'type' => 'integer',
+                        'default' => 10,
+                        'minimum' => 1,
+                        'maximum' => 100,
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                    'manufacturer_id' => array(
+                        'type' => 'integer',
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                    'item_type_id' => array(
+                        'type' => 'integer',
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                    'location_id' => array(
+                        'type' => 'integer',
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                    'condition_status' => array(
+                        'type' => 'string',
+                        'enum' => array('normal', 'needs_repair', 'repaired', 'reported_lost', 'scrapped'),
+                    ),
+                    'assignment_status' => array(
+                        'type' => 'string',
+                        'enum' => array('assigned', 'available', 'overdue'),
+                    ),
+                    'search' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'orderby' => array(
+                        'type' => 'string',
+                        'enum' => array('id', 'unique_identifier', 'created_date', 'updated_date'),
+                        'default' => 'id',
+                    ),
+                    'order' => array(
+                        'type' => 'string',
+                        'enum' => array('asc', 'desc'),
+                        'default' => 'desc',
+                    ),
+                ),
+            ),
+        ));
+
+        // Individual equipment item - READ ONLY (UPDATE/DELETE handled by bkgt-inventory plugin)
+        register_rest_route($this->namespace, '/equipment/(?P<id>\d+)', array(
+            array(
+                'methods' => 'GET',
+                'callback' => array($this, 'get_equipment_item'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'id' => array(
+                        'type' => 'integer',
+                        'required' => true,
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                ),
+            ),
+        ));
+
+        // Equipment assignment routes
+        register_rest_route($this->namespace, '/equipment/(?P<id>\d+)/assignment', array(
+            array(
+                'methods' => 'GET',
+                'callback' => array($this, 'get_equipment_assignment'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'id' => array(
+                        'type' => 'integer',
+                        'required' => true,
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                ),
+            ),
+            array(
+                'methods' => 'POST',
+                'callback' => array($this, 'assign_equipment'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'id' => array(
+                        'type' => 'integer',
+                        'required' => true,
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                    'assignment_type' => array(
+                        'type' => 'string',
+                        'required' => true,
+                        'enum' => array('club', 'team', 'individual'),
+                        'validate_callback' => array($this, 'validate_required'),
+                    ),
+                    'assignee_id' => array(
+                        'type' => 'integer',
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                    'due_date' => array(
+                        'type' => 'string',
+                        'format' => 'date',
+                        'validate_callback' => array($this, 'validate_date'),
+                    ),
+                    'notes' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                ),
+            ),
+            array(
+                'methods' => 'DELETE',
+                'callback' => array($this, 'unassign_equipment'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'id' => array(
+                        'type' => 'integer',
+                        'required' => true,
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                ),
+            ),
+        ));
+
+        // Bulk operations routes - REMOVED (handled by bkgt-inventory plugin)
+        // register_rest_route($this->namespace, '/equipment/bulk', array(
+        //     array(
+        //         'methods' => 'POST',
+        //         'callback' => array($this, 'bulk_equipment_operation'),
+        //         'permission_callback' => array($this, 'validate_token'),
+        //         'args' => array(
+        //             'operation' => array(
+        //                 'type' => 'string',
+        //                 'required' => true,
+        //                 'enum' => array('delete', 'export'),
+        //                 'validate_callback' => array($this, 'validate_required'),
+        //             ),
+        //             'item_ids' => array(
+        //                 'type' => 'array',
+        //                 'required' => true,
+        //                 'items' => array(
+        //                     'type' => 'integer',
+        //                     'validate_callback' => array($this, 'validate_numeric'),
+        //                 ),
+        //                 'validate_callback' => array($this, 'validate_required'),
+        //             ),
+        //         ),
+        //     ),
+        // ));
     }
 
     /**
      * Register statistics routes
      */
     private function register_stats_routes() {
+        // Stats overview
         register_rest_route($this->namespace, '/stats/overview', array(
             'methods' => 'GET',
             'callback' => array($this, 'get_stats_overview'),
             'permission_callback' => array($this, 'validate_token'),
         ));
 
+        // Team statistics
         register_rest_route($this->namespace, '/stats/teams', array(
             'methods' => 'GET',
             'callback' => array($this, 'get_team_stats'),
             'permission_callback' => array($this, 'validate_token'),
-            'args' => array(
-                'team_id' => array(
-                    'type' => 'integer',
-                    'validate_callback' => array($this, 'validate_numeric'),
-                ),
-                'season' => array(
-                    'type' => 'string',
-                    'validate_callback' => array($this, 'validate_season'),
-                ),
-            ),
         ));
 
+        // Player statistics
         register_rest_route($this->namespace, '/stats/players', array(
             'methods' => 'GET',
             'callback' => array($this, 'get_player_stats'),
             'permission_callback' => array($this, 'validate_token'),
             'args' => array(
-                'player_id' => array(
-                    'type' => 'integer',
-                    'validate_callback' => array($this, 'validate_numeric'),
-                ),
                 'season' => array(
                     'type' => 'string',
-                    'validate_callback' => array($this, 'validate_season'),
+                    'description' => 'Filter by season (YYYY-YYYY)',
+                    'validate_callback' => array($this, 'validate_season_format'),
                 ),
             ),
         ));
@@ -808,6 +994,386 @@ class BKGT_API_Endpoints {
                 ),
             ),
         ));
+
+        // User Management
+        register_rest_route($this->namespace, '/admin/users', array(
+            array(
+                'methods' => 'GET',
+                'callback' => array($this, 'get_users'),
+                'permission_callback' => array($this, 'validate_admin_token'),
+                'args' => $this->get_pagination_args(array(
+                    'search' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'role' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'orderby' => array(
+                        'type' => 'string',
+                        'enum' => array('ID', 'user_login', 'user_email', 'user_registered', 'display_name'),
+                        'default' => 'user_registered',
+                    ),
+                    'order' => array(
+                        'type' => 'string',
+                        'enum' => array('asc', 'desc'),
+                        'default' => 'desc',
+                    ),
+                )),
+            ),
+            array(
+                'methods' => 'POST',
+                'callback' => array($this, 'create_user'),
+                'permission_callback' => array($this, 'validate_admin_token'),
+                'args' => array(
+                    'username' => array(
+                        'type' => 'string',
+                        'required' => true,
+                        'sanitize_callback' => 'sanitize_user',
+                        'validate_callback' => array($this, 'validate_username_unique'),
+                    ),
+                    'email' => array(
+                        'type' => 'string',
+                        'required' => true,
+                        'format' => 'email',
+                        'sanitize_callback' => 'sanitize_email',
+                        'validate_callback' => array($this, 'validate_email_unique'),
+                    ),
+                    'password' => array(
+                        'type' => 'string',
+                        'required' => true,
+                        'validate_callback' => array($this, 'validate_password_strength'),
+                    ),
+                    'first_name' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'last_name' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'display_name' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'role' => array(
+                        'type' => 'string',
+                        'default' => 'subscriber',
+                        'validate_callback' => array($this, 'validate_role_exists'),
+                    ),
+                ),
+            ),
+        ));
+
+        register_rest_route($this->namespace, '/admin/users/(?P<id>\d+)', array(
+            array(
+                'methods' => 'GET',
+                'callback' => array($this, 'get_user'),
+                'permission_callback' => array($this, 'validate_admin_token'),
+                'args' => array(
+                    'id' => array(
+                        'type' => 'integer',
+                        'required' => true,
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                ),
+            ),
+            array(
+                'methods' => 'PUT',
+                'callback' => array($this, 'update_user'),
+                'permission_callback' => array($this, 'validate_admin_token'),
+                'args' => array(
+                    'id' => array(
+                        'type' => 'integer',
+                        'required' => true,
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                    'email' => array(
+                        'type' => 'string',
+                        'format' => 'email',
+                        'sanitize_callback' => 'sanitize_email',
+                        'validate_callback' => array($this, 'validate_email_unique'),
+                    ),
+                    'first_name' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'last_name' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'display_name' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'role' => array(
+                        'type' => 'string',
+                        'validate_callback' => array($this, 'validate_role_exists'),
+                    ),
+                ),
+            ),
+            array(
+                'methods' => 'DELETE',
+                'callback' => array($this, 'delete_user'),
+                'permission_callback' => array($this, 'validate_admin_token'),
+                'args' => array(
+                    'id' => array(
+                        'type' => 'integer',
+                        'required' => true,
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                    'reassign' => array(
+                        'type' => 'integer',
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                ),
+            ),
+        ));
+
+        // Role Management
+        register_rest_route($this->namespace, '/admin/roles', array(
+            array(
+                'methods' => 'GET',
+                'callback' => array($this, 'get_roles'),
+                'permission_callback' => array($this, 'validate_admin_token'),
+            ),
+            array(
+                'methods' => 'POST',
+                'callback' => array($this, 'create_role'),
+                'permission_callback' => array($this, 'validate_admin_token'),
+                'args' => array(
+                    'role' => array(
+                        'type' => 'string',
+                        'required' => true,
+                        'sanitize_callback' => 'sanitize_key',
+                        'validate_callback' => array($this, 'validate_role_unique'),
+                    ),
+                    'display_name' => array(
+                        'type' => 'string',
+                        'required' => true,
+                        'sanitize_callback' => 'sanitize_text_field',
+                        'validate_callback' => array($this, 'validate_required'),
+                    ),
+                    'capabilities' => array(
+                        'type' => 'object',
+                        'default' => array(),
+                    ),
+                ),
+            ),
+        ));
+
+        register_rest_route($this->namespace, '/admin/roles/(?P<role>[a-zA-Z0-9_-]+)', array(
+            array(
+                'methods' => 'GET',
+                'callback' => array($this, 'get_role'),
+                'permission_callback' => array($this, 'validate_admin_token'),
+                'args' => array(
+                    'role' => array(
+                        'type' => 'string',
+                        'required' => true,
+                        'sanitize_callback' => 'sanitize_key',
+                    ),
+                ),
+            ),
+            array(
+                'methods' => 'PUT',
+                'callback' => array($this, 'update_role'),
+                'permission_callback' => array($this, 'validate_admin_token'),
+                'args' => array(
+                    'role' => array(
+                        'type' => 'string',
+                        'required' => true,
+                        'sanitize_callback' => 'sanitize_key',
+                    ),
+                    'display_name' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'capabilities' => array(
+                        'type' => 'object',
+                    ),
+                ),
+            ),
+            array(
+                'methods' => 'DELETE',
+                'callback' => array($this, 'delete_role'),
+                'permission_callback' => array($this, 'validate_admin_token'),
+                'args' => array(
+                    'role' => array(
+                        'type' => 'string',
+                        'required' => true,
+                        'sanitize_callback' => 'sanitize_key',
+                    ),
+                ),
+            ),
+        ));
+
+        // User-Role Assignment
+        register_rest_route($this->namespace, '/admin/users/(?P<user_id>\d+)/roles', array(
+            array(
+                'methods' => 'GET',
+                'callback' => array($this, 'get_user_roles'),
+                'permission_callback' => array($this, 'validate_admin_token'),
+                'args' => array(
+                    'user_id' => array(
+                        'type' => 'integer',
+                        'required' => true,
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                ),
+            ),
+            array(
+                'methods' => 'POST',
+                'callback' => array($this, 'add_user_role'),
+                'permission_callback' => array($this, 'validate_admin_token'),
+                'args' => array(
+                    'user_id' => array(
+                        'type' => 'integer',
+                        'required' => true,
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                    'role' => array(
+                        'type' => 'string',
+                        'required' => true,
+                        'sanitize_callback' => 'sanitize_key',
+                        'validate_callback' => array($this, 'validate_role_exists'),
+                    ),
+                ),
+            ),
+        ));
+
+        register_rest_route($this->namespace, '/admin/users/(?P<user_id>\d+)/roles/(?P<role>[a-zA-Z0-9_-]+)', array(
+            'methods' => 'DELETE',
+            'callback' => array($this, 'remove_user_role'),
+            'permission_callback' => array($this, 'validate_admin_token'),
+            'args' => array(
+                'user_id' => array(
+                    'type' => 'integer',
+                    'required' => true,
+                    'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                'role' => array(
+                    'type' => 'string',
+                    'required' => true,
+                    'sanitize_callback' => 'sanitize_key',
+                ),
+            ),
+        ));
+
+        /**
+         * Players Management (Admin only - for atomic data management)
+         */
+        register_rest_route($this->namespace, '/admin/players/clear-repopulate', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'clear_and_repopulate_players'),
+            'permission_callback' => array($this, 'validate_admin_token'),
+        ));
+
+        /**
+         * Teams Management (Admin only - for atomic data management)
+         */
+        register_rest_route($this->namespace, '/admin/teams/clear-repopulate', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'clear_and_repopulate_teams'),
+            'permission_callback' => array($this, 'validate_admin_token'),
+        ));
+
+        /**
+         * BKGT Dashboard Endpoints
+         */
+        register_rest_route($this->namespace, '/admin/dashboard', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_bkgt_dashboard'),
+            'permission_callback' => array($this, 'validate_admin_token'),
+        ));
+
+        /**
+         * BKGT Error Logs Endpoints
+         */
+        register_rest_route($this->namespace, '/admin/error-logs', array(
+            array(
+                'methods' => 'GET',
+                'callback' => array($this, 'get_error_logs'),
+                'permission_callback' => array($this, 'validate_admin_token'),
+                'args' => array(
+                'limit' => array(
+                    'type' => 'integer',
+                    'default' => 50,
+                    'minimum' => 1,
+                    'maximum' => 500,
+                    'validate_callback' => array($this, 'validate_numeric'),
+                ),
+                'level' => array(
+                    'type' => 'string',
+                    'enum' => array('critical', 'error', 'warning', 'info', 'debug'),
+                ),
+                'start_date' => array(
+                    'type' => 'string',
+                    'format' => 'date',
+                    'validate_callback' => array($this, 'validate_date'),
+                ),
+                'end_date' => array(
+                    'type' => 'string',
+                    'format' => 'date',
+                    'validate_callback' => array($this, 'validate_date'),
+                ),
+            ),
+        ),
+        array(
+            'methods' => 'DELETE',
+            'callback' => array($this, 'clear_error_logs'),
+            'permission_callback' => array($this, 'validate_admin_token'),
+        ),
+    ));
+
+    register_rest_route($this->namespace, '/admin/error-statistics', array(
+        'methods' => 'GET',
+        'callback' => array($this, 'get_error_statistics'),
+        'permission_callback' => array($this, 'validate_admin_token'),
+    ));
+
+    register_rest_route($this->namespace, '/admin/system-health', array(
+        'methods' => 'GET',
+        'callback' => array($this, 'get_system_health'),
+        'permission_callback' => array($this, 'validate_admin_token'),
+    ));
+}
+
+    /**
+     * Register documentation routes
+     */
+    private function register_docs_routes() {
+        register_rest_route($this->namespace, '/docs', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_api_documentation'),
+            'permission_callback' => '__return_true',
+            'args' => array(
+                'format' => array(
+                    'type' => 'string',
+                    'default' => 'html',
+                    'enum' => array('html', 'markdown', 'json'),
+                    'sanitize_callback' => 'sanitize_text_field',
+                ),
+            ),
+        ));
+
+        register_rest_route($this->namespace, '/routes', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_api_routes'),
+            'permission_callback' => '__return_true',
+            'args' => array(
+                'namespace' => array(
+                    'type' => 'string',
+                    'default' => 'bkgt/v1',
+                    'sanitize_callback' => 'sanitize_text_field',
+                ),
+                'detailed' => array(
+                    'type' => 'boolean',
+                    'default' => false,
+                ),
+            ),
+        ));
     }
 
     /**
@@ -829,6 +1395,142 @@ class BKGT_API_Endpoints {
                 'sanitize_callback' => 'absint',
             ),
         ), $additional_args);
+    }
+
+    /**
+     * Validate authentication token (JWT or API Key)
+     */
+    public function validate_token($request) {
+        // Check for API key in header
+        $api_key = $request->get_header('X-API-Key');
+
+        if ($api_key) {
+            // First check if it's a service API key
+            $auth = new BKGT_API_Auth();
+            if ($auth->validate_service_api_key($api_key)) {
+                // Service authentication successful
+                $request->set_param('_bkgt_authenticated', true);
+                $request->set_param('_bkgt_user_id', 0); // Service user ID
+                $request->set_param('_bkgt_service_auth', true);
+                $request->set_param('_bkgt_api_key', 'service');
+
+                return true;
+            }
+
+            // Check for regular API key
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'bkgt_api_keys';
+
+            $key_data = $wpdb->get_row($wpdb->prepare(
+                "SELECT * FROM $table_name WHERE api_key = %s AND is_active = 1",
+                $api_key
+            ));
+
+            if ($key_data) {
+                // Update last used timestamp
+                $wpdb->update(
+                    $table_name,
+                    array('last_used' => current_time('mysql')),
+                    array('id' => $key_data->id)
+                );
+
+                // Store user info in request for later use
+                $request->set_param('_bkgt_authenticated', true);
+                $request->set_param('_bkgt_user_id', $key_data->created_by);
+                $request->set_param('_bkgt_api_key', $key_data);
+
+                return true;
+            }
+        }
+        
+        // Check for JWT token
+        $auth_header = $request->get_header('Authorization');
+        if ($auth_header && strpos($auth_header, 'Bearer ') === 0) {
+            $token = str_replace('Bearer ', '', $auth_header);
+            
+            $auth = new BKGT_API_Auth();
+            $user_id = $auth->validate_token($token);
+            
+            if ($user_id) {
+                $request->set_param('_bkgt_authenticated', true);
+                $request->set_param('_bkgt_user_id', $user_id);
+                $request->set_param('_bkgt_jwt_token', $token);
+                
+                return true;
+            }
+        }
+        
+        return new WP_Error(
+            'authentication_required',
+            __('Authentication required.', 'bkgt-api'),
+            array('status' => 401)
+        );
+    }
+
+    /**
+     * Get health status
+     */
+    public function get_health_status($request) {
+        $is_service_auth = $request->get_param('_bkgt_service_auth');
+        $user_id = $request->get_param('_bkgt_user_id');
+
+        $status = array(
+            'status' => 'healthy',
+            'timestamp' => current_time('mysql'),
+            'version' => BKGT_API_VERSION,
+            'authentication' => array(
+                'type' => $is_service_auth ? 'service' : 'user',
+                'user_id' => $user_id,
+            ),
+            'database' => $this->check_database_health(),
+            'services' => array(
+                'wordpress' => $this->check_wordpress_health(),
+                'api' => $this->check_api_health(),
+            ),
+        );
+
+        return new WP_REST_Response($status, 200);
+    }
+
+    /**
+     * Check database health
+     */
+    private function check_database_health() {
+        global $wpdb;
+
+        $start_time = microtime(true);
+
+        // Simple query to test database connection
+        $result = $wpdb->get_var("SELECT 1");
+
+        $query_time = microtime(true) - $start_time;
+
+        return array(
+            'status' => $result === '1' ? 'healthy' : 'unhealthy',
+            'response_time' => round($query_time * 1000, 2) . 'ms',
+        );
+    }
+
+    /**
+     * Check WordPress health
+     */
+    private function check_wordpress_health() {
+        return array(
+            'status' => 'healthy',
+            'version' => get_bloginfo('version'),
+            'plugins_loaded' => did_action('plugins_loaded') > 0,
+        );
+    }
+
+    /**
+     * Check API health
+     */
+    private function check_api_health() {
+        return array(
+            'status' => 'healthy',
+            'namespace' => $this->namespace,
+            'endpoints_registered' => true,
+        );
     }
 
     /**
@@ -990,7 +1692,7 @@ class BKGT_API_Endpoints {
         ));
 
         $players = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM {$wpdb->prefix}bkgt_players WHERE team_id = %d ORDER BY name ASC LIMIT %d OFFSET %d",
+            "SELECT * FROM {$wpdb->prefix}bkgt_players WHERE team_id = %d ORDER BY id ASC LIMIT %d OFFSET %d",
             $team_id, $per_page, $offset
         ));
 
@@ -1082,7 +1784,7 @@ class BKGT_API_Endpoints {
 
         $players_query = "SELECT p.*, t.name as team_name FROM {$wpdb->prefix}bkgt_players p
                          LEFT JOIN {$wpdb->prefix}bkgt_teams t ON p.team_id = t.id
-                         $where ORDER BY p.name ASC LIMIT %d OFFSET %d";
+                         $where ORDER BY p.id ASC LIMIT %d OFFSET %d";
         $params[] = $per_page;
         $params[] = $offset;
 
@@ -1164,8 +1866,7 @@ class BKGT_API_Endpoints {
         $total_query = "SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_events $where";
         $total = $wpdb->get_var($wpdb->prepare($total_query, $params));
 
-        $events_query = "SELECT e.*, t.name as team_name FROM {$wpdb->prefix}bkgt_events e
-                        LEFT JOIN {$wpdb->prefix}bkgt_teams t ON e.team_id = t.id
+        $events_query = "SELECT e.* FROM {$wpdb->prefix}bkgt_events e
                         $where ORDER BY e.event_date DESC LIMIT %d OFFSET %d";
         $params[] = $per_page;
         $params[] = $offset;
@@ -1187,8 +1888,7 @@ class BKGT_API_Endpoints {
         $event_id = $request->get_param('id');
 
         $event = $wpdb->get_row($wpdb->prepare(
-            "SELECT e.*, t.name as team_name FROM {$wpdb->prefix}bkgt_events e
-             LEFT JOIN {$wpdb->prefix}bkgt_teams t ON e.team_id = t.id
+            "SELECT e.* FROM {$wpdb->prefix}bkgt_events e
              WHERE e.id = %d",
             $event_id
         ));
@@ -1211,19 +1911,12 @@ class BKGT_API_Endpoints {
         global $wpdb;
 
         $limit = $request->get_param('limit');
-        $team_id = $request->get_param('team_id');
 
         $where = "WHERE event_date >= %s";
         $params = array(current_time('Y-m-d'));
 
-        if ($team_id) {
-            $where .= " AND team_id = %d";
-            $params[] = $team_id;
-        }
-
         $events = $wpdb->get_results($wpdb->prepare(
-            "SELECT e.*, t.name as team_name FROM {$wpdb->prefix}bkgt_events e
-             LEFT JOIN {$wpdb->prefix}bkgt_teams t ON e.team_id = t.id
+            "SELECT e.* FROM {$wpdb->prefix}bkgt_events e
              $where ORDER BY e.event_date ASC LIMIT %d",
             array_merge($params, array($limit))
         ));
@@ -1379,14 +2072,10 @@ class BKGT_API_Endpoints {
             'teams_count' => (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_teams"),
             'players_count' => (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_players"),
             'events_count' => (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_events"),
-            'documents_count' => (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_documents"),
+            'equipment_count' => (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_inventory_items"),
             'upcoming_events' => (int) $wpdb->get_var($wpdb->prepare(
                 "SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_events WHERE event_date >= %s",
                 current_time('Y-m-d')
-            )),
-            'active_teams' => (int) $wpdb->get_var($wpdb->prepare(
-                "SELECT COUNT(DISTINCT team_id) FROM {$wpdb->prefix}bkgt_events WHERE event_date >= %s",
-                date('Y-m-d', strtotime('-30 days'))
             )),
         );
 
@@ -1745,24 +2434,1011 @@ class BKGT_API_Endpoints {
     }
 
     /**
-     * Validation methods
+     * User Management Handlers
      */
-    public function validate_token($request) {
-        $auth = new BKGT_API_Auth();
-        $user = $auth->get_current_user_from_request($request);
+    public function get_users($request) {
+        $page = $request->get_param('page');
+        $per_page = $request->get_param('per_page');
+        $search = $request->get_param('search');
+        $role = $request->get_param('role');
+        $orderby = $request->get_param('orderby');
+        $order = $request->get_param('order');
 
-        if ($user) {
-            wp_set_current_user($user->ID);
-            return true;
+        $args = array(
+            'number' => $per_page,
+            'offset' => ($page - 1) * $per_page,
+            'orderby' => $orderby,
+            'order' => $order,
+            'count_total' => true,
+        );
+
+        if ($search) {
+            $args['search'] = '*' . esc_attr($search) . '*';
+            $args['search_columns'] = array('user_login', 'user_email', 'display_name');
         }
 
-        return new WP_Error(
-            'authentication_required',
-            __('Authentication required.', 'bkgt-api'),
-            array('status' => 401)
+        if ($role) {
+            $args['role'] = $role;
+        }
+
+        $user_query = new WP_User_Query($args);
+        $users = $user_query->get_results();
+        $total = $user_query->get_total();
+
+        $user_data = array();
+        foreach ($users as $user) {
+            $user_data[] = $this->format_user_data($user);
+        }
+
+        return new WP_REST_Response(array(
+            'success' => true,
+            'data' => array(
+                'users' => $user_data,
+                'pagination' => $this->prepare_pagination_data($page, $per_page, $total),
+            ),
+        ), 200);
+    }
+
+    public function get_user($request) {
+        $user_id = $request->get_param('id');
+        $user = get_user_by('ID', $user_id);
+
+        if (!$user) {
+            return new WP_Error('user_not_found', 'User not found', array('status' => 404));
+        }
+
+        return new WP_REST_Response(array(
+            'success' => true,
+            'data' => $this->format_user_data($user),
+        ), 200);
+    }
+
+    public function create_user($request) {
+        $username = $request->get_param('username');
+        $email = $request->get_param('email');
+        $password = $request->get_param('password');
+        $first_name = $request->get_param('first_name');
+        $last_name = $request->get_param('last_name');
+        $display_name = $request->get_param('display_name');
+        $role = $request->get_param('role');
+
+        $user_id = wp_create_user($username, $password, $email);
+
+        if (is_wp_error($user_id)) {
+            return $user_id;
+        }
+
+        // Update user meta
+        if ($first_name) {
+            update_user_meta($user_id, 'first_name', $first_name);
+        }
+        if ($last_name) {
+            update_user_meta($user_id, 'last_name', $last_name);
+        }
+        if ($display_name) {
+            wp_update_user(array('ID' => $user_id, 'display_name' => $display_name));
+        }
+
+        // Set role
+        if ($role) {
+            $user = new WP_User($user_id);
+            $user->set_role($role);
+        }
+
+        $user = get_user_by('ID', $user_id);
+        return new WP_REST_Response(array(
+            'success' => true,
+            'data' => $this->format_user_data($user),
+            'message' => 'User created successfully',
+        ), 201);
+    }
+
+    public function update_user($request) {
+        $user_id = $request->get_param('id');
+        $user = get_user_by('ID', $user_id);
+
+        if (!$user) {
+            return new WP_Error('user_not_found', 'User not found', array('status' => 404));
+        }
+
+        $update_data = array('ID' => $user_id);
+
+        if ($request->has_param('email')) {
+            $update_data['user_email'] = $request->get_param('email');
+        }
+        if ($request->has_param('first_name')) {
+            update_user_meta($user_id, 'first_name', $request->get_param('first_name'));
+        }
+        if ($request->has_param('last_name')) {
+            update_user_meta($user_id, 'last_name', $request->get_param('last_name'));
+        }
+        if ($request->has_param('display_name')) {
+            $update_data['display_name'] = $request->get_param('display_name');
+        }
+
+        if (!empty($update_data) && count($update_data) > 1) {
+            $result = wp_update_user($update_data);
+            if (is_wp_error($result)) {
+                return $result;
+            }
+        }
+
+        // Update role if provided
+        if ($request->has_param('role')) {
+            $user_obj = new WP_User($user_id);
+            $user_obj->set_role($request->get_param('role'));
+        }
+
+        $user = get_user_by('ID', $user_id);
+        return new WP_REST_Response(array(
+            'success' => true,
+            'data' => $this->format_user_data($user),
+            'message' => 'User updated successfully',
+        ), 200);
+    }
+
+    public function delete_user($request) {
+        $user_id = $request->get_param('id');
+        $reassign = $request->get_param('reassign');
+
+        $user = get_user_by('ID', $user_id);
+        if (!$user) {
+            return new WP_Error('user_not_found', 'User not found', array('status' => 404));
+        }
+
+        // Prevent deletion of current user
+        if ($user_id == get_current_user_id()) {
+            return new WP_Error('cannot_delete_self', 'Cannot delete your own account', array('status' => 400));
+        }
+
+        $result = wp_delete_user($user_id, $reassign);
+
+        if (!$result) {
+            return new WP_Error('delete_failed', 'Failed to delete user', array('status' => 500));
+        }
+
+        return new WP_REST_Response(array(
+            'success' => true,
+            'message' => 'User deleted successfully',
+        ), 200);
+    }
+
+    /**
+     * Role Management Handlers
+     */
+    public function get_roles($request) {
+        global $wp_roles;
+
+        if (!isset($wp_roles)) {
+            $wp_roles = new WP_Roles();
+        }
+
+        $roles = array();
+        foreach ($wp_roles->roles as $role_key => $role) {
+            $roles[$role_key] = array(
+                'name' => $role['name'],
+                'capabilities' => $role['capabilities'],
+                'user_count' => count(get_users(array('role' => $role_key))),
+            );
+        }
+
+        return new WP_REST_Response(array(
+            'success' => true,
+            'data' => $roles,
+        ), 200);
+    }
+
+    public function get_role($request) {
+        $role_key = $request->get_param('role');
+        global $wp_roles;
+
+        if (!isset($wp_roles)) {
+            $wp_roles = new WP_Roles();
+        }
+
+        if (!isset($wp_roles->roles[$role_key])) {
+            return new WP_Error('role_not_found', 'Role not found', array('status' => 404));
+        }
+
+        $role = $wp_roles->roles[$role_key];
+        $role_data = array(
+            'name' => $role['name'],
+            'capabilities' => $role['capabilities'],
+            'user_count' => count(get_users(array('role' => $role_key))),
+        );
+
+        return new WP_REST_Response(array(
+            'success' => true,
+            'data' => $role_data,
+        ), 200);
+    }
+
+    public function create_role($request) {
+        $role_key = $request->get_param('role');
+        $display_name = $request->get_param('display_name');
+        $capabilities = $request->get_param('capabilities');
+
+        if (get_role($role_key)) {
+            return new WP_Error('role_exists', 'Role already exists', array('status' => 400));
+        }
+
+        $result = add_role($role_key, $display_name, $capabilities);
+
+        if (!$result) {
+            return new WP_Error('role_creation_failed', 'Failed to create role', array('status' => 500));
+        }
+
+        return new WP_REST_Response(array(
+            'success' => true,
+            'data' => array(
+                'role' => $role_key,
+                'name' => $display_name,
+                'capabilities' => $capabilities,
+            ),
+            'message' => 'Role created successfully',
+        ), 201);
+    }
+
+    public function update_role($request) {
+        $role_key = $request->get_param('role');
+        $role = get_role($role_key);
+
+        if (!$role) {
+            return new WP_Error('role_not_found', 'Role not found', array('status' => 404));
+        }
+
+        if ($request->has_param('display_name')) {
+            $display_name = $request->get_param('display_name');
+            // Update role display name by modifying the roles array
+            global $wp_roles;
+            if (isset($wp_roles->roles[$role_key])) {
+                $wp_roles->roles[$role_key]['name'] = $display_name;
+                update_option($wp_roles->role_key . '_user_roles', $wp_roles->roles);
+            }
+        }
+
+        if ($request->has_param('capabilities')) {
+            $capabilities = $request->get_param('capabilities');
+            // Remove all existing capabilities
+            foreach ($role->capabilities as $cap => $grant) {
+                $role->remove_cap($cap);
+            }
+            // Add new capabilities
+            foreach ($capabilities as $cap => $grant) {
+                $role->add_cap($cap, $grant);
+            }
+        }
+
+        return new WP_REST_Response(array(
+            'success' => true,
+            'data' => array(
+                'role' => $role_key,
+                'name' => $role->name,
+                'capabilities' => $role->capabilities,
+            ),
+            'message' => 'Role updated successfully',
+        ), 200);
+    }
+
+    public function delete_role($request) {
+        $role_key = $request->get_param('role');
+        $role = get_role($role_key);
+
+        if (!$role) {
+            return new WP_Error('role_not_found', 'Role not found', array('status' => 404));
+        }
+
+        // Prevent deletion of core roles
+        $core_roles = array('administrator', 'editor', 'author', 'contributor', 'subscriber');
+        if (in_array($role_key, $core_roles)) {
+            return new WP_Error('cannot_delete_core_role', 'Cannot delete core WordPress roles', array('status' => 400));
+        }
+
+        remove_role($role_key);
+
+        return new WP_REST_Response(array(
+            'success' => true,
+            'message' => 'Role deleted successfully',
+        ), 200);
+    }
+
+    /**
+     * User-Role Assignment Handlers
+     */
+    public function get_user_roles($request) {
+        $user_id = $request->get_param('user_id');
+        $user = get_user_by('ID', $user_id);
+
+        if (!$user) {
+            return new WP_Error('user_not_found', 'User not found', array('status' => 404));
+        }
+
+        $roles = $user->roles;
+        $role_data = array();
+
+        foreach ($roles as $role_key) {
+            $role = get_role($role_key);
+            if ($role) {
+                $role_data[$role_key] = array(
+                    'name' => $role->name,
+                    'capabilities' => $role->capabilities,
+                );
+            }
+        }
+
+        return new WP_REST_Response(array(
+            'success' => true,
+            'data' => $role_data,
+        ), 200);
+    }
+
+    public function add_user_role($request) {
+        $user_id = $request->get_param('user_id');
+        $role_key = $request->get_param('role');
+
+        $user = get_user_by('ID', $user_id);
+        if (!$user) {
+            return new WP_Error('user_not_found', 'User not found', array('status' => 404));
+        }
+
+        if (!get_role($role_key)) {
+            return new WP_Error('role_not_found', 'Role not found', array('status' => 404));
+        }
+
+        $user->add_role($role_key);
+
+        return new WP_REST_Response(array(
+            'success' => true,
+            'message' => 'Role added to user successfully',
+        ), 200);
+    }
+
+    public function remove_user_role($request) {
+        $user_id = $request->get_param('user_id');
+        $role_key = $request->get_param('role');
+
+        $user = get_user_by('ID', $user_id);
+        if (!$user) {
+            return new WP_Error('user_not_found', 'User not found', array('status' => 404));
+        }
+
+        if (!get_role($role_key)) {
+            return new WP_Error('role_not_found', 'Role not found', array('status' => 404));
+        }
+
+        $user->remove_role($role_key);
+
+        return new WP_REST_Response(array(
+            'success' => true,
+            'message' => 'Role removed from user successfully',
+        ), 200);
+    }
+
+    /**
+     * Clear and repopulate players from svenskalag.se (Admin only)
+     */
+    public function clear_and_repopulate_players($request) {
+        global $wpdb;
+
+        try {
+            // Step 1: Clear all players
+            $players_count_before = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_players");
+
+            $result = $wpdb->query("TRUNCATE TABLE {$wpdb->prefix}bkgt_players");
+
+            if ($result === false) {
+                throw new Exception("Failed to clear players table: " . $wpdb->last_error);
+            }
+
+            // Step 2: Run scraper to repopulate players
+            if (!class_exists('BKGT_Scraper')) {
+                // Try to load the scraper class
+                $scraper_files = array(
+                    WP_PLUGIN_DIR . '/bkgt-data-scraping/includes/class-bkgt-scraper.php',
+                    WP_PLUGIN_DIR . '/bkgt-core/includes/class-bkgt-scraper.php',
+                    get_template_directory() . '/includes/class-bkgt-scraper.php'
+                );
+
+                $loaded = false;
+                foreach ($scraper_files as $file) {
+                    if (file_exists($file)) {
+                        require_once($file);
+                        $loaded = true;
+                        break;
+                    }
+                }
+
+                if (!$loaded) {
+                    throw new Exception("BKGT_Scraper class not found. Please ensure the data scraping plugin is active.");
+                }
+            }
+
+            // Initialize scraper
+            $scraper = new BKGT_Scraper();
+
+            // Run player scraping
+            $scraped_count = $scraper->scrape_players();
+
+            // Step 3: Enhanced validation and cleanup
+            $this->validate_and_cleanup_players();
+
+            // Step 4: Verify results
+            $players_count_after = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_players");
+
+            // Get sample players for verification
+            $sample_players = $wpdb->get_results("SELECT first_name, last_name, team_id FROM {$wpdb->prefix}bkgt_players LIMIT 3");
+
+            return new WP_REST_Response(array(
+                'success' => true,
+                'message' => sprintf(
+                    'Players cleared and repopulated successfully. Removed %d players, added %d players after validation.',
+                    $players_count_before,
+                    $players_count_after
+                ),
+                'data' => array(
+                    'players_cleared' => $players_count_before,
+                    'players_added' => $players_count_after,
+                    'sample_players' => $sample_players
+                ),
+            ), 200);
+
+        } catch (Exception $e) {
+            return new WP_REST_Response(array(
+                'success' => false,
+                'message' => 'Failed to clear and repopulate players: ' . $e->getMessage(),
+            ), 500);
+        }
+    }
+
+    /**
+     * Enhanced player validation and cleanup
+     */
+    private function validate_and_cleanup_players() {
+        global $wpdb;
+
+        // Remove players without valid team associations
+        $wpdb->query("
+            DELETE p FROM {$wpdb->prefix}bkgt_players p
+            LEFT JOIN {$wpdb->prefix}bkgt_teams t ON p.team_id = t.id
+            WHERE t.id IS NULL
+        ");
+
+        // Remove players with invalid data
+        $wpdb->query("
+            DELETE FROM {$wpdb->prefix}bkgt_players
+            WHERE first_name = '' OR last_name = ''
+            OR first_name IS NULL OR last_name IS NULL
+        ");
+    }
+
+    /**
+     * Clear and repopulate teams from svenskalag.se (Admin only)
+     */
+    public function clear_and_repopulate_teams($request) {
+        global $wpdb;
+
+        try {
+            // Step 1: Clear all teams
+            $teams_count_before = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_teams");
+
+            $result = $wpdb->query("TRUNCATE TABLE {$wpdb->prefix}bkgt_teams");
+
+            if ($result === false) {
+                throw new Exception("Failed to clear teams table: " . $wpdb->last_error);
+            }
+
+            // Step 2: Run scraper to repopulate teams
+            if (!class_exists('BKGT_Scraper')) {
+                // Try to load the scraper class
+                $scraper_files = array(
+                    WP_PLUGIN_DIR . '/bkgt-data-scraping/includes/class-bkgt-scraper.php',
+                    WP_PLUGIN_DIR . '/bkgt-core/includes/class-bkgt-scraper.php',
+                    get_template_directory() . '/includes/class-bkgt-scraper.php'
+                );
+
+                $loaded = false;
+                foreach ($scraper_files as $file) {
+                    if (file_exists($file)) {
+                        require_once($file);
+                        $loaded = true;
+                        break;
+                    }
+                }
+
+                if (!$loaded) {
+                    throw new Exception("BKGT_Scraper class not found. Please ensure the data scraping plugin is active.");
+                }
+            }
+
+            // Initialize scraper
+            $scraper = new BKGT_Scraper();
+
+            // Run team scraping
+            $scraped_count = $scraper->scrape_teams();
+
+            // Step 3: Enhanced validation and cleanup
+            $this->validate_and_cleanup_teams();
+
+            // Step 4: Verify results
+            $teams_count_after = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_teams");
+
+            // Get sample teams for verification
+            $sample_teams = $wpdb->get_results("SELECT name, source_id, source_url FROM {$wpdb->prefix}bkgt_teams LIMIT 3");
+
+            // Check if we have more than expected teams
+            if ($teams_count_after > 8) {
+                error_log("BKGT API: Warning - Found {$teams_count_after} teams but user reported only 8 exist on svenskalag.se");
+            }
+
+            return new WP_REST_Response(array(
+                'success' => true,
+                'message' => sprintf(
+                    'Teams cleared and repopulated successfully. Removed %d teams, added %d teams after validation.',
+                    $teams_count_before,
+                    $teams_count_after
+                ),
+                'data' => array(
+                    'teams_cleared' => $teams_count_before,
+                    'teams_added' => $teams_count_after,
+                    'sample_teams' => $sample_teams,
+                    'warning' => ($teams_count_after > 8) ? 'More teams found than expected (8). Please verify scraper accuracy.' : null
+                ),
+            ), 200);
+
+        } catch (Exception $e) {
+            return new WP_REST_Response(array(
+                'success' => false,
+                'message' => 'Failed to clear and repopulate teams: ' . $e->getMessage(),
+            ), 500);
+        }
+    }
+
+    /**
+     * Enhanced team validation and cleanup
+     */
+    private function validate_and_cleanup_teams() {
+        global $wpdb;
+
+        // Function to check if a team is real (has proper svenskalag.se source data)
+        $is_real_team = function($team_name, $source_id, $source_url) {
+            // Only consider teams real if they have:
+            // 1. A proper source_id (P2013 format)
+            // 2. A svenskalag.se source_url
+            // 3. URL contains the team code
+            if (empty($source_id) || empty($source_url)) {
+                return false;
+            }
+
+            // Source ID should be in P2013 format
+            if (!preg_match('/^P\d{4}$/', $source_id)) {
+                return false;
+            }
+
+            // Source URL should be from svenskalag.se
+            if (stripos($source_url, 'svenskalag.se') === false) {
+                return false;
+            }
+
+            // URL should contain the team code (e.g., /bkgt-p2013)
+            $expected_path = '/bkgt-' . strtolower($source_id);
+            if (stripos($source_url, $expected_path) === false) {
+                return false;
+            }
+
+            return true;
+        };
+
+        // Get all teams
+        $all_teams = $wpdb->get_results("SELECT id, name, source_id, source_url FROM {$wpdb->prefix}bkgt_teams");
+
+        // Find and remove invalid teams
+        foreach ($all_teams as $team) {
+            if (!$is_real_team($team->name, $team->source_id, $team->source_url)) {
+                $wpdb->delete($wpdb->prefix . 'bkgt_teams', array('id' => $team->id));
+            }
+        }
+
+        // Remove duplicates
+        $duplicates = $wpdb->get_results("
+            SELECT source_id, COUNT(*) as count, GROUP_CONCAT(id) as ids
+            FROM {$wpdb->prefix}bkgt_teams
+            WHERE source_id IS NOT NULL AND source_id != ''
+            GROUP BY source_id
+            HAVING count > 1
+        ");
+
+        foreach ($duplicates as $dup) {
+            $ids = explode(',', $dup->ids);
+            // Keep the first ID, delete the rest
+            $keep_id = array_shift($ids);
+            $delete_ids = implode(',', $ids);
+
+            if (!empty($delete_ids)) {
+                $wpdb->query("DELETE FROM {$wpdb->prefix}bkgt_teams WHERE id IN ($delete_ids)");
+            }
+        }
+
+        // Remove old teams (older than 10 years)
+        $current_year = (int)date('Y');
+        $wpdb->query($wpdb->prepare("
+            DELETE FROM {$wpdb->prefix}bkgt_teams
+            WHERE source_id REGEXP '^P[0-9]{4}$'
+            AND CAST(SUBSTRING(source_id, 2) AS UNSIGNED) < %d
+        ", $current_year - 10));
+    }
+
+    /**
+     * BKGT Dashboard Handlers
+     */
+    public function get_bkgt_dashboard($request) {
+        // Get system information
+        $system_info = array(
+            'wordpress_version' => get_bloginfo('version'),
+            'php_version' => phpversion(),
+            'bkgt_core_version' => defined('BKGT_CORE_VERSION') ? BKGT_CORE_VERSION : 'Unknown',
+            'server_software' => $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown',
+            'database_version' => $this->get_database_version(),
+            'memory_limit' => ini_get('memory_limit'),
+            'max_execution_time' => ini_get('max_execution_time'),
+            'upload_max_filesize' => ini_get('upload_max_filesize'),
+            'post_max_size' => ini_get('post_max_size'),
+            'debug_mode' => defined('WP_DEBUG') && WP_DEBUG,
+            'debug_log' => defined('WP_DEBUG_LOG') && WP_DEBUG_LOG,
+        );
+
+        // Get plugin information
+        $plugins = $this->get_bkgt_plugins_info();
+
+        // Get system status
+        $system_status = array(
+            'database_connection' => $this->check_database_connection(),
+            'file_permissions' => $this->check_file_permissions(),
+            'memory_usage' => $this->get_memory_usage(),
+            'disk_space' => $this->get_disk_space(),
+        );
+
+        // Get recent activity (from API logs if available)
+        $recent_activity = $this->get_recent_activity();
+
+        return new WP_REST_Response(array(
+            'success' => true,
+            'data' => array(
+                'system_info' => $system_info,
+                'plugins' => $plugins,
+                'system_status' => $system_status,
+                'recent_activity' => $recent_activity,
+                'generated_at' => current_time('mysql'),
+            ),
+        ), 200);
+    }
+
+    /**
+     * BKGT Error Logs Handlers
+     */
+    public function get_error_logs($request) {
+        $limit = $request->get_param('limit') ?: 50;
+        $level = $request->get_param('level');
+        $start_date = $request->get_param('start_date');
+        $end_date = $request->get_param('end_date');
+
+        // Get logs from BKGT logger if available
+        if (class_exists('BKGT_Logger')) {
+            $logs = BKGT_Logger::get_recent_logs($limit);
+        } else {
+            $logs = array();
+        }
+
+        // Filter logs by level if specified
+        if ($level) {
+            $logs = array_filter($logs, function($log) use ($level) {
+                return strpos($log, '[' . $level . ']') !== false;
+            });
+        }
+
+        // Filter by date range if specified
+        if ($start_date || $end_date) {
+            $logs = array_filter($logs, function($log) use ($start_date, $end_date) {
+                if (preg_match('/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]/', $log, $matches)) {
+                    $log_date = $matches[1];
+                    if ($start_date && strtotime($log_date) < strtotime($start_date)) {
+                        return false;
+                    }
+                    if ($end_date && strtotime($log_date) > strtotime($end_date . ' 23:59:59')) {
+                        return false;
+                    }
+                    return true;
+                }
+                return false;
+            });
+        }
+
+        // Parse and format logs
+        $formatted_logs = array();
+        foreach ($logs as $log) {
+            $parsed = $this->parse_log_entry($log);
+            if ($parsed) {
+                $formatted_logs[] = $parsed;
+            }
+        }
+
+        return new WP_REST_Response(array(
+            'success' => true,
+            'data' => array(
+                'logs' => array_values($formatted_logs),
+                'total' => count($formatted_logs),
+                'limit' => $limit,
+            ),
+        ), 200);
+    }
+
+    public function clear_error_logs($request) {
+        if (class_exists('BKGT_Logger')) {
+            $log_file = WP_CONTENT_DIR . '/bkgt-logs.log';
+            if (file_exists($log_file)) {
+                $result = file_put_contents($log_file, '', LOCK_EX);
+                if ($result !== false) {
+                    return new WP_REST_Response(array(
+                        'success' => true,
+                        'message' => 'Error logs cleared successfully',
+                    ), 200);
+                }
+            }
+        }
+
+        return new WP_Error('clear_failed', 'Failed to clear error logs', array('status' => 500));
+    }
+
+    public function get_error_statistics($request) {
+        if (class_exists('BKGT_Error_Recovery')) {
+            $stats = BKGT_Error_Recovery::get_error_statistics();
+        } else {
+            $stats = array(
+                'total_errors' => 0,
+                'critical' => 0,
+                'errors' => 0,
+                'warnings' => 0,
+                'by_type' => array(),
+            );
+        }
+
+        return new WP_REST_Response(array(
+            'success' => true,
+            'data' => $stats,
+        ), 200);
+    }
+
+    public function get_system_health($request) {
+        $health = array(
+            'status' => 'healthy',
+            'checks' => array(
+                'database' => $this->check_database_connection(),
+                'filesystem' => $this->check_file_permissions(),
+                'memory' => $this->check_memory_health(),
+                'disk_space' => $this->check_disk_space_health(),
+            ),
+            'timestamp' => current_time('mysql'),
+        );
+
+        // Determine overall status
+        $failed_checks = array_filter($health['checks'], function($check) {
+            return $check['status'] !== 'healthy';
+        });
+
+        if (!empty($failed_checks)) {
+            $health['status'] = 'warning';
+            if (count($failed_checks) > 2) {
+                $health['status'] = 'critical';
+            }
+        }
+
+        return new WP_REST_Response(array(
+            'success' => true,
+            'data' => $health,
+        ), 200);
+    }
+
+    /**
+     * Dashboard and Error Log Helper Methods
+     */
+    private function get_database_version() {
+        global $wpdb;
+        return $wpdb->get_var("SELECT VERSION()");
+    }
+
+    private function get_bkgt_plugins_info() {
+        $plugins = array();
+
+        // Check for BKGT plugins
+        $bkgt_plugins = array(
+            'bkgt-core' => 'BKGT Core',
+            'bkgt-api' => 'BKGT API',
+            'bkgt-team-player' => 'BKGT Team Player',
+            'bkgt-inventory' => 'BKGT Inventory',
+            'bkgt-document-management' => 'BKGT Document Management',
+            'bkgt-data-scraping' => 'BKGT Data Scraping',
+            'bkgt-communication' => 'BKGT Communication',
+            'bkgt-user-management' => 'BKGT User Management',
+            'bkgt-offboarding' => 'BKGT Offboarding',
+        );
+
+        foreach ($bkgt_plugins as $slug => $name) {
+            $plugin_file = WP_PLUGIN_DIR . '/' . $slug . '/' . $slug . '.php';
+            if (file_exists($plugin_file)) {
+                $plugin_data = get_plugin_data($plugin_file);
+                $plugins[$slug] = array(
+                    'name' => $name,
+                    'version' => $plugin_data['Version'] ?? 'Unknown',
+                    'active' => is_plugin_active($slug . '/' . $slug . '.php'),
+                    'path' => $slug . '/' . $slug . '.php',
+                );
+            }
+        }
+
+        return $plugins;
+    }
+
+    private function check_database_connection() {
+        global $wpdb;
+        $result = $wpdb->check_connection();
+        return array(
+            'status' => $result ? 'healthy' : 'error',
+            'message' => $result ? 'Database connection is healthy' : 'Database connection failed',
         );
     }
 
+    private function check_file_permissions() {
+        $wp_content = WP_CONTENT_DIR;
+        $writable = wp_is_writable($wp_content);
+
+        return array(
+            'status' => $writable ? 'healthy' : 'error',
+            'message' => $writable ? 'File permissions are correct' : 'wp-content directory is not writable',
+        );
+    }
+
+    private function get_memory_usage() {
+        $memory_limit = ini_get('memory_limit');
+        $memory_used = memory_get_peak_usage(true);
+        $memory_limit_bytes = wp_convert_hr_to_bytes($memory_limit);
+
+        return array(
+            'used' => size_format($memory_used, 2),
+            'limit' => $memory_limit,
+            'percentage' => $memory_limit_bytes > 0 ? round(($memory_used / $memory_limit_bytes) * 100, 1) : 0,
+        );
+    }
+
+    private function get_disk_space() {
+        $upload_dir = wp_upload_dir();
+        $free_space = disk_free_space($upload_dir['basedir']);
+        $total_space = disk_total_space($upload_dir['basedir']);
+
+        return array(
+            'free' => size_format($free_space, 2),
+            'total' => size_format($total_space, 2),
+            'percentage' => $total_space > 0 ? round((($total_space - $free_space) / $total_space) * 100, 1) : 0,
+        );
+    }
+
+    private function get_recent_activity() {
+        global $wpdb;
+
+        // Get recent API requests
+        $recent_requests = $wpdb->get_results($wpdb->prepare(
+            "SELECT endpoint, method, response_code, created_at
+             FROM {$wpdb->prefix}bkgt_api_logs
+             WHERE created_at >= %s
+             ORDER BY created_at DESC
+             LIMIT 10",
+            date('Y-m-d H:i:s', strtotime('-24 hours'))
+        ), ARRAY_A);
+
+        return array(
+            'api_requests_last_24h' => count($recent_requests),
+            'recent_requests' => $recent_requests,
+        );
+    }
+
+    private function check_memory_health() {
+        $memory_usage = $this->get_memory_usage();
+        $status = 'healthy';
+        $message = 'Memory usage is normal';
+
+        if ($memory_usage['percentage'] > 80) {
+            $status = 'warning';
+            $message = 'High memory usage detected';
+        }
+        if ($memory_usage['percentage'] > 95) {
+            $status = 'error';
+            $message = 'Critical memory usage - consider increasing memory limit';
+        }
+
+        return array(
+            'status' => $status,
+            'message' => $message,
+            'details' => $memory_usage,
+        );
+    }
+
+    private function check_disk_space_health() {
+        $disk_space = $this->get_disk_space();
+        $status = 'healthy';
+        $message = 'Disk space is adequate';
+
+        if ($disk_space['percentage'] > 85) {
+            $status = 'warning';
+            $message = 'Low disk space available';
+        }
+        if ($disk_space['percentage'] > 95) {
+            $status = 'error';
+            $message = 'Critical disk space - immediate action required';
+        }
+
+        return array(
+            'status' => $status,
+            'message' => $message,
+            'details' => $disk_space,
+        );
+    }
+
+    private function parse_log_entry($log) {
+        $parsed = array(
+            'timestamp' => '',
+            'level' => '',
+            'message' => '',
+            'user' => '',
+            'context' => null,
+        );
+
+        // Extract timestamp
+        if (preg_match('/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]/', $log, $matches)) {
+            $parsed['timestamp'] = $matches[1];
+        }
+
+        // Extract level
+        if (preg_match('/\[(\w+)\]/', $log, $matches)) {
+            $parsed['level'] = strtolower($matches[1]);
+        }
+
+        // Extract message
+        if (preg_match('/\] ([^|]+) \|/', $log, $matches)) {
+            $parsed['message'] = trim($matches[1]);
+        }
+
+        // Extract user
+        if (preg_match('/User: ([^|]+)/', $log, $matches)) {
+            $parsed['user'] = trim($matches[1]);
+        }
+
+        // Extract context
+        if (preg_match('/Context: ({.*?})(?: \||$)/', $log, $matches)) {
+            $parsed['context'] = json_decode($matches[1], true);
+        }
+
+        return $parsed;
+    }
+
+    /**
+     * Helper Methods
+     */
+    private function format_user_data($user) {
+        return array(
+            'id' => $user->ID,
+            'username' => $user->user_login,
+            'email' => $user->user_email,
+            'first_name' => $user->first_name,
+            'last_name' => $user->last_name,
+            'display_name' => $user->display_name,
+            'roles' => $user->roles,
+            'capabilities' => $user->allcaps,
+            'registered_date' => $user->user_registered,
+            'last_login' => get_user_meta($user->ID, 'last_login', true),
+        );
+    }
+
+    /**
+     * Validation methods
+     */
     public function validate_admin_token($request) {
         $result = $this->validate_token($request);
 
@@ -1843,6 +3519,50 @@ class BKGT_API_Endpoints {
             return new WP_Error(
                 'email_exists',
                 __('This email address is already registered.', 'bkgt-api'),
+                array('status' => 400)
+            );
+        }
+        return true;
+    }
+
+    public function validate_username_unique($value, $request, $param) {
+        if (username_exists($value)) {
+            return new WP_Error(
+                'username_exists',
+                __('This username is already taken.', 'bkgt-api'),
+                array('status' => 400)
+            );
+        }
+        return true;
+    }
+
+    public function validate_password_strength($value, $request, $param) {
+        if (strlen($value) < 8) {
+            return new WP_Error(
+                'weak_password',
+                __('Password must be at least 8 characters long.', 'bkgt-api'),
+                array('status' => 400)
+            );
+        }
+        return true;
+    }
+
+    public function validate_role_exists($value, $request, $param) {
+        if (!get_role($value)) {
+            return new WP_Error(
+                'role_not_found',
+                __('The specified role does not exist.', 'bkgt-api'),
+                array('status' => 400)
+            );
+        }
+        return true;
+    }
+
+    public function validate_role_unique($value, $request, $param) {
+        if (get_role($value)) {
+            return new WP_Error(
+                'role_exists',
+                __('This role already exists.', 'bkgt-api'),
                 array('status' => 400)
             );
         }
@@ -1956,7 +3676,7 @@ class BKGT_API_Endpoints {
             i.sticker_code, i.created_at, i.updated_at,
             m.name as manufacturer_name,
             it.name as item_type_name,
-            a.assignment_type, a.assignee_id, a.assignee_name, a.assignment_date, a.due_date
+            a.assignee_id, a.assignee_name, a.assignment_date, a.due_date
         FROM {$wpdb->prefix}bkgt_inventory_items i
         LEFT JOIN {$wpdb->prefix}bkgt_manufacturers m ON i.manufacturer_id = m.id
         LEFT JOIN {$wpdb->prefix}bkgt_item_types it ON i.item_type_id = it.id
@@ -1981,8 +3701,8 @@ class BKGT_API_Endpoints {
         }
 
         if ($assigned_to) {
-            $where .= " AND a.assignment_type = %s";
-            $params[] = $assigned_to;
+            $where .= " AND a.assignee_name LIKE %s";
+            $params[] = '%' . $wpdb->esc_like($assigned_to) . '%';
         }
 
         if ($location_id) {
@@ -2030,7 +3750,7 @@ class BKGT_API_Endpoints {
             i.sticker_code, i.created_at, i.updated_at,
             m.name as manufacturer_name,
             it.name as item_type_name,
-            a.assignment_type, a.assignee_id, a.assignee_name, a.assignment_date, a.due_date
+            a.assignee_id, a.assignee_name, a.assignment_date, a.due_date
         FROM {$wpdb->prefix}bkgt_inventory_items i
         LEFT JOIN {$wpdb->prefix}bkgt_manufacturers m ON i.manufacturer_id = m.id
         LEFT JOIN {$wpdb->prefix}bkgt_item_types it ON i.item_type_id = it.id
@@ -2222,6 +3942,174 @@ class BKGT_API_Endpoints {
         ), 200);
     }
 
+    /**
+     * Create manufacturer
+     */
+    public function create_manufacturer($request) {
+        global $wpdb;
+
+        $name = $request->get_param('name');
+        $description = $request->get_param('description');
+        $website = $request->get_param('website');
+        $contact_email = $request->get_param('contact_email');
+
+        // Generate unique manufacturer ID
+        $manufacturer_id = 'MFG-' . strtoupper(substr(md5(uniqid()), 0, 8));
+
+        $contact_info = array();
+        if ($website) $contact_info['website'] = $website;
+        if ($contact_email) $contact_info['email'] = $contact_email;
+        if ($description) $contact_info['description'] = $description;
+
+        $result = $wpdb->insert(
+            $wpdb->prefix . 'bkgt_manufacturers',
+            array(
+                'manufacturer_id' => $manufacturer_id,
+                'name' => $name,
+                'contact_info' => json_encode($contact_info),
+                'created_at' => current_time('mysql'),
+                'updated_at' => current_time('mysql'),
+            ),
+            array('%s', '%s', '%s', '%s', '%s')
+        );
+
+        if ($result === false) {
+            return new WP_Error('db_error', __('Failed to create manufacturer.', 'bkgt-api'), array('status' => 500));
+        }
+
+        $manufacturer_id = $wpdb->insert_id;
+
+        // Log the action
+        BKGT_History::log_action('manufacturer_created', $manufacturer_id, array(
+            'name' => $name,
+            'manufacturer_id' => $manufacturer_id,
+        ));
+
+        return new WP_REST_Response(array(
+            'message' => __('Manufacturer created successfully.', 'bkgt-api'),
+            'manufacturer' => array(
+                'id' => $manufacturer_id,
+                'manufacturer_id' => $manufacturer_id,
+                'name' => $name,
+                'contact_info' => $contact_info,
+            ),
+        ), 201);
+    }
+
+    /**
+     * Update manufacturer
+     */
+    public function update_manufacturer($request) {
+        global $wpdb;
+
+        $id = $request->get_param('id');
+        $name = $request->get_param('name');
+        $description = $request->get_param('description');
+        $website = $request->get_param('website');
+        $contact_email = $request->get_param('contact_email');
+
+        // Check if manufacturer exists
+        $existing = $wpdb->get_var($wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}bkgt_manufacturers WHERE id = %d",
+            $id
+        ));
+
+        if (!$existing) {
+            return new WP_Error('manufacturer_not_found', __('Manufacturer not found.', 'bkgt-api'), array('status' => 404));
+        }
+
+        $update_data = array('updated_at' => current_time('mysql'));
+        $update_format = array('%s');
+
+        if ($name !== null) {
+            $update_data['name'] = $name;
+            $update_format[] = '%s';
+        }
+
+        // Update contact info
+        $current_contact = $wpdb->get_var($wpdb->prepare(
+            "SELECT contact_info FROM {$wpdb->prefix}bkgt_manufacturers WHERE id = %d",
+            $id
+        ));
+        $contact_info = json_decode($current_contact, true) ?: array();
+
+        if ($description !== null) $contact_info['description'] = $description;
+        if ($website !== null) $contact_info['website'] = $website;
+        if ($contact_email !== null) $contact_info['email'] = $contact_email;
+
+        $update_data['contact_info'] = json_encode($contact_info);
+        $update_format[] = '%s';
+
+        $result = $wpdb->update(
+            $wpdb->prefix . 'bkgt_manufacturers',
+            $update_data,
+            array('id' => $id),
+            $update_format,
+            array('%d')
+        );
+
+        if ($result === false) {
+            return new WP_Error('db_error', __('Failed to update manufacturer.', 'bkgt-api'), array('status' => 500));
+        }
+
+        // Log the action
+        BKGT_History::log_action('manufacturer_updated', $id, array(
+            'name' => $name,
+        ));
+
+        return new WP_REST_Response(array(
+            'message' => __('Manufacturer updated successfully.', 'bkgt-api'),
+        ), 200);
+    }
+
+    /**
+     * Delete manufacturer
+     */
+    public function delete_manufacturer($request) {
+        global $wpdb;
+
+        $id = $request->get_param('id');
+
+        // Check if manufacturer exists
+        $manufacturer = $wpdb->get_row($wpdb->prepare(
+            "SELECT name FROM {$wpdb->prefix}bkgt_manufacturers WHERE id = %d",
+            $id
+        ));
+
+        if (!$manufacturer) {
+            return new WP_Error('manufacturer_not_found', __('Manufacturer not found.', 'bkgt-api'), array('status' => 404));
+        }
+
+        // Check if manufacturer is used by any equipment
+        $usage_count = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_inventory_items WHERE manufacturer_id = %d",
+            $id
+        ));
+
+        if ($usage_count > 0) {
+            return new WP_Error('manufacturer_in_use', __('Cannot delete manufacturer that is assigned to equipment items.', 'bkgt-api'), array('status' => 409));
+        }
+
+        $result = $wpdb->delete(
+            $wpdb->prefix . 'bkgt_manufacturers',
+            array('id' => $id),
+            array('%d')
+        );
+
+        if ($result === false) {
+            return new WP_Error('db_error', __('Failed to delete manufacturer.', 'bkgt-api'), array('status' => 500));
+        }
+
+        // Log the action
+        BKGT_History::log_action('manufacturer_deleted', $id, array(
+            'name' => $manufacturer->name,
+        ));
+
+        return new WP_REST_Response(array(
+            'message' => __('Manufacturer deleted successfully.', 'bkgt-api'),
+        ), 200);
+    }
+
     public function get_item_types($request) {
         global $wpdb;
 
@@ -2254,6 +4142,167 @@ class BKGT_API_Endpoints {
 
         return new WP_REST_Response(array(
             'type' => $item_type,
+        ), 200);
+    }
+
+    /**
+     * Create item type
+     */
+    public function create_item_type($request) {
+        global $wpdb;
+
+        $name = $request->get_param('name');
+        $description = $request->get_param('description');
+        $custom_fields = $request->get_param('custom_fields');
+
+        // Generate unique item type ID
+        $item_type_id = 'TYPE-' . strtoupper(substr(md5(uniqid()), 0, 8));
+
+        $custom_fields_json = $custom_fields ? json_encode($custom_fields) : null;
+
+        $result = $wpdb->insert(
+            $wpdb->prefix . 'bkgt_item_types',
+            array(
+                'item_type_id' => $item_type_id,
+                'name' => $name,
+                'description' => $description,
+                'custom_fields' => $custom_fields_json,
+                'created_at' => current_time('mysql'),
+                'updated_at' => current_time('mysql'),
+            ),
+            array('%s', '%s', '%s', '%s', '%s', '%s')
+        );
+
+        if ($result === false) {
+            return new WP_Error('db_error', __('Failed to create item type.', 'bkgt-api'), array('status' => 500));
+        }
+
+        $item_type_id = $wpdb->insert_id;
+
+        // Log the action
+        BKGT_History::log_action('item_type_created', $item_type_id, array(
+            'name' => $name,
+            'item_type_id' => $item_type_id,
+        ));
+
+        return new WP_REST_Response(array(
+            'message' => __('Item type created successfully.', 'bkgt-api'),
+            'type' => array(
+                'id' => $item_type_id,
+                'item_type_id' => $item_type_id,
+                'name' => $name,
+                'description' => $description,
+                'custom_fields' => $custom_fields,
+            ),
+        ), 201);
+    }
+
+    /**
+     * Update item type
+     */
+    public function update_item_type($request) {
+        global $wpdb;
+
+        $id = $request->get_param('id');
+        $name = $request->get_param('name');
+        $description = $request->get_param('description');
+        $custom_fields = $request->get_param('custom_fields');
+
+        // Check if item type exists
+        $existing = $wpdb->get_var($wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}bkgt_item_types WHERE id = %d",
+            $id
+        ));
+
+        if (!$existing) {
+            return new WP_Error('item_type_not_found', __('Item type not found.', 'bkgt-api'), array('status' => 404));
+        }
+
+        $update_data = array('updated_at' => current_time('mysql'));
+        $update_format = array('%s');
+
+        if ($name !== null) {
+            $update_data['name'] = $name;
+            $update_format[] = '%s';
+        }
+
+        if ($description !== null) {
+            $update_data['description'] = $description;
+            $update_format[] = '%s';
+        }
+
+        if ($custom_fields !== null) {
+            $update_data['custom_fields'] = json_encode($custom_fields);
+            $update_format[] = '%s';
+        }
+
+        $result = $wpdb->update(
+            $wpdb->prefix . 'bkgt_item_types',
+            $update_data,
+            array('id' => $id),
+            $update_format,
+            array('%d')
+        );
+
+        if ($result === false) {
+            return new WP_Error('db_error', __('Failed to update item type.', 'bkgt-api'), array('status' => 500));
+        }
+
+        // Log the action
+        BKGT_History::log_action('item_type_updated', $id, array(
+            'name' => $name,
+        ));
+
+        return new WP_REST_Response(array(
+            'message' => __('Item type updated successfully.', 'bkgt-api'),
+        ), 200);
+    }
+
+    /**
+     * Delete item type
+     */
+    public function delete_item_type($request) {
+        global $wpdb;
+
+        $id = $request->get_param('id');
+
+        // Check if item type exists
+        $item_type = $wpdb->get_row($wpdb->prepare(
+            "SELECT name FROM {$wpdb->prefix}bkgt_item_types WHERE id = %d",
+            $id
+        ));
+
+        if (!$item_type) {
+            return new WP_Error('item_type_not_found', __('Item type not found.', 'bkgt-api'), array('status' => 404));
+        }
+
+        // Check if item type is used by any equipment
+        $usage_count = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_inventory_items WHERE item_type_id = %d",
+            $id
+        ));
+
+        if ($usage_count > 0) {
+            return new WP_Error('item_type_in_use', __('Cannot delete item type that is assigned to equipment items.', 'bkgt-api'), array('status' => 409));
+        }
+
+        $result = $wpdb->delete(
+            $wpdb->prefix . 'bkgt_item_types',
+            array('id' => $id),
+            array('%d')
+        );
+
+        if ($result === false) {
+            return new WP_Error('db_error', __('Failed to delete item type.', 'bkgt-api'), array('status' => 500));
+        }
+
+        // Log the action
+        BKGT_History::log_action('item_type_deleted', $id, array(
+            'name' => $item_type->name,
+        ));
+
+        return new WP_REST_Response(array(
+            'message' => __('Item type deleted successfully.', 'bkgt-api'),
         ), 200);
     }
 
@@ -2379,6 +4428,236 @@ class BKGT_API_Endpoints {
         ), 200);
     }
 
+    /**
+     * Get equipment assignment
+     */
+    public function get_equipment_assignment($request) {
+        $id = $request->get_param('id');
+
+        // Verify item exists
+        global $wpdb;
+        $item = $wpdb->get_row($wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}bkgt_inventory_items WHERE id = %d",
+            $id
+        ));
+
+        if (!$item) {
+            return new WP_Error('item_not_found', __('Equipment item not found.', 'bkgt-api'), array('status' => 404));
+        }
+
+        // Get assignment using BKGT Assignment class
+        $assignment = BKGT_Assignment::get_assignment($id);
+
+        return new WP_REST_Response(array(
+            'assignment' => $assignment,
+        ), 200);
+    }
+
+    /**
+     * Unassign equipment
+     */
+    public function unassign_equipment($request) {
+        global $wpdb;
+
+        $id = $request->get_param('id');
+        $return_date = $request->get_param('return_date') ?: current_time('Y-m-d');
+        $condition_status = $request->get_param('condition_status');
+        $notes = $request->get_param('notes');
+
+        // Find the active assignment
+        $assignment = $wpdb->get_row($wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}bkgt_inventory_assignments
+             WHERE item_id = %d AND return_date IS NULL
+             ORDER BY assignment_date DESC LIMIT 1",
+            $id
+        ));
+
+        if (!$assignment) {
+            return new WP_Error('no_active_assignment', __('No active assignment found for this equipment.', 'bkgt-api'), array('status' => 400));
+        }
+
+        // Update the assignment with return information
+        $update_data = array(
+            'return_date' => $return_date,
+            'unassigned_date' => current_time('mysql'),
+            'unassigned_by' => get_current_user_id(),
+        );
+
+        if ($notes) {
+            $update_data['notes'] = $notes;
+        }
+
+        $result = $wpdb->update(
+            $wpdb->prefix . 'bkgt_inventory_assignments',
+            $update_data,
+            array('id' => $assignment->id),
+            array('%s', '%s', '%d', '%s'),
+            array('%d')
+        );
+
+        if ($result === false) {
+            return new WP_Error('db_error', __('Failed to unassign equipment.', 'bkgt-api'), array('status' => 500));
+        }
+
+        // Update item condition if provided
+        if ($condition_status) {
+            $wpdb->update(
+                $wpdb->prefix . 'bkgt_inventory_items',
+                array(
+                    'condition_status' => $condition_status,
+                    'condition_date' => current_time('mysql'),
+                ),
+                array('id' => $id),
+                array('%s', '%s'),
+                array('%d')
+            );
+        }
+
+        // Log the unassignment
+        BKGT_History::log($id, 'assignment_changed', get_current_user_id(), array(
+            'action' => 'unassigned',
+            'return_date' => $return_date,
+        ));
+
+        return new WP_REST_Response(array(
+            'message' => __('Equipment unassigned successfully.', 'bkgt-api'),
+        ), 200);
+    }
+
+    /**
+     * Bulk equipment operations
+     */
+    public function bulk_equipment_operation($request) {
+        $operation = $request->get_param('operation');
+        $item_ids = $request->get_param('item_ids');
+
+        if (empty($item_ids)) {
+            return new WP_Error('no_items', __('No items specified for bulk operation.', 'bkgt-api'), array('status' => 400));
+        }
+
+        switch ($operation) {
+            case 'delete':
+                return $this->bulk_delete_equipment($item_ids);
+            case 'export':
+                return $this->bulk_export_equipment($item_ids);
+            default:
+                return new WP_Error('invalid_operation', __('Invalid bulk operation.', 'bkgt-api'), array('status' => 400));
+        }
+    }
+
+    /**
+     * Bulk delete equipment
+     */
+    private function bulk_delete_equipment($item_ids) {
+        global $wpdb;
+        $deleted_count = 0;
+        $errors = array();
+
+        foreach ($item_ids as $item_id) {
+            // Check if item exists
+            $item = $wpdb->get_row($wpdb->prepare(
+                "SELECT title FROM {$wpdb->prefix}bkgt_inventory_items WHERE id = %d",
+                $item_id
+            ));
+
+            if (!$item) {
+                $errors[] = sprintf(__('Item ID %d not found.', 'bkgt-api'), $item_id);
+                continue;
+            }
+
+            // Log deletion
+            BKGT_History::log($item_id, 'item_deleted', get_current_user_id(), array(
+                'title' => $item->title,
+            ));
+
+            // Delete assignments first
+            $wpdb->delete(
+                $wpdb->prefix . 'bkgt_inventory_assignments',
+                array('item_id' => $item_id),
+                array('%d')
+            );
+
+            // Delete item
+            $result = $wpdb->delete(
+                $wpdb->prefix . 'bkgt_inventory_items',
+                array('id' => $item_id),
+                array('%d')
+            );
+
+            if ($result) {
+                $deleted_count++;
+            } else {
+                $errors[] = sprintf(__('Failed to delete item ID %d.', 'bkgt-api'), $item_id);
+            }
+        }
+
+        return new WP_REST_Response(array(
+            'message' => sprintf(__('Bulk delete completed. %d items deleted.', 'bkgt-api'), $deleted_count),
+            'deleted_count' => $deleted_count,
+            'errors' => $errors,
+        ), 200);
+    }
+
+    /**
+     * Bulk export equipment
+     */
+    private function bulk_export_equipment($item_ids) {
+        global $wpdb;
+
+        // Build query for selected items
+        $placeholders = str_repeat('%d,', count($item_ids) - 1) . '%d';
+        $items = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT i.*, m.name as manufacturer_name, it.name as item_type_name,
+                        a.assignee_name, a.assignment_date, a.due_date
+                 FROM {$wpdb->prefix}bkgt_inventory_items i
+                 LEFT JOIN {$wpdb->prefix}bkgt_manufacturers m ON i.manufacturer_id = m.id
+                 LEFT JOIN {$wpdb->prefix}bkgt_item_types it ON i.item_type_id = it.id
+                 LEFT JOIN {$wpdb->prefix}bkgt_inventory_assignments a ON i.id = a.item_id AND a.return_date IS NULL
+                 WHERE i.id IN ({$placeholders})",
+                $item_ids
+            )
+        );
+
+        // Generate CSV content
+        $csv_data = array();
+        $csv_data[] = array(
+            'Unik Identifierare',
+            'Artikelnamn',
+            'Tillverkare',
+            'Artikeltyp',
+            'Serienummer',
+            'Skick',
+            'Tilldelad till',
+            'Plats',
+            'Inköpsdatum',
+            'Inköpspris',
+            'Garanti utgångsdatum'
+        );
+
+        foreach ($items as $item) {
+            $csv_data[] = array(
+                $item->unique_identifier,
+                $item->title,
+                $item->manufacturer_name ?: '',
+                $item->item_type_name ?: '',
+                $item->serial_number ?: '',
+                $item->condition_status ?: '',
+                $item->assignee_name ?: '',
+                $item->storage_location ?: '',
+                $item->purchase_date ?: '',
+                $item->purchase_price ?: '',
+                $item->warranty_expiry ?: ''
+            );
+        }
+
+        return new WP_REST_Response(array(
+            'message' => __('Bulk export completed.', 'bkgt-api'),
+            'item_count' => count($items),
+            'csv_data' => $csv_data,
+        ), 200);
+    }
+
     public function get_locations($request) {
         global $wpdb;
 
@@ -2416,6 +4695,230 @@ class BKGT_API_Endpoints {
 
         return new WP_REST_Response(array(
             'location' => $location,
+        ), 200);
+    }
+
+    /**
+     * Create location
+     */
+    public function create_location($request) {
+        global $wpdb;
+
+        $name = $request->get_param('name');
+        $location_type = $request->get_param('location_type');
+        $address = $request->get_param('address');
+        $contact_person = $request->get_param('contact_person');
+        $contact_phone = $request->get_param('contact_phone');
+        $contact_email = $request->get_param('contact_email');
+        $capacity = $request->get_param('capacity');
+
+        // Generate slug from name
+        $slug = sanitize_title($name);
+
+        // Ensure unique slug
+        $original_slug = $slug;
+        $counter = 1;
+        while ($wpdb->get_var($wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}bkgt_locations WHERE slug = %s",
+            $slug
+        ))) {
+            $slug = $original_slug . '-' . $counter;
+            $counter++;
+        }
+
+        $result = $wpdb->insert(
+            $wpdb->prefix . 'bkgt_locations',
+            array(
+                'name' => $name,
+                'slug' => $slug,
+                'location_type' => $location_type,
+                'address' => $address,
+                'contact_person' => $contact_person,
+                'contact_phone' => $contact_phone,
+                'contact_email' => $contact_email,
+                'capacity' => $capacity,
+                'is_active' => 1,
+                'created_at' => current_time('mysql'),
+                'updated_at' => current_time('mysql'),
+            ),
+            array('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s')
+        );
+
+        if ($result === false) {
+            return new WP_Error('db_error', __('Failed to create location.', 'bkgt-api'), array('status' => 500));
+        }
+
+        $location_id = $wpdb->insert_id;
+
+        // Log the action
+        BKGT_History::log_action('location_created', $location_id, array(
+            'name' => $name,
+            'location_type' => $location_type,
+        ));
+
+        return new WP_REST_Response(array(
+            'message' => __('Location created successfully.', 'bkgt-api'),
+            'location' => array(
+                'id' => $location_id,
+                'name' => $name,
+                'slug' => $slug,
+                'location_type' => $location_type,
+                'address' => $address,
+                'contact_person' => $contact_person,
+                'contact_phone' => $contact_phone,
+                'contact_email' => $contact_email,
+                'capacity' => $capacity,
+                'is_active' => 1,
+            ),
+        ), 201);
+    }
+
+    /**
+     * Update location
+     */
+    public function update_location($request) {
+        global $wpdb;
+
+        $id = $request->get_param('id');
+        $name = $request->get_param('name');
+        $location_type = $request->get_param('location_type');
+        $address = $request->get_param('address');
+        $contact_person = $request->get_param('contact_person');
+        $contact_phone = $request->get_param('contact_phone');
+        $contact_email = $request->get_param('contact_email');
+        $capacity = $request->get_param('capacity');
+
+        // Check if location exists
+        $existing = $wpdb->get_var($wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}bkgt_locations WHERE id = %d",
+            $id
+        ));
+
+        if (!$existing) {
+            return new WP_Error('location_not_found', __('Location not found.', 'bkgt-api'), array('status' => 404));
+        }
+
+        $update_data = array('updated_at' => current_time('mysql'));
+        $update_format = array('%s');
+
+        if ($name !== null) {
+            $update_data['name'] = $name;
+            $update_format[] = '%s';
+
+            // Update slug if name changed
+            $slug = sanitize_title($name);
+            $original_slug = $slug;
+            $counter = 1;
+            while ($wpdb->get_var($wpdb->prepare(
+                "SELECT id FROM {$wpdb->prefix}bkgt_locations WHERE slug = %s AND id != %d",
+                $slug, $id
+            ))) {
+                $slug = $original_slug . '-' . $counter;
+                $counter++;
+            }
+            $update_data['slug'] = $slug;
+            $update_format[] = '%s';
+        }
+
+        if ($location_type !== null) {
+            $update_data['location_type'] = $location_type;
+            $update_format[] = '%s';
+        }
+
+        if ($address !== null) {
+            $update_data['address'] = $address;
+            $update_format[] = '%s';
+        }
+
+        if ($contact_person !== null) {
+            $update_data['contact_person'] = $contact_person;
+            $update_format[] = '%s';
+        }
+
+        if ($contact_phone !== null) {
+            $update_data['contact_phone'] = $contact_phone;
+            $update_format[] = '%s';
+        }
+
+        if ($contact_email !== null) {
+            $update_data['contact_email'] = $contact_email;
+            $update_format[] = '%s';
+        }
+
+        if ($capacity !== null) {
+            $update_data['capacity'] = $capacity;
+            $update_format[] = '%d';
+        }
+
+        $result = $wpdb->update(
+            $wpdb->prefix . 'bkgt_locations',
+            $update_data,
+            array('id' => $id),
+            $update_format,
+            array('%d')
+        );
+
+        if ($result === false) {
+            return new WP_Error('db_error', __('Failed to update location.', 'bkgt-api'), array('status' => 500));
+        }
+
+        // Log the action
+        BKGT_History::log_action('location_updated', $id, array(
+            'name' => $name,
+        ));
+
+        return new WP_REST_Response(array(
+            'message' => __('Location updated successfully.', 'bkgt-api'),
+        ), 200);
+    }
+
+    /**
+     * Delete location
+     */
+    public function delete_location($request) {
+        global $wpdb;
+
+        $id = $request->get_param('id');
+
+        // Check if location exists
+        $location = $wpdb->get_row($wpdb->prepare(
+            "SELECT name FROM {$wpdb->prefix}bkgt_locations WHERE id = %d",
+            $id
+        ));
+
+        if (!$location) {
+            return new WP_Error('location_not_found', __('Location not found.', 'bkgt-api'), array('status' => 404));
+        }
+
+        // Check if location is used by any equipment
+        $usage_count = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_inventory_items WHERE location_id = %d",
+            $id
+        ));
+
+        if ($usage_count > 0) {
+            return new WP_Error('location_in_use', __('Cannot delete location that contains equipment items.', 'bkgt-api'), array('status' => 409));
+        }
+
+        $result = $wpdb->update(
+            $wpdb->prefix . 'bkgt_locations',
+            array('is_active' => 0, 'updated_at' => current_time('mysql')),
+            array('id' => $id),
+            array('%d', '%s'),
+            array('%d')
+        );
+
+        if ($result === false) {
+            return new WP_Error('db_error', __('Failed to delete location.', 'bkgt-api'), array('status' => 500));
+        }
+
+        // Log the action
+        BKGT_History::log_action('location_deleted', $id, array(
+            'name' => $location->name,
+        ));
+
+        return new WP_REST_Response(array(
+            'message' => __('Location deleted successfully.', 'bkgt-api'),
         ), 200);
     }
 
@@ -2552,7 +5055,6 @@ class BKGT_API_Endpoints {
             'condition_date' => $item->condition_date,
             'condition_reason' => $item->condition_reason,
             'sticker_code' => $item->sticker_code,
-            'assignment_type' => $item->assignment_type,
             'assigned_to_id' => $item->assignee_id ? (int) $item->assignee_id : null,
             'assigned_to_name' => $item->assignee_name,
             'assignment_date' => $item->assignment_date,
@@ -2560,5 +5062,1037 @@ class BKGT_API_Endpoints {
             'created_date' => $item->created_at,
             'updated_date' => $item->updated_at,
         );
+    }
+
+    // ===== DOCUMENT MANAGEMENT API HANDLERS =====
+
+    /**
+     * Get single document
+     */
+    /**
+     * Create new document
+     */
+    public function create_document($request) {
+        $title = $request->get_param('title');
+        $content = $request->get_param('content');
+        $category_id = $request->get_param('category_id');
+        $status = $request->get_param('status') ?: 'draft';
+        $tags = $request->get_param('tags') ?: array();
+        $metadata = $request->get_param('metadata') ?: array();
+
+        // Create post
+        $post_data = array(
+            'post_title' => $title,
+            'post_content' => $content,
+            'post_status' => $status,
+            'post_type' => 'bkgt_document',
+            'post_author' => get_current_user_id(),
+        );
+
+        $post_id = wp_insert_post($post_data, true);
+        if (is_wp_error($post_id)) {
+            return $post_id;
+        }
+
+        // Set category
+        if ($category_id) {
+            wp_set_post_terms($post_id, array($category_id), 'bkgt_document_category');
+        }
+
+        // Set tags
+        if (!empty($tags)) {
+            wp_set_post_terms($post_id, $tags, 'bkgt_document_tag');
+        }
+
+        // Save metadata
+        if (!empty($metadata)) {
+            foreach ($metadata as $key => $value) {
+                update_post_meta($post_id, '_bkgt_' . $key, $value);
+            }
+        }
+
+        // Create initial version
+        $this->create_document_version($post_id, 'Initial version');
+
+        $post = get_post($post_id);
+        return new WP_REST_Response($this->format_document_data($post), 201);
+    }
+
+    /**
+     * Update document
+     */
+    public function update_document($request) {
+        $document_id = $request->get_param('id');
+        $title = $request->get_param('title');
+        $content = $request->get_param('content');
+        $category_id = $request->get_param('category_id');
+        $status = $request->get_param('status');
+        $tags = $request->get_param('tags');
+        $metadata = $request->get_param('metadata');
+
+        // Check access permissions
+        if (!$this->check_document_access($document_id, get_current_user_id(), 'write')) {
+            return new WP_Error('access_denied', 'Access denied', array('status' => 403));
+        }
+
+        $post = get_post($document_id);
+        if (!$post || $post->post_type !== 'bkgt_document') {
+            return new WP_Error('document_not_found', 'Document not found', array('status' => 404));
+        }
+
+        // Create version before update
+        $this->create_document_version($document_id, 'Updated document');
+
+        // Update post
+        $post_data = array('ID' => $document_id);
+        if ($title !== null) $post_data['post_title'] = $title;
+        if ($content !== null) $post_data['post_content'] = $content;
+        if ($status !== null) $post_data['post_status'] = $status;
+
+        $result = wp_update_post($post_data, true);
+        if (is_wp_error($result)) {
+            return $result;
+        }
+
+        // Update category
+        if ($category_id !== null) {
+            wp_set_post_terms($document_id, $category_id ? array($category_id) : array(), 'bkgt_document_category');
+        }
+
+        // Update tags
+        if ($tags !== null) {
+            wp_set_post_terms($document_id, $tags, 'bkgt_document_tag');
+        }
+
+        // Update metadata
+        if ($metadata !== null) {
+            foreach ($metadata as $key => $value) {
+                update_post_meta($document_id, '_bkgt_' . $key, $value);
+            }
+        }
+
+        $post = get_post($document_id);
+        return new WP_REST_Response($this->format_document_data($post), 200);
+    }
+
+    /**
+     * Delete document
+     */
+    public function delete_document($request) {
+        $document_id = $request->get_param('id');
+
+        // Check access permissions
+        if (!$this->check_document_access($document_id, get_current_user_id(), 'manage')) {
+            return new WP_Error('access_denied', 'Access denied', array('status' => 403));
+        }
+
+        $post = get_post($document_id);
+        if (!$post || $post->post_type !== 'bkgt_document') {
+            return new WP_Error('document_not_found', 'Document not found', array('status' => 404));
+        }
+
+        $result = wp_delete_post($document_id, true);
+        if (!$result) {
+            return new WP_Error('delete_failed', 'Failed to delete document', array('status' => 500));
+        }
+
+        return new WP_REST_Response(array('message' => 'Document deleted successfully'), 200);
+    }
+
+    /**
+     * Get document categories
+     */
+    public function get_document_categories($request) {
+        $parent = $request->get_param('parent');
+        $hide_empty = $request->get_param('hide_empty') ?: false;
+
+        $args = array(
+            'taxonomy' => 'bkgt_document_category',
+            'hide_empty' => $hide_empty,
+            'hierarchical' => true,
+        );
+
+        if ($parent !== null) {
+            $args['parent'] = $parent;
+        }
+
+        $categories = get_terms($args);
+
+        if (is_wp_error($categories)) {
+            return $categories;
+        }
+
+        $formatted_categories = array();
+        foreach ($categories as $category) {
+            $formatted_categories[] = $this->format_category_data($category);
+        }
+
+        return new WP_REST_Response(array('categories' => $formatted_categories), 200);
+    }
+
+    /**
+     * Get single document category
+     */
+    public function get_document_category($request) {
+        $category_id = $request->get_param('id');
+
+        $category = get_term($category_id, 'bkgt_document_category');
+        if (is_wp_error($category) || !$category) {
+            return new WP_Error('category_not_found', 'Category not found', array('status' => 404));
+        }
+
+        return new WP_REST_Response($this->format_category_data($category), 200);
+    }
+
+    /**
+     * Create document category
+     */
+    public function create_document_category($request) {
+        $name = $request->get_param('name');
+        $description = $request->get_param('description');
+        $parent = $request->get_param('parent') ?: 0;
+
+        $result = wp_insert_term($name, 'bkgt_document_category', array(
+            'description' => $description,
+            'parent' => $parent,
+        ));
+
+        if (is_wp_error($result)) {
+            return $result;
+        }
+
+        $category = get_term($result['term_id'], 'bkgt_document_category');
+        return new WP_REST_Response($this->format_category_data($category), 201);
+    }
+
+    /**
+     * Update document category
+     */
+    public function update_document_category($request) {
+        $category_id = $request->get_param('id');
+        $name = $request->get_param('name');
+        $description = $request->get_param('description');
+        $parent = $request->get_param('parent');
+
+        $args = array();
+        if ($name !== null) $args['name'] = $name;
+        if ($description !== null) $args['description'] = $description;
+        if ($parent !== null) $args['parent'] = $parent;
+
+        $result = wp_update_term($category_id, 'bkgt_document_category', $args);
+        if (is_wp_error($result)) {
+            return $result;
+        }
+
+        $category = get_term($category_id, 'bkgt_document_category');
+        return new WP_REST_Response($this->format_category_data($category), 200);
+    }
+
+    /**
+     * Delete document category
+     */
+    public function delete_document_category($request) {
+        $category_id = $request->get_param('id');
+
+        $result = wp_delete_term($category_id, 'bkgt_document_category');
+        if (is_wp_error($result)) {
+            return $result;
+        }
+
+        return new WP_REST_Response(array('message' => 'Category deleted successfully'), 200);
+    }
+
+    /**
+     * Get document templates
+     */
+    public function get_document_templates($request) {
+        global $wpdb;
+
+        $category = $request->get_param('category');
+        $search = $request->get_param('search');
+
+        $where_clauses = array("meta_key = '_bkgt_template_data'");
+
+        if ($category) {
+            $where_clauses[] = $wpdb->prepare("meta_value LIKE %s", '%"category":"' . $wpdb->esc_like($category) . '"%');
+        }
+
+        if ($search) {
+            $where_clauses[] = $wpdb->prepare("(meta_value LIKE %s OR post_title LIKE %s)",
+                '%' . $wpdb->esc_like($search) . '%',
+                '%' . $wpdb->esc_like($search) . '%'
+            );
+        }
+
+        $where_sql = 'WHERE ' . implode(' AND ', $where_clauses);
+
+        $query = "SELECT post_id, meta_value FROM {$wpdb->postmeta} {$where_sql}";
+        $results = $wpdb->get_results($query);
+
+        $templates = array();
+        foreach ($results as $result) {
+            $template_data = json_decode($result->meta_value, true);
+            if ($template_data) {
+                $template_data['id'] = $result->post_id;
+                $templates[] = $template_data;
+            }
+        }
+
+        return new WP_REST_Response(array('templates' => $templates), 200);
+    }
+
+    /**
+     * Get single document template
+     */
+    public function get_document_template($request) {
+        $template_id = $request->get_param('id');
+
+        $template_data = get_post_meta($template_id, '_bkgt_template_data', true);
+        if (!$template_data) {
+            return new WP_Error('template_not_found', 'Template not found', array('status' => 404));
+        }
+
+        $template = json_decode($template_data, true);
+        $template['id'] = $template_id;
+
+        return new WP_REST_Response($template, 200);
+    }
+
+    /**
+     * Create document template
+     */
+    public function create_document_template($request) {
+        $name = $request->get_param('name');
+        $description = $request->get_param('description');
+        $category = $request->get_param('category');
+        $content = $request->get_param('content');
+        $variables = $request->get_param('variables') ?: array();
+
+        $template_data = array(
+            'name' => $name,
+            'description' => $description,
+            'category' => $category,
+            'content' => $content,
+            'variables' => $variables,
+            'created_at' => current_time('mysql'),
+            'created_by' => get_current_user_id(),
+        );
+
+        // Create a post to store the template
+        $post_data = array(
+            'post_title' => $name,
+            'post_content' => $content,
+            'post_status' => 'publish',
+            'post_type' => 'bkgt_template',
+            'post_author' => get_current_user_id(),
+        );
+
+        $post_id = wp_insert_post($post_data, true);
+        if (is_wp_error($post_id)) {
+            return $post_id;
+        }
+
+        update_post_meta($post_id, '_bkgt_template_data', wp_json_encode($template_data));
+
+        $template_data['id'] = $post_id;
+        return new WP_REST_Response($template_data, 201);
+    }
+
+    /**
+     * Update document template
+     */
+    public function update_document_template($request) {
+        $template_id = $request->get_param('id');
+        $name = $request->get_param('name');
+        $description = $request->get_param('description');
+        $category = $request->get_param('category');
+        $content = $request->get_param('content');
+        $variables = $request->get_param('variables');
+
+        $existing_data = get_post_meta($template_id, '_bkgt_template_data', true);
+        if (!$existing_data) {
+            return new WP_Error('template_not_found', 'Template not found', array('status' => 404));
+        }
+
+        $template_data = json_decode($existing_data, true);
+
+        if ($name !== null) $template_data['name'] = $name;
+        if ($description !== null) $template_data['description'] = $description;
+        if ($category !== null) $template_data['category'] = $category;
+        if ($content !== null) $template_data['content'] = $content;
+        if ($variables !== null) $template_data['variables'] = $variables;
+
+        $template_data['updated_at'] = current_time('mysql');
+
+        update_post_meta($template_id, '_bkgt_template_data', wp_json_encode($template_data));
+
+        // Update post content if provided
+        if ($content !== null) {
+            wp_update_post(array('ID' => $template_id, 'post_content' => $content));
+        }
+        if ($name !== null) {
+            wp_update_post(array('ID' => $template_id, 'post_title' => $name));
+        }
+
+        $template_data['id'] = $template_id;
+        return new WP_REST_Response($template_data, 200);
+    }
+
+    /**
+     * Delete document template
+     */
+    public function delete_document_template($request) {
+        $template_id = $request->get_param('id');
+
+        $result = wp_delete_post($template_id, true);
+        if (!$result) {
+            return new WP_Error('delete_failed', 'Failed to delete template', array('status' => 500));
+        }
+
+        return new WP_REST_Response(array('message' => 'Template deleted successfully'), 200);
+    }
+
+    /**
+     * Create document from template
+     */
+    public function create_document_from_template($request) {
+        $template_id = $request->get_param('id');
+        $variables = $request->get_param('variables') ?: array();
+        $title = $request->get_param('title');
+
+        $template_data = get_post_meta($template_id, '_bkgt_template_data', true);
+        if (!$template_data) {
+            return new WP_Error('template_not_found', 'Template not found', array('status' => 404));
+        }
+
+        $template = json_decode($template_data, true);
+        $content = $this->process_template_variables($template['content'], $variables);
+
+        if (!$title) {
+            $title = $template['name'] . ' - ' . current_time('Y-m-d H:i:s');
+        }
+
+        // Create document
+        $post_data = array(
+            'post_title' => $title,
+            'post_content' => $content,
+            'post_status' => 'draft',
+            'post_type' => 'bkgt_document',
+            'post_author' => get_current_user_id(),
+        );
+
+        $post_id = wp_insert_post($post_data, true);
+        if (is_wp_error($post_id)) {
+            return $post_id;
+        }
+
+        // Store template reference
+        update_post_meta($post_id, '_bkgt_template_id', $template_id);
+        update_post_meta($post_id, '_bkgt_template_variables', wp_json_encode($variables));
+
+        // Create initial version
+        $this->create_document_version($post_id, 'Created from template: ' . $template['name']);
+
+        $post = get_post($post_id);
+        return new WP_REST_Response($this->format_document_data($post), 201);
+    }
+
+    /**
+     * Get document versions
+     */
+    public function get_document_versions($request) {
+        global $wpdb;
+
+        $document_id = $request->get_param('id');
+
+        $versions = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}bkgt_document_versions
+             WHERE document_id = %d ORDER BY version_number DESC",
+            $document_id
+        ));
+
+        $formatted_versions = array();
+        foreach ($versions as $version) {
+            $formatted_versions[] = array(
+                'id' => (int) $version->id,
+                'version_number' => (int) $version->version_number,
+                'title' => $version->title,
+                'content' => $version->content,
+                'created_at' => $version->created_at,
+                'created_by' => (int) $version->created_by,
+                'change_summary' => $version->change_summary,
+            );
+        }
+
+        return new WP_REST_Response(array('versions' => $formatted_versions), 200);
+    }
+
+    /**
+     * Restore document version
+     */
+    public function restore_document_version($request) {
+        $document_id = $request->get_param('document_id');
+        $version_id = $request->get_param('version_id');
+
+        // Check access permissions
+        if (!$this->check_document_access($document_id, get_current_user_id(), 'write')) {
+            return new WP_Error('access_denied', 'Access denied', array('status' => 403));
+        }
+
+        global $wpdb;
+        $version = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}bkgt_document_versions WHERE id = %d AND document_id = %d",
+            $version_id, $document_id
+        ));
+
+        if (!$version) {
+            return new WP_Error('version_not_found', 'Version not found', array('status' => 404));
+        }
+
+        // Update document with version content
+        wp_update_post(array(
+            'ID' => $document_id,
+            'post_title' => $version->title,
+            'post_content' => $version->content,
+        ));
+
+        // Create new version with restore note
+        $this->create_document_version($document_id, 'Restored to version ' . $version->version_number);
+
+        $post = get_post($document_id);
+        return new WP_REST_Response($this->format_document_data($post), 200);
+    }
+
+    /**
+     * Get document access permissions
+     */
+    public function get_document_access($request) {
+        global $wpdb;
+
+        $document_id = $request->get_param('id');
+
+        $permissions = $wpdb->get_results($wpdb->prepare(
+            "SELECT p.*, u.display_name, u.user_email
+             FROM {$wpdb->prefix}bkgt_document_permissions p
+             LEFT JOIN {$wpdb->users} u ON p.user_id = u.ID
+             WHERE p.document_id = %d",
+            $document_id
+        ));
+
+        $formatted_permissions = array();
+        foreach ($permissions as $perm) {
+            $formatted_permissions[] = array(
+                'id' => (int) $perm->id,
+                'user_id' => (int) $perm->user_id,
+                'user_name' => $perm->display_name,
+                'user_email' => $perm->user_email,
+                'access_type' => $perm->access_type,
+                'granted_at' => $perm->granted_at,
+                'granted_by' => (int) $perm->granted_by,
+            );
+        }
+
+        return new WP_REST_Response(array('permissions' => $formatted_permissions), 200);
+    }
+
+    /**
+     * Grant document access
+     */
+    public function grant_document_access($request) {
+        global $wpdb;
+
+        $document_id = $request->get_param('id');
+        $user_id = $request->get_param('user_id');
+        $access_type = $request->get_param('access_type');
+
+        // Check if user has manage permissions
+        if (!$this->check_document_access($document_id, get_current_user_id(), 'manage')) {
+            return new WP_Error('access_denied', 'Access denied', array('status' => 403));
+        }
+
+        // Check if permission already exists
+        $existing = $wpdb->get_var($wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}bkgt_document_permissions
+             WHERE document_id = %d AND user_id = %d",
+            $document_id, $user_id
+        ));
+
+        if ($existing) {
+            // Update existing permission
+            $wpdb->update(
+                $wpdb->prefix . 'bkgt_document_permissions',
+                array('access_type' => $access_type, 'granted_at' => current_time('mysql')),
+                array('id' => $existing)
+            );
+        } else {
+            // Insert new permission
+            $wpdb->insert(
+                $wpdb->prefix . 'bkgt_document_permissions',
+                array(
+                    'document_id' => $document_id,
+                    'user_id' => $user_id,
+                    'access_type' => $access_type,
+                    'granted_by' => get_current_user_id(),
+                    'granted_at' => current_time('mysql'),
+                )
+            );
+        }
+
+        return new WP_REST_Response(array('message' => 'Access granted successfully'), 200);
+    }
+
+    /**
+     * Update document access
+     */
+    public function update_document_access($request) {
+        global $wpdb;
+
+        $document_id = $request->get_param('document_id');
+        $user_id = $request->get_param('user_id');
+        $access_type = $request->get_param('access_type');
+
+        // Check if user has manage permissions
+        if (!$this->check_document_access($document_id, get_current_user_id(), 'manage')) {
+            return new WP_Error('access_denied', 'Access denied', array('status' => 403));
+        }
+
+        $result = $wpdb->update(
+            $wpdb->prefix . 'bkgt_document_permissions',
+            array('access_type' => $access_type),
+            array('document_id' => $document_id, 'user_id' => $user_id)
+        );
+
+        if ($result === false) {
+            return new WP_Error('update_failed', 'Failed to update access', array('status' => 500));
+        }
+
+        return new WP_REST_Response(array('message' => 'Access updated successfully'), 200);
+    }
+
+    /**
+     * Revoke document access
+     */
+    public function revoke_document_access($request) {
+        global $wpdb;
+
+        $document_id = $request->get_param('document_id');
+        $user_id = $request->get_param('user_id');
+
+        // Check if user has manage permissions
+        if (!$this->check_document_access($document_id, get_current_user_id(), 'manage')) {
+            return new WP_Error('access_denied', 'Access denied', array('status' => 403));
+        }
+
+        $result = $wpdb->delete(
+            $wpdb->prefix . 'bkgt_document_permissions',
+            array('document_id' => $document_id, 'user_id' => $user_id)
+        );
+
+        if ($result === false) {
+            return new WP_Error('delete_failed', 'Failed to revoke access', array('status' => 500));
+        }
+
+        return new WP_REST_Response(array('message' => 'Access revoked successfully'), 200);
+    }
+
+    /**
+     * Export document
+     */
+    public function export_document($request) {
+        $document_id = $request->get_param('id');
+        $format = $request->get_param('format') ?: 'pdf';
+
+        // Check access permissions
+        if (!$this->check_document_access($document_id, get_current_user_id(), 'read')) {
+            return new WP_Error('access_denied', 'Access denied', array('status' => 403));
+        }
+
+        $post = get_post($document_id);
+        if (!$post || $post->post_type !== 'bkgt_document') {
+            return new WP_Error('document_not_found', 'Document not found', array('status' => 404));
+        }
+
+        // Generate export based on format
+        switch ($format) {
+            case 'pdf':
+                $result = $this->export_document_pdf($post);
+                break;
+            case 'docx':
+                $result = $this->export_document_docx($post);
+                break;
+            case 'html':
+                $result = $this->export_document_html($post);
+                break;
+            default:
+                return new WP_Error('invalid_format', 'Invalid export format', array('status' => 400));
+        }
+
+        if (is_wp_error($result)) {
+            return $result;
+        }
+
+        return new WP_REST_Response(array(
+            'download_url' => $result['url'],
+            'filename' => $result['filename'],
+            'format' => $format,
+        ), 200);
+    }
+
+    /**
+     * Get export formats
+     */
+    public function get_export_formats($request) {
+        return new WP_REST_Response(array(
+            'formats' => array(
+                array('id' => 'pdf', 'name' => 'PDF Document', 'extension' => 'pdf'),
+                array('id' => 'docx', 'name' => 'Word Document', 'extension' => 'docx'),
+                array('id' => 'html', 'name' => 'HTML Document', 'extension' => 'html'),
+            ),
+        ), 200);
+    }
+
+    // ===== HELPER METHODS =====
+
+    /**
+     * Format document data for API response
+     */
+    private function format_document_data($post) {
+        $categories = wp_get_post_terms($post->ID, 'bkgt_document_category', array('fields' => 'names'));
+        $tags = wp_get_post_terms($post->ID, 'bkgt_document_tag', array('fields' => 'names'));
+
+        return array(
+            'id' => (int) $post->ID,
+            'title' => $post->post_title,
+            'content' => $post->post_content,
+            'status' => $post->post_status,
+            'created_at' => $post->post_date,
+            'updated_at' => $post->post_modified,
+            'author_id' => (int) $post->post_author,
+            'author_name' => get_the_author_meta('display_name', $post->post_author),
+            'categories' => $categories,
+            'tags' => $tags,
+            'metadata' => $this->get_document_metadata($post->ID),
+            'versions_count' => $this->get_document_versions_count($post->ID),
+            'permissions' => $this->get_document_permissions_summary($post->ID),
+        );
+    }
+
+    /**
+     * Format category data for API response
+     */
+    private function format_category_data($category) {
+        return array(
+            'id' => (int) $category->term_id,
+            'name' => $category->name,
+            'slug' => $category->slug,
+            'description' => $category->description,
+            'parent' => (int) $category->parent,
+            'count' => (int) $category->count,
+        );
+    }
+
+    /**
+     * Get document metadata
+     */
+    private function get_document_metadata($post_id) {
+        $metadata = array();
+        $meta_keys = get_post_custom_keys($post_id);
+
+        if ($meta_keys) {
+            foreach ($meta_keys as $key) {
+                if (strpos($key, '_bkgt_') === 0) {
+                    $clean_key = str_replace('_bkgt_', '', $key);
+                    $metadata[$clean_key] = get_post_meta($post_id, $key, true);
+                }
+            }
+        }
+
+        return $metadata;
+    }
+
+    /**
+     * Get document versions count
+     */
+    private function get_document_versions_count($post_id) {
+        global $wpdb;
+        return (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_document_versions WHERE document_id = %d",
+            $post_id
+        ));
+    }
+
+    /**
+     * Get document permissions summary
+     */
+    private function get_document_permissions_summary($post_id) {
+        global $wpdb;
+        $permissions = $wpdb->get_results($wpdb->prepare(
+            "SELECT access_type, COUNT(*) as count
+             FROM {$wpdb->prefix}bkgt_document_permissions
+             WHERE document_id = %d GROUP BY access_type",
+            $post_id
+        ));
+
+        $summary = array('read' => 0, 'write' => 0, 'manage' => 0);
+        foreach ($permissions as $perm) {
+            $summary[$perm->access_type] = (int) $perm->count;
+        }
+
+        return $summary;
+    }
+
+    /**
+     * Check document access permissions
+     */
+    private function check_document_access($document_id, $user_id, $required_access = 'read') {
+        // Document author always has manage access
+        $post = get_post($document_id);
+        if ($post && $post->post_author == $user_id) {
+            return true;
+        }
+
+        // Check if user is admin
+        if (user_can($user_id, 'manage_options')) {
+            return true;
+        }
+
+        global $wpdb;
+        $access_type = $wpdb->get_var($wpdb->prepare(
+            "SELECT access_type FROM {$wpdb->prefix}bkgt_document_permissions
+             WHERE document_id = %d AND user_id = %d",
+            $document_id, $user_id
+        ));
+
+        if (!$access_type) {
+            return false;
+        }
+
+        $access_levels = array('read' => 1, 'write' => 2, 'manage' => 3);
+        $required_level = $access_levels[$required_access] ?? 1;
+        $user_level = $access_levels[$access_type] ?? 0;
+
+        return $user_level >= $required_level;
+    }
+
+    /**
+     * Create document version
+     */
+    private function create_document_version($document_id, $change_summary = '') {
+        global $wpdb;
+
+        $post = get_post($document_id);
+        if (!$post) return false;
+
+        // Get next version number
+        $version_number = $wpdb->get_var($wpdb->prepare(
+            "SELECT MAX(version_number) FROM {$wpdb->prefix}bkgt_document_versions WHERE document_id = %d",
+            $document_id
+        )) + 1;
+
+        $result = $wpdb->insert(
+            $wpdb->prefix . 'bkgt_document_versions',
+            array(
+                'document_id' => $document_id,
+                'version_number' => $version_number,
+                'title' => $post->post_title,
+                'content' => $post->post_content,
+                'created_by' => get_current_user_id(),
+                'created_at' => current_time('mysql'),
+                'change_summary' => $change_summary,
+            )
+        );
+
+        return $result !== false;
+    }
+
+    /**
+     * Process template variables
+     */
+    private function process_template_variables($content, $variables) {
+        foreach ($variables as $key => $value) {
+            $placeholder = '{{' . $key . '}}';
+            $content = str_replace($placeholder, $value, $content);
+        }
+        return $content;
+    }
+
+    /**
+     * Export document as PDF
+     */
+    private function export_document_pdf($post) {
+        // This would require a PDF library like TCPDF or DomPDF
+        // For now, return a placeholder
+        $filename = sanitize_file_name($post->post_title) . '.pdf';
+        $upload_dir = wp_upload_dir();
+        $file_path = $upload_dir['path'] . '/' . $filename;
+
+        // Create a simple HTML file for now (would need PDF conversion)
+        $html_content = '<html><body><h1>' . esc_html($post->post_title) . '</h1>' .
+                       wpautop($post->post_content) . '</body></html>';
+
+        file_put_contents($file_path, $html_content);
+
+        return array(
+            'url' => $upload_dir['url'] . '/' . $filename,
+            'filename' => $filename,
+        );
+    }
+
+    /**
+     * Export document as DOCX
+     */
+    private function export_document_docx($post) {
+        // This would require a DOCX library like PhpOffice/PhpWord
+        // For now, return a placeholder
+        $filename = sanitize_file_name($post->post_title) . '.docx';
+        $upload_dir = wp_upload_dir();
+        $file_path = $upload_dir['path'] . '/' . $filename;
+
+        // Create a simple HTML file for now (would need DOCX conversion)
+        $html_content = '<html><body><h1>' . esc_html($post->post_title) . '</h1>' .
+                       wpautop($post->post_content) . '</body></html>';
+
+        file_put_contents($file_path, $html_content);
+
+        return array(
+            'url' => $upload_dir['url'] . '/' . $filename,
+            'filename' => $filename,
+        );
+    }
+
+    /**
+     * Export document as HTML
+     */
+    private function export_document_html($post) {
+        $filename = sanitize_file_name($post->post_title) . '.html';
+        $upload_dir = wp_upload_dir();
+        $file_path = $upload_dir['path'] . '/' . $filename;
+
+        $html_content = '<html><head><title>' . esc_html($post->post_title) . '</title></head><body>' .
+                       '<h1>' . esc_html($post->post_title) . '</h1>' .
+                       wpautop($post->post_content) . '</body></html>';
+
+        file_put_contents($file_path, $html_content);
+
+        return array(
+            'url' => $upload_dir['url'] . '/' . $filename,
+            'filename' => $filename,
+        );
+    }
+
+    /**
+     * Get API documentation
+     */
+    public function get_api_documentation($request) {
+        $format = $request->get_param('format');
+        $readme_path = plugin_dir_path(dirname(__FILE__)) . 'README.md';
+
+        if (!file_exists($readme_path)) {
+            return new WP_Error('documentation_not_found', 'API documentation file not found', array('status' => 404));
+        }
+
+        $content = file_get_contents($readme_path);
+
+        switch ($format) {
+            case 'json':
+                return new WP_REST_Response(array(
+                    'documentation' => $content,
+                    'format' => 'markdown',
+                    'last_updated' => filemtime($readme_path),
+                ), 200);
+
+            case 'markdown':
+                return new WP_REST_Response($content, 200, array(
+                    'Content-Type' => 'text/markdown',
+                ));
+
+            case 'html':
+            default:
+                // Convert markdown to HTML (basic conversion)
+                $html = $this->markdown_to_html($content);
+                return new WP_REST_Response($html, 200, array(
+                    'Content-Type' => 'text/html',
+                ));
+        }
+    }
+
+    /**
+     * Get API routes information
+     */
+    public function get_api_routes($request) {
+        $namespace = $request->get_param('namespace');
+        $detailed = $request->get_param('detailed');
+
+        if (function_exists('rest_get_server')) {
+            $server = rest_get_server();
+            $routes = $server->get_routes();
+
+            $bkgt_routes = array();
+            foreach ($routes as $route => $route_config) {
+                if (strpos($route, $namespace) === 0) {
+                    if ($detailed) {
+                        $bkgt_routes[$route] = $route_config;
+                    } else {
+                        // Simplified view
+                        $methods = array();
+                        if (is_array($route_config)) {
+                            foreach ($route_config as $config) {
+                                if (isset($config['methods'])) {
+                                    $methods = array_merge($methods, (array) $config['methods']);
+                                }
+                            }
+                        }
+                        $bkgt_routes[$route] = array_unique($methods);
+                    }
+                }
+            }
+
+            return new WP_REST_Response(array(
+                'namespace' => $namespace,
+                'routes' => $bkgt_routes,
+                'total_routes' => count($bkgt_routes),
+                'detailed' => $detailed,
+                'generated_at' => current_time('mysql'),
+            ), 200);
+        }
+
+        return new WP_Error('rest_server_not_available', 'REST server not available', array('status' => 500));
+    }
+
+    /**
+     * Convert basic markdown to HTML
+     */
+    private function markdown_to_html($markdown) {
+        // Basic markdown to HTML conversion
+        $html = $markdown;
+
+        // Headers
+        $html = preg_replace('/^### (.*)$/m', '<h3>$1</h3>', $html);
+        $html = preg_replace('/^## (.*)$/m', '<h2>$1</h2>', $html);
+        $html = preg_replace('/^# (.*)$/m', '<h1>$1</h1>', $html);
+
+        // Bold
+        $html = preg_replace('/\*\*(.*?)\*\*/', '<strong>$1</strong>', $html);
+
+        // Italic
+        $html = preg_replace('/\*(.*?)\*/', '<em>$1</em>', $html);
+
+        // Code blocks
+        $html = preg_replace('/```(.*?)```/s', '<pre><code>$1</code></pre>', $html);
+
+        // Inline code
+        $html = preg_replace('/`([^`]+)`/', '<code>$1</code>', $html);
+
+        // Links
+        $html = preg_replace('/\[([^\]]+)\]\(([^)]+)\)/', '<a href="$2">$1</a>', $html);
+
+        // Lists
+        $html = preg_replace('/^\* (.*)$/m', '<li>$1</li>', $html);
+        $html = preg_replace('/^\d+\. (.*)$/m', '<li>$1</li>', $html);
+
+        // Wrap in basic HTML structure
+        $html = '<!DOCTYPE html><html><head><title>BKGT API Documentation</title><style>body{font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:20px;}pre{background:#f4f4f4;padding:10px;border-radius:4px;}code{background:#f4f4f4;padding:2px 4px;border-radius:2px;}</style></head><body>' . $html . '</body></html>';
+
+        return $html;
     }
 }

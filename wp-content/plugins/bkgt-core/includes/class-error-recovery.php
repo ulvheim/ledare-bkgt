@@ -147,24 +147,28 @@ class BKGT_Error_Recovery {
     
     /**
      * Store error for display
-     * 
+     *
      * @param Exception $exception
      */
     private static function store_error( $exception ) {
         $error_id = wp_generate_uuid4();
-        
+
+        // Store only serializable data, not the entire exception object
         self::$error_registry[ $error_id ] = array(
-            'exception' => $exception,
+            'message' => $exception->getMessage(),
+            'code' => $exception->getCode(),
+            'file' => $exception->getFile(),
+            'line' => $exception->getLine(),
+            'trace' => $exception->getTraceAsString(),
+            'class' => get_class( $exception ),
             'time' => current_time( 'timestamp' ),
             'url' => $_SERVER['REQUEST_URI'] ?? '',
             'user_id' => get_current_user_id(),
         );
-        
+
         // Store in transient for later retrieval
         set_transient( 'bkgt_error_' . $error_id, self::$error_registry[ $error_id ], HOUR_IN_SECONDS );
-    }
-    
-    /**
+    }    /**
      * Handle database errors
      * 
      * @param BKGT_Database_Exception $e

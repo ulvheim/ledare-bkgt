@@ -322,9 +322,9 @@ class BKGT_Location {
     public static function get_location_stats($location_id) {
         global $wpdb;
         
-        $db = BKGT_Inventory_Database::get_instance();
-        $assignments_table = $db->get_assignments_table();
-        $inventory_items_table = $db->get_inventory_items_table();
+        global $bkgt_inventory_db;
+        $assignments_table = $bkgt_inventory_db->get_assignments_table();
+        $inventory_items_table = $bkgt_inventory_db->get_inventory_items_table();
         
         $stats = array(
             'total_items' => 0,
@@ -413,8 +413,8 @@ class BKGT_Location {
         $hierarchy = array();
         
         foreach ($locations as $location) {
-            // Ensure parent_id is set
-            if (!isset($location['parent_id'])) {
+            // Ensure parent_id is set and handle empty strings as null
+            if (!isset($location['parent_id']) || $location['parent_id'] === '') {
                 $location['parent_id'] = null;
             }
             

@@ -1,13 +1,25 @@
 # BKGT API Plugin Deployment Script - SCP Version
 # Deploys the complete BKGT API plugin to production using SCP
 
-param(
-    [string]$SshHost = "md0600@ssh.loopia.se",
-    [string]$RemotePath = "~/ledare.bkgt.se/public_html/wp-content/plugins/bkgt-api/"
-)
+# Load environment variables from .env file
+$envFile = Join-Path $PSScriptRoot ".env"
+$envVars = @{}
+if (Test-Path $envFile) {
+    Get-Content $envFile | ForEach-Object {
+        if ($_ -match '^([^=]+)=(.*)$') {
+            $key = $matches[1].Trim()
+            $value = $matches[2].Trim()
+            $envVars[$key] = $value
+        }
+    }
+}
+
+# Set variables with defaults
+$SshHost = if ($envVars.ContainsKey('SSH_USER') -and $envVars.ContainsKey('SSH_HOST')) { "$($envVars['SSH_USER'])@$($envVars['SSH_HOST'])" } else { "md0600@ssh.loopia.se" }
+$RemotePath = "~/ledare.bkgt.se/public_html/wp-content/plugins/bkgt-api/"
 
 $localPath = "C:\Users\Olheim\Desktop\GH\ledare-bkgt\wp-content\plugins\bkgt-api"
-$sshKey = "C:\Users\Olheim\.ssh\id_ecdsa_webhost"
+$sshKey = if ($envVars.ContainsKey('SSH_KEY_PATH')) { $envVars['SSH_KEY_PATH'] } else { "C:\Users\Olheim\.ssh\id_ecdsa_webhost" }
 
 Write-Host "BKGT API Plugin - SCP Deploy Script" -ForegroundColor Cyan
 Write-Host "===================================" -ForegroundColor Cyan
@@ -25,7 +37,10 @@ $files = @(
     @{ local = "$localPath\admin\css\admin.css"; remote = "admin/css/admin.css" },
     @{ local = "$localPath\admin\js\admin.js"; remote = "admin/js/admin.js" },
     @{ local = "$localPath\README.md"; remote = "README.md" },
-    @{ local = "$localPath\diagnostic.php"; remote = "diagnostic.php" }
+    @{ local = "$localPath\flush-api-keys.php"; remote = "flush-api-keys.php" },
+    @{ local = "$localPath\generate-new-api-key.php"; remote = "generate-new-api-key.php" },
+    @{ local = "$localPath\insert-new-api-key.php"; remote = "insert-new-api-key.php" },
+    @{ local = "$localPath\check-db-api-key.php"; remote = "check-db-api-key.php" }
 )
 
 # Verify files exist
@@ -53,13 +68,6 @@ Write-Host "  Host: $SshHost"
 Write-Host "  Key: $sshKey"
 Write-Host "  Remote Path: $RemotePath"
 Write-Host ""
-
-# Confirm deployment
-$confirmation = Read-Host "Do you want to proceed with deployment? (y/N)"
-if ($confirmation -ne 'y' -and $confirmation -ne 'Y') {
-    Write-Host "Deployment cancelled." -ForegroundColor Yellow
-    exit 0
-}
 
 Write-Host "Starting SCP upload..." -ForegroundColor Yellow
 

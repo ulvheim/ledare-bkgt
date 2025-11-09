@@ -1301,6 +1301,7 @@ class BKGT_Admin {
                 // Only consider teams real if they have:
                 // 1. A proper source_id (P2013 format)
                 // 2. A svenskalag.se source_url
+                // 3. URL contains the team code
                 if (empty($source_id) || empty($source_url)) {
                     return false;
                 }
@@ -1315,16 +1316,23 @@ class BKGT_Admin {
                     return false;
                 }
 
+                // URL should contain the team code (e.g., /bkgt-p2013)
+                $expected_path = '/bkgt-' . strtolower($source_id);
+                if (stripos($source_url, $expected_path) === false) {
+                    return false;
+                }
+
                 return true;
             };
 
-            // Find and remove fake teams
-            $all_teams = $wpdb->get_results("SELECT id, name, source_id, source_url FROM {$wpdb->prefix}bkgt_teams");
+            // Get all teams before cleanup
+            $all_teams_before = $wpdb->get_results("SELECT id, name, source_id, source_url FROM {$wpdb->prefix}bkgt_teams");
 
+            // Find and remove fake teams
             $fake_teams = array();
             $real_teams = array();
 
-            foreach ($all_teams as $team) {
+            foreach ($all_teams_before as $team) {
                 if (!$is_real_team($team->name, $team->source_id, $team->source_url)) {
                     $fake_teams[] = $team;
                 } else {
@@ -1361,18 +1369,36 @@ class BKGT_Admin {
                 }
             }
 
+            // Additional validation: Check for teams that might be old/inactive
+            // Only keep teams from recent years (last 10 years)
+            $current_year = (int)date('Y');
+            $old_teams = $wpdb->get_results($wpdb->prepare("
+                SELECT id, name, source_id
+                FROM {$wpdb->prefix}bkgt_teams
+                WHERE source_id REGEXP '^P[0-9]{4}$'
+                AND CAST(SUBSTRING(source_id, 2) AS UNSIGNED) < %d
+            ", $current_year - 10));
+
+            $old_removed = 0;
+            foreach ($old_teams as $old_team) {
+                $wpdb->delete($wpdb->prefix . 'bkgt_teams', array('id' => $old_team->id));
+                $old_removed++;
+            }
+
             // Get final team count
             $final_count = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_teams");
 
             wp_send_json_success(array(
                 'message' => sprintf(
-                    __('Cleanup completed! Removed %d fake teams and %d duplicates. %d teams remaining.', 'bkgt-data-scraping'),
+                    __('Cleanup completed! Removed %d fake teams, %d duplicates, and %d old teams. %d teams remaining.', 'bkgt-data-scraping'),
                     $removed_count,
                     $duplicates_removed,
+                    $old_removed,
                     $final_count
                 ),
                 'removed_fake' => $removed_count,
                 'removed_duplicates' => $duplicates_removed,
+                'removed_old' => $old_removed,
                 'remaining' => $final_count
             ));
 

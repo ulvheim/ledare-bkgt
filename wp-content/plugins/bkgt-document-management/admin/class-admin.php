@@ -46,7 +46,7 @@ class BKGT_Document_Admin {
         add_menu_page(
             __('Dokumenthantering', 'bkgt-document-management'),
             __('Dokument', 'bkgt-document-management'),
-            'edit_documents',
+            'manage_options',
             'bkgt-documents',
             array($this, 'admin_page'),
             'dashicons-media-document',
@@ -74,7 +74,7 @@ class BKGT_Document_Admin {
             'bkgt-documents',
             __('Mallbyggare', 'bkgt-document-management'),
             __('Mallbyggare', 'bkgt-document-management'),
-            'edit_documents',
+            'manage_options',
             'bkgt-template-builder',
             array($this, 'template_builder_page')
         );
@@ -809,7 +809,7 @@ class BKGT_Document_Admin {
     public function ajax_upload_document() {
         check_ajax_referer('bkgt_document_admin', 'nonce');
 
-        if (!current_user_can('edit_documents')) {
+        if (!current_user_can('manage_options')) {
             wp_die(__('Otillräckliga behörigheter.', 'bkgt-document-management'));
         }
 
@@ -838,7 +838,7 @@ class BKGT_Document_Admin {
     public function ajax_create_document() {
         check_ajax_referer('bkgt_document_admin', 'nonce');
 
-        if (!current_user_can('edit_documents')) {
+        if (!current_user_can('manage_options')) {
             wp_die(__('Otillräckliga behörigheter.', 'bkgt-document-management'));
         }
 

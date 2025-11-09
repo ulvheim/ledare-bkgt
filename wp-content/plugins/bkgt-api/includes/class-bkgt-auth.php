@@ -27,6 +27,21 @@ class BKGT_API_Auth {
     const REFRESH_EXPIRY_OPTION = 'refresh_token_expiry';
 
     /**
+     * Service API key option name
+     */
+    const SERVICE_API_KEY_OPTION = 'bkgt_service_api_key';
+
+    /**
+     * Service API key rotation interval option name
+     */
+    const SERVICE_KEY_ROTATION_OPTION = 'bkgt_service_key_rotation_interval';
+
+    /**
+     * Service API key last rotation option name
+     */
+    const SERVICE_KEY_LAST_ROTATION_OPTION = 'bkgt_service_key_last_rotation';
+
+    /**
      * Constructor
      */
     public function __construct() {
@@ -40,12 +55,22 @@ class BKGT_API_Auth {
         // Ensure JWT secret exists
         $this->ensure_jwt_secret();
 
+        // Ensure service API key exists
+        $this->ensure_service_api_key();
+
         // Clean up expired tokens periodically
         if (!wp_next_scheduled('bkgt_cleanup_expired_tokens')) {
             wp_schedule_event(time(), 'daily', 'bkgt_cleanup_expired_tokens');
         }
 
+        // Schedule service key rotation check
+        if (!wp_next_scheduled('bkgt_check_service_key_rotation')) {
+            wp_schedule_event(time(), 'hourly', 'bkgt_check_service_key_rotation');
+        }
+
         add_action('bkgt_cleanup_expired_tokens', array($this, 'cleanup_expired_tokens'));
+        add_action('bkgt_check_service_key_rotation', array($this, 'check_service_key_rotation'));
+        add_action('bkgt_cleanup_old_service_key', array($this, 'cleanup_old_service_key'));
     }
 
     /**
@@ -57,6 +82,25 @@ class BKGT_API_Auth {
             $secret = $this->generate_secret_key();
             update_option(self::JWT_SECRET_OPTION, $secret);
         }
+    }
+
+    /**
+     * Ensure service API key exists
+     */
+    private function ensure_service_api_key() {
+        $service_key = get_option(self::SERVICE_API_KEY_OPTION);
+        if (!$service_key) {
+            $service_key = $this->generate_service_api_key();
+            update_option(self::SERVICE_API_KEY_OPTION, $service_key);
+            update_option(self::SERVICE_KEY_LAST_ROTATION_OPTION, time());
+        }
+    }
+
+    /**
+     * Generate service API key
+     */
+    private function generate_service_api_key() {
+        return 'bkgt_svc_' . $this->generate_secret_key(32);
     }
 
     /**
@@ -314,6 +358,90 @@ class BKGT_API_Auth {
     }
 
     /**
+     * Check if service key rotation is needed
+     */
+    public function check_service_key_rotation() {
+        $rotation_interval = get_option(self::SERVICE_KEY_ROTATION_OPTION, 30 * DAY_IN_SECONDS); // 30 days default
+        $last_rotation = get_option(self::SERVICE_KEY_LAST_ROTATION_OPTION, 0);
+
+        if (time() - $last_rotation >= $rotation_interval) {
+            $this->rotate_service_api_key();
+        }
+    }
+
+    /**
+     * Rotate service API key
+     */
+    public function rotate_service_api_key() {
+        $new_key = $this->generate_service_api_key();
+        $old_key = get_option(self::SERVICE_API_KEY_OPTION);
+
+        // Store old key temporarily for transition period
+        update_option('bkgt_service_api_key_old', $old_key);
+
+        // Update to new key
+        update_option(self::SERVICE_API_KEY_OPTION, $new_key);
+        update_option(self::SERVICE_KEY_LAST_ROTATION_OPTION, time());
+
+        // Log rotation
+        error_log('BKGT API: Service API key rotated. Old key will be valid for 24 hours.');
+
+        // Schedule cleanup of old key after 24 hours
+        wp_schedule_single_event(time() + DAY_IN_SECONDS, 'bkgt_cleanup_old_service_key');
+    }
+
+    /**
+     * Validate service API key
+     */
+    public function validate_service_api_key($api_key) {
+        $current_key = get_option(self::SERVICE_API_KEY_OPTION);
+        $old_key = get_option('bkgt_service_api_key_old');
+
+        // Check current key
+        if ($api_key === $current_key) {
+            return true;
+        }
+
+        // Check old key (during transition period)
+        if ($api_key === $old_key && $old_key) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Get current service API key
+     */
+    public function get_service_api_key() {
+        return get_option(self::SERVICE_API_KEY_OPTION);
+    }
+
+    /**
+     * Set service key rotation interval
+     */
+    public function set_service_key_rotation_interval($days) {
+        $seconds = $days * DAY_IN_SECONDS;
+        update_option(self::SERVICE_KEY_ROTATION_OPTION, $seconds);
+    }
+
+    /**
+     * Get service key rotation interval in days
+     */
+    public function get_service_key_rotation_interval() {
+        $seconds = get_option(self::SERVICE_KEY_ROTATION_OPTION, 30 * DAY_IN_SECONDS);
+        return $seconds / DAY_IN_SECONDS;
+    }
+
+    /**
+     * Clean up old service key
+     */
+    public function cleanup_old_service_key() {
+        delete_option('bkgt_service_api_key_old');
+        error_log('BKGT API: Old service API key cleaned up.');
+    }
+
+    /**
      * Base64 URL encode
      */
     private function base64_url_encode($data) {
@@ -380,7 +508,15 @@ class BKGT_API_Auth {
             }
         }
 
-        // Fallback to API key authentication
+        // Check for service API key
+        if (isset($headers['x-api-key'])) {
+            if ($this->validate_service_api_key($headers['x-api-key'])) {
+                // Return a virtual service user for internal API calls
+                return $this->get_service_user();
+            }
+        }
+
+        // Fallback to user API key authentication
         if (isset($headers['x-api-key'])) {
             return $this->get_user_from_api_key($headers['x-api-key']);
         }
@@ -389,10 +525,30 @@ class BKGT_API_Auth {
     }
 
     /**
+     * Get virtual service user for internal API calls
+     */
+    private function get_service_user() {
+        // Create a virtual user object for service authentication
+        $service_user = new stdClass();
+        $service_user->ID = 0;
+        $service_user->user_login = 'bkgt_service';
+        $service_user->user_email = 'service@' . parse_url(get_site_url(), PHP_URL_HOST);
+        $service_user->display_name = 'BKGT Service Account';
+        $service_user->roles = array('administrator'); // Service has admin privileges
+        $service_user->caps = array('manage_options' => true, 'edit_posts' => true, 'delete_posts' => true);
+
+        return $service_user;
+    }
+
+    /**
      * Get user from API key
      */
     private function get_user_from_api_key($api_key) {
         global $wpdb;
+
+        error_log("BKGT API: Checking API key: " . substr($api_key, 0, 8) . "...");
+        error_log("BKGT API: Table prefix: " . $wpdb->prefix);
+        error_log("BKGT API: Full table name: " . $wpdb->prefix . 'bkgt_api_keys');
 
         $key_data = $wpdb->get_row($wpdb->prepare(
             "SELECT * FROM {$wpdb->prefix}bkgt_api_keys
@@ -403,8 +559,20 @@ class BKGT_API_Auth {
         ));
 
         if (!$key_data) {
+            error_log("BKGT API: API key not found in database");
+            // Check if table exists
+            $table_exists = $wpdb->get_var("SHOW TABLES LIKE '{$wpdb->prefix}bkgt_api_keys'");
+            error_log("BKGT API: Table exists: " . ($table_exists ? 'yes' : 'no'));
+
+            if ($table_exists) {
+                // Check how many keys exist
+                $key_count = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_api_keys");
+                error_log("BKGT API: Total keys in table: " . $key_count);
+            }
             return false;
         }
+
+        error_log("BKGT API: API key found, created_by user ID: " . $key_data->created_by);
 
         // Update last used timestamp
         $wpdb->update(
@@ -415,7 +583,10 @@ class BKGT_API_Auth {
             array('%d')
         );
 
-        return get_user_by('ID', $key_data->created_by);
+        $user = get_user_by('ID', $key_data->created_by);
+        error_log("BKGT API: User lookup result: " . ($user ? 'found' : 'not found'));
+
+        return $user;
     }
 
     /**
@@ -471,6 +642,27 @@ class BKGT_API_Auth {
             array('is_active' => 0),
             $where,
             array('%d'),
+            $where_format
+        );
+    }
+
+    /**
+     * Delete API key permanently
+     */
+    public function delete_api_key($key_id, $user_id = null) {
+        global $wpdb;
+
+        $where = array('id' => $key_id);
+        $where_format = array('%d');
+
+        if ($user_id) {
+            $where['created_by'] = $user_id;
+            $where_format[] = '%d';
+        }
+
+        return $wpdb->delete(
+            $wpdb->prefix . 'bkgt_api_keys',
+            $where,
             $where_format
         );
     }

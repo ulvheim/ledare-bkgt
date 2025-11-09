@@ -17,7 +17,10 @@ Write-Host ""
 $files = @(
     @{ local = "$localPath\bkgt-document-management.php"; remote = "bkgt-document-management.php" },
     @{ local = "$localPath\frontend\class-frontend.php"; remote = "frontend/class-frontend.php" },
-    @{ local = "$localPath\assets\js\frontend.js"; remote = "assets/js/frontend.js" }
+    @{ local = "$localPath\assets\js\frontend.js"; remote = "assets/js/frontend.js" },
+    @{ local = "$localPath\admin\class-admin.php"; remote = "admin/class-admin.php" },
+    @{ local = "$localPath\admin\class-export-engine.php"; remote = "admin/class-export-engine.php" },
+    @{ local = "$localPath\admin\class-smart-templates.php"; remote = "admin/class-smart-templates.php" }
 )
 
 # Verify files exist
@@ -50,6 +53,9 @@ binary
 put "$($files[0].local)" $($files[0].remote)
 put "$($files[1].local)" $($files[1].remote)
 put "$($files[2].local)" $($files[2].remote)
+put "$($files[3].local)" $($files[3].remote)
+put "$($files[4].local)" $($files[4].remote)
+put "$($files[5].local)" $($files[5].remote)
 ls -la
 bye
 "@
@@ -65,7 +71,7 @@ Write-Host "   - Open FileZilla"
 Write-Host "   - Host: sftp://ssh.loopia.se"
 Write-Host "   - Username: $SftpUser"
 Write-Host "   - Navigate to: $RemotePath"
-Write-Host "   - Drag & drop 3 files"
+Write-Host "   - Drag & drop 6 files"
 Write-Host ""
 Write-Host "2. WinSCP:" -ForegroundColor Yellow
 Write-Host "   - Protocol: SFTP"
@@ -86,8 +92,11 @@ Write-Host "cd $RemotePath"
 Write-Host "ls -la"
 Write-Host "php -l bkgt-document-management.php"
 Write-Host "php -l frontend/class-frontend.php"
+Write-Host "php -l admin/class-admin.php"
+Write-Host "php -l admin/class-export-engine.php"
+Write-Host "php -l admin/class-smart-templates.php"
 Write-Host "chmod 755 ."
-Write-Host "chmod 644 *.php frontend/*.php assets/js/*.js"
+Write-Host "chmod 644 *.php frontend/*.php admin/*.php assets/js/*.js"
 Write-Host "exit"
 Write-Host ""
 Write-Host "Then activate plugin in WordPress: https://ledare.bkgt.se/wp-admin/"

@@ -55,7 +55,7 @@ class BKGT_Advanced_Export_Engine {
             'bkgt-documents',
             __('Exportera dokument', 'bkgt-document-management'),
             __('Exportera', 'bkgt-document-management'),
-            'edit_documents',
+            'manage_options',
             'bkgt-export-engine',
             array($this, 'admin_page')
         );
@@ -503,7 +503,7 @@ class BKGT_Advanced_Export_Engine {
      * API permissions check
      */
     public function api_permissions_check($request) {
-        return current_user_can('edit_documents');
+        return current_user_can('manage_options');
     }
 
     /**

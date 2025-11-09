@@ -21,7 +21,17 @@
             var id = $button.data('id');
             var name = $button.data('name');
             
-            if (!confirm(bkgtInventory.strings.confirmDelete.replace('%s', name))) {
+            // Get appropriate confirmation message
+            var confirmMessage = bkgtInventory.strings.confirmDelete;
+            if (action === 'delete_manufacturer') {
+                confirmMessage = bkgtInventory.strings.confirmDeleteManufacturer.replace('%s', name);
+            } else if (action === 'delete_item_type') {
+                confirmMessage = bkgtInventory.strings.confirmDeleteItemType.replace('%s', name);
+            } else if (action === 'delete_location') {
+                confirmMessage = bkgtInventory.strings.confirmDeleteLocation.replace('%s', name);
+            }
+            
+            if (!confirm(confirmMessage)) {
                 return;
             }
             

@@ -35,7 +35,7 @@ class BKGT_Smart_Template_Application {
             'bkgt-documents',
             __('Smarta mallar', 'bkgt-document-management'),
             __('Smarta mallar', 'bkgt-document-management'),
-            'edit_documents',
+            'manage_options',
             'bkgt-smart-templates',
             array($this, 'admin_page')
         );

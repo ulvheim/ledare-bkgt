@@ -1,9 +1,170 @@
-# BKGT API Plugin
+## 🚀 Quick Start for App Developers
 
-A comprehensive REST API plugin for the BKGT WordPress site, providing secure access to teams, players, events, documents, and statistics data for mobile and desktop applications.
+### Authentication Setup
+
+**Most API endpoints require authentication.** Choose one of the following methods:
+
+#### Option 1: API Key Authentication (Recommended for mobile apps)
+```javascript
+// Include API key in all requests
+const headers = {
+  'X-API-Key': 'your_api_key_here'  // Replace with your actual API key
+};
+
+fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/teams', { headers })
+  .then(response => response.json())
+  .then(data => console.log(data));
+```
+
+#### Option 3: Service API Key Authentication (For internal/system operations)
+```javascript
+// Service API key for internal WordPress operations
+const headers = {
+  'X-API-Key': 'bkgt_svc_1a2b3c4d5e6f...'  // Service key with admin privileges
+};
+
+fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/health', { headers })
+  .then(response => response.json())
+  .then(data => console.log(data));
+```
+
+**Note:** Documentation endpoints (`/docs` and `/routes`) are public and do not require authentication.
+
+### Testing Your Integration
+
+Access the production test suite at:
+**https://ledare.bkgt.se/wp-content/plugins/bkgt-api/test-production-api.php**
+
+This will test all endpoints with your API key and confirm everything is working.
+
+### Common Endpoints for Mobile Apps
+
+#### Get API Documentation
+```javascript
+GET https://ledare.bkgt.se/wp-json/bkgt/v1/docs?format=html
+// No authentication required - public endpoint
+```
+
+#### Get API Routes
+```javascript
+GET https://ledare.bkgt.se/wp-json/bkgt/v1/routes
+// No authentication required - public endpoint
+```
+
+#### Get All Teams
+```javascript
+GET https://ledare.bkgt.se/wp-json/bkgt/v1/teams
+Headers: { 'X-API-Key': 'your_api_key_here' }
+```
+
+#### Get Equipment Manufacturers
+```javascript
+GET https://ledare.bkgt.se/wp-json/bkgt/v1/equipment/manufacturers
+Headers: { 'X-API-Key': '047619e3c335576a70fcd1f9929883ca' }
+```
+
+#### Get System Statistics
+```javascript
+GET https://ledare.bkgt.se/wp-json/bkgt/v1/stats/overview
+Headers: { 'X-API-Key': '047619e3c335576a70fcd1f9929883ca' }
+```
+
+### Error Handling
+
+```javascript
+fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/teams', { headers })
+  .then(response => {
+    if (!response.ok) {
+      if (response.status === 401) {
+        // Authentication failed - check API key
+        throw new Error('Authentication failed');
+      }
+      if (response.status === 429) {
+        // Rate limited
+        throw new Error('Too many requests');
+      }
+      throw new Error(`HTTP ${response.status}`);
+    }
+    return response.json();
+  })
+  .then(data => console.log(data))
+  .catch(error => console.error('API Error:', error));
+```
+
+### Obtaining API Keys
+
+**⚠️ Security Notice:** API keys are sensitive credentials and should never be hardcoded in documentation or shared publicly.
+
+**For External Applications:**
+- Contact the system administrator to obtain a valid API key
+- API keys are managed through the WordPress admin interface
+- Keys can have different permission levels and expiration dates
+
+**For Development/Testing:**
+- Use the API key provided by your system administrator
+- Never commit API keys to version control
+- Consider using environment variables or secure key management systems
+- For local development, create a `.env` file (excluded from version control)
+
+```javascript
+// Example: Load from environment variable
+const apiKey = process.env.BKGT_API_KEY;
+const headers = {
+  'X-API-Key': apiKey
+};
+```
+
+All endpoints now require authentication - there are no public endpoints.
+
+## 🏗️ API-First Architecture
+
+This plugin implements a comprehensive API-First Architecture with the following key components:
+
+### Service API Keys
+- **Automatic Generation:** Service API keys are automatically generated on plugin activation
+- **Controlled Rotation:** Keys are rotated every 30 days with a 24-hour transition period
+- **Admin Management:** Service keys can be manually rotated and configured via WordPress admin
+- **Full Access:** Service keys have administrator privileges for internal operations
+
+### Service-to-Service Authentication
+- **Internal API Calls:** WordPress components use service API keys for internal API communication
+- **Secure Headers:** All internal API calls include proper authentication headers
+- **Fallback Support:** Graceful fallback to direct database access if API calls fail
+
+### Health Monitoring
+- **System Health Endpoint:** `GET /bkgt/v1/health` provides system status and authentication type
+- **Database Checks:** Validates database connectivity and response times
+- **Service Validation:** Confirms API services are operational
+
+### Admin Interface Migration
+- **API-Based Operations:** Admin interfaces now use API calls instead of direct database queries
+- **Consistent Access:** Ensures all data access goes through the same API layer
+- **Improved Security:** Reduces direct database access and centralizes data validation
+
+### Key Benefits
+- **Consistency:** All data access (internal and external) uses the same API
+- **Security:** Centralized authentication and authorization
+- **Maintainability:** Single source of truth for data operations
+- **Scalability:** API layer can be optimized independently of admin interfaces
+- **Monitoring:** Comprehensive health checks and usage tracking
+
+### Rate Limits
+
+- **Authenticated requests:** 1000 per hour
+- **Unauthenticated requests:** 100 per hour (will get 401 errors)
+
+### Support
+
+If you encounter issues:
+1. Check the test suite: https://ledare.bkgt.se/wp-content/plugins/bkgt-api/test-production-api.php
+2. Verify your API key is correct
+3. Ensure you're using HTTPS
+4. Check the error response for details
 
 ## Features
 
+- **Self-Documenting API**: Dynamic documentation endpoints that automatically stay current
+- **API Route Discovery**: Programmatically discover all available endpoints and their capabilities
 - **JWT Authentication**: Secure token-based authentication with refresh tokens
 - **API Key Management**: Generate and manage API keys for different applications
 - **Rate Limiting**: Prevent abuse with configurable rate limits
@@ -14,14 +175,305 @@ A comprehensive REST API plugin for the BKGT WordPress site, providing secure ac
 
 ## API Endpoints
 
+### Documentation
+
+#### GET `/wp-json/bkgt/v1/docs`
+Get the complete API documentation.
+
+**Authentication:** None required (public endpoint)
+**Query Parameters:**
+- `format` (string, optional): Response format - `html` (default), `markdown`, or `json`
+
+**✨ Dynamic Feature:** This endpoint automatically serves the latest documentation from the README.md file. Any changes to the documentation are immediately reflected without requiring code updates.
+
+**Response (200) - HTML format:**
+```html
+<!DOCTYPE html>
+<html>
+<head><title>BKGT API Documentation</title></head>
+<body>
+<h1>BKGT API Documentation</h1>
+<!-- Complete documentation content with styling -->
+</body>
+</html>
+```
+
+**Response (200) - JSON format:**
+```json
+{
+    "documentation": "# BKGT API Documentation\n\nComplete markdown content...",
+    "format": "markdown",
+    "last_updated": 1735689600
+}
+```
+
+**Usage Examples:**
+```javascript
+// Get documentation as styled HTML (perfect for web browsers)
+fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/docs')
+  .then(r => r.text())
+  .then(html => document.body.innerHTML = html);
+
+// Get documentation as JSON for programmatic processing
+fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/docs?format=json')
+  .then(r => r.json())
+  .then(data => console.log('Last updated:', new Date(data.last_updated * 1000)));
+
+// Get raw markdown for custom processing
+fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/docs?format=markdown')
+  .then(r => r.text())
+  .then(markdown => console.log('Raw docs:', markdown));
+```
+
+#### GET `/wp-json/bkgt/v1/routes`
+Get information about all available API routes.
+
+**Authentication:** None required (public endpoint)
+**Query Parameters:**
+- `namespace` (string, optional): API namespace to filter by (default: "bkgt/v1")
+- `detailed` (boolean, optional): Include detailed route configuration (default: false)
+
+**✨ Dynamic Feature:** This endpoint automatically discovers all registered API routes in real-time. New endpoints from plugin updates are immediately available without documentation updates.
+
+**Response (200) - Simple mode:**
+```json
+{
+    "namespace": "bkgt/v1",
+    "routes": {
+        "/bkgt/v1/teams": ["GET"],
+        "/bkgt/v1/equipment": ["GET", "POST"],
+        "/bkgt/v1/docs": ["GET"],
+        "/bkgt/v1/routes": ["GET"]
+    },
+    "total_routes": 45,
+    "detailed": false,
+    "generated_at": "2025-11-09 12:00:00"
+}
+```
+
+**Response (200) - Detailed mode (`?detailed=true`):**
+```json
+{
+    "namespace": "bkgt/v1",
+    "routes": {
+        "/bkgt/v1/teams": {
+            "methods": ["GET"],
+            "args": {
+                "page": {"type": "integer", "default": 1},
+                "per_page": {"type": "integer", "default": 10}
+            },
+            "permission_callback": ["BKGT_API_Endpoints", "validate_api_key"]
+        }
+    },
+    "total_routes": 45,
+    "detailed": true,
+    "generated_at": "2025-11-09 12:00:00"
+}
+```
+
+**Usage Examples:**
+```javascript
+// Discover all available endpoints
+fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/routes')
+  .then(r => r.json())
+  .then(data => {
+    console.log(`${data.total_routes} endpoints available`);
+    Object.keys(data.routes).forEach(route => {
+      console.log(`- ${route}: ${data.routes[route].join(', ')}`);
+    });
+  });
+
+// Get detailed route information for development
+fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/routes?detailed=true')
+  .then(r => r.json())
+  .then(data => {
+    // Use detailed route information for API client generation
+    console.log('Detailed route configs:', data.routes);
+  });
+
+// Check for specific endpoint availability
+fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/routes')
+  .then(r => r.json())
+  .then(data => {
+    const hasEquipmentEndpoint = Object.keys(data.routes).some(route =>
+      route.includes('/equipment')
+    );
+    console.log('Equipment endpoints available:', hasEquipmentEndpoint);
+  });
+```
+
+**🔄 Auto-Discovery Benefits:**
+- **Always Current:** Routes are discovered dynamically from WordPress REST API registry
+- **Plugin Agnostic:** Works with any plugin that registers REST routes
+- **Real-time Updates:** Changes are reflected immediately when plugins are activated/deactivated
+- **Development Aid:** Perfect for building dynamic API clients or documentation tools
+
+### Dynamic Documentation Benefits
+
+The self-documenting API system provides several key advantages:
+
+#### 🚀 **Always Up-to-Date**
+- Documentation automatically reflects code changes
+- No manual synchronization required between code and docs
+- Eliminates documentation drift over time
+
+#### 🔧 **Developer Experience**
+- **API Discovery:** Instantly see all available endpoints
+- **Interactive Docs:** Browse documentation directly in browsers
+- **Multiple Formats:** Choose HTML for reading, JSON for processing, Markdown for editing
+- **No Authentication:** Public access for easy sharing and reference
+
+#### 🛠️ **Integration Ready**
+- **Machine Readable:** JSON responses perfect for API client generation
+- **CI/CD Friendly:** Automated testing can verify endpoint availability
+- **Third-party Tools:** Easy integration with API gateways, documentation tools, and monitoring systems
+
+#### 📈 **Maintenance Free**
+- **Zero Maintenance:** Documentation updates automatically with code changes
+- **Plugin Compatible:** Works with any WordPress plugin that registers REST routes
+- **Version Agnostic:** Automatically adapts to API versioning changes
+
+### Usage Examples
+
+#### Building an API Client
+```javascript
+// Discover available endpoints
+const routes = await fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/routes?detailed=true')
+  .then(r => r.json());
+
+// Generate client methods dynamically
+const apiClient = {};
+Object.entries(routes.routes).forEach(([route, config]) => {
+  const endpoint = route.replace('/bkgt/v1/', '');
+  apiClient[endpoint] = (params) => {
+    return fetch(`https://ledare.bkgt.se${route}`, {
+      method: config.methods[0], // Use first available method
+      headers: { 'Authorization': 'Bearer ' + apiKey },
+      body: JSON.stringify(params)
+    });
+  };
+});
+```
+
+#### Documentation Integration
+```javascript
+// Embed live documentation in your application
+const docsContainer = document.getElementById('api-docs');
+const docs = await fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/docs')
+  .then(r => r.text());
+docsContainer.innerHTML = docs;
+```
+
+#### Monitoring and Health Checks
+```javascript
+// Verify API availability
+const healthCheck = async () => {
+  try {
+    const routes = await fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/routes')
+      .then(r => r.json());
+    return routes.total_routes > 0;
+  } catch (error) {
+    return false;
+  }
+};
+```
+
+### Troubleshooting
+
+#### Common Issues
+
+**Documentation not loading:**
+- Ensure the `bkgt-api` plugin is activated
+- Check that the README.md file exists in the plugin directory
+- Verify WordPress REST API is enabled
+
+**Routes not showing:**
+- Confirm plugins registering routes are active
+- Check for PHP errors in server logs
+- Ensure proper WordPress REST API initialization
+
+**Authentication issues:**
+- Verify API key/JWT token format
+- Check token expiration
+- Confirm user has appropriate permissions
+
+**CORS errors:**
+- Ensure proper CORS headers are set for cross-origin requests
+- Check server configuration for API access
+
+#### Debug Mode
+Enable WordPress debug mode to see detailed error information:
+```php
+// In wp-config.php
+define('WP_DEBUG', true);
+define('WP_DEBUG_LOG', true);
+```
+
+#### Testing Endpoints
+Use tools like Postman, curl, or browser dev tools to test endpoints:
+```bash
+# Test documentation endpoint
+curl -X GET "https://ledare.bkgt.se/wp-json/bkgt/v1/docs"
+
+# Test routes discovery
+curl -X GET "https://ledare.bkgt.se/wp-json/bkgt/v1/routes?detailed=true"
+```
+
+## Changelog
+
+### v2.1.0 - Dynamic Documentation (2025-11-09)
+- ✨ **Added self-documenting API endpoints**
+  - `/docs` endpoint with HTML, JSON, and Markdown formats
+  - `/routes` endpoint for automatic API discovery
+- 🔄 **Dynamic documentation system**
+  - Auto-generates documentation from README.md
+  - Real-time route discovery from WordPress REST API
+  - No manual updates required when endpoints change
+- 📚 **Enhanced developer experience**
+  - Public access to documentation (no auth required)
+  - Multiple output formats for different use cases
+  - Integration-ready JSON responses
+
+### v2.0.0 - Equipment API Enhancement (2025-11-08)
+- ➕ **Added size field to equipment API**
+  - Database schema updated with size column
+  - CRUD operations support size parameter
+  - Frontend compatibility ensured
+- 🔧 **API endpoint improvements**
+  - Enhanced error handling and validation
+  - Consistent response formats
+  - Better parameter documentation
+
+### v1.0.0 - Initial Release (2025-11-01)
+- 🚀 **Core API functionality**
+  - JWT and API key authentication
+  - Teams and equipment management
+  - WordPress REST API integration
+- 📖 **Basic documentation**
+  - API endpoint reference
+  - Authentication guide
+  - Usage examples
+
 ### Authentication
 
 ### Equipment
 
+> **Important:** Equipment CRUD operations (CREATE, UPDATE, DELETE) are implemented in the `bkgt-inventory` plugin, not this `bkgt-api` plugin. This plugin only provides READ operations and reference data (manufacturers, types, locations, analytics).
+>
+> **Plugin Separation:**
+> - **bkgt-api**: Read-only equipment endpoints, manufacturers, types, locations, analytics
+> - **bkgt-inventory**: Equipment CRUD operations, assignments, bulk operations
+>
+> For equipment CRUD operations, use the `bkgt-inventory` plugin endpoints:
+> - `POST /wp-json/bkgt/v1/equipment` - Create equipment (bkgt-inventory plugin)
+> - `PUT /wp-json/bkgt/v1/equipment/{id}` - Update equipment (bkgt-inventory plugin)
+> - `DELETE /wp-json/bkgt/v1/equipment/{id}` - Delete equipment (bkgt-inventory plugin)
+> - `POST /wp-json/bkgt/v1/equipment/bulk` - Bulk operations (bkgt-inventory plugin)
+
 #### GET `/wp-json/bkgt/v1/equipment/preview-identifier`
 Preview the unique identifier that would be generated for new equipment.
 
-**Authentication:** JWT Bearer token or API Key  
+**Authentication:** JWT Bearer token or API Key
 **Query Parameters:**
 - `manufacturer_id` (integer, required): Manufacturer ID
 - `item_type_id` (integer, required): Item type ID
@@ -36,17 +488,20 @@ Preview the unique identifier that would be generated for new equipment.
 ```
 
 #### GET `/wp-json/bkgt/v1/equipment`
+Get all equipment items with optional filtering.
 
-**Authentication:** JWT Bearer token or API Key  
+**Authentication:** JWT Bearer token or API Key
 **Query Parameters:**
 - `page` (integer): Page number (default: 1)
 - `per_page` (integer): Items per page (default: 10, max: 100)
 - `manufacturer_id` (integer): Filter by manufacturer
 - `item_type_id` (integer): Filter by item type
+- `location_id` (integer): Filter by location
 - `condition_status` (string): Filter by condition (normal, needs_repair, repaired, reported_lost, scrapped)
-- `assigned_to` (string): Filter by assignment (club, team, individual)
-- `location_id` (integer): Filter by storage location
-- `search` (string): Search in item titles and identifiers
+- `assignment_status` (string): Filter by assignment status (assigned, available, overdue)
+- `search` (string): Search in item identifiers or notes
+- `orderby` (string): Sort field (id, unique_identifier, created_date, updated_date)
+- `order` (string): Sort order (asc, desc)
 
 **Response (200):**
 ```json
@@ -55,23 +510,20 @@ Preview the unique identifier that would be generated for new equipment.
         {
             "id": 1,
             "unique_identifier": "0001-0001-00001",
-            "title": "Football Helmet - Adult Large",
             "manufacturer_id": 1,
             "manufacturer_name": "Schutt",
             "item_type_id": 1,
             "item_type_name": "Helmet",
-            "storage_location": "Storage Room A",
+            "location_id": 1,
+            "location_name": "Storage Room A",
             "condition_status": "normal",
-            "condition_date": null,
-            "condition_reason": null,
-            "sticker_code": "HELM-001",
-            "assignment_type": "individual",
-            "assigned_to_id": 25,
-            "assigned_to_name": "John Doe",
-            "assignment_date": "2024-01-15T10:00:00Z",
-            "due_date": "2024-06-30",
+            "assignment_status": "available",
+            "purchase_date": "2024-01-01",
+            "purchase_price": 299.99,
+            "warranty_expiry": "2026-01-01",
+            "notes": "Brand new helmet",
             "created_date": "2024-01-01T00:00:00Z",
-            "updated_date": "2024-01-15T10:00:00Z"
+            "updated_date": "2024-01-01T00:00:00Z"
         }
     ],
     "total": 1,
@@ -84,64 +536,223 @@ Preview the unique identifier that would be generated for new equipment.
 #### GET `/wp-json/bkgt/v1/equipment/{id}`
 Get specific equipment item details.
 
-**Authentication:** JWT Bearer token or API Key  
+**Authentication:** JWT Bearer token or API Key
 **URL Parameters:**
 - `id` (integer): Equipment item ID
 
-#### POST `/wp-json/bkgt/v1/equipment`
-Create a new equipment item (Admin only).
-
-**Authentication:** JWT Bearer token (admin role)  
-**Request Body:**
+**Response (200):**
 ```json
 {
+    "id": 1,
+    "unique_identifier": "0001-0001-00001",
     "manufacturer_id": 1,
+    "manufacturer_name": "Schutt",
     "item_type_id": 1,
-    "title": "Football Helmet - Adult Large",
-    "storage_location": "Storage Room A",
-    "sticker_code": "HELM-001"
+    "item_type_name": "Helmet",
+    "location_id": 1,
+    "location_name": "Storage Room A",
+    "condition_status": "normal",
+    "assignment_status": "available",
+    "purchase_date": "2024-01-01",
+    "purchase_price": 299.99,
+    "warranty_expiry": "2026-01-01",
+    "notes": "Brand new helmet",
+    "assignment_history": [
+        {
+            "assignment_id": 1,
+            "assignee_type": "individual",
+            "assignee_id": 25,
+            "assignee_name": "John Doe",
+            "assigned_date": "2024-02-01T00:00:00Z",
+            "due_date": "2024-06-01",
+            "return_date": "2024-05-15T00:00:00Z",
+            "condition_on_return": "normal"
+        }
+    ],
+    "created_date": "2024-01-01T00:00:00Z",
+    "updated_date": "2024-01-01T00:00:00Z"
 }
+```
+
+### 🔧 Equipment CRUD Operations (bkgt-inventory Plugin)
+
+**Important:** Equipment creation, updates, and deletion are handled by the `bkgt-inventory` plugin. Use these endpoints for managing equipment inventory:
+
+#### Creating Equipment
+
+**Endpoint:** `POST /wp-json/bkgt/v1/equipment`  
+**Plugin:** bkgt-inventory  
+**Authentication:** JWT Bearer token or API Key
+
+```javascript
+const equipmentData = {
+    "title": "Football Helmet",    // Required: Equipment name/title
+    "manufacturer_id": 1,         // Required: Get from /equipment/manufacturers
+    "item_type_id": 1,            // Required: Get from /equipment/types
+    "size": "Large",              // Optional: Equipment size (S, M, L, XL, etc.)
+    "storage_location": "Storage Room A", // Optional: Storage location
+    "condition_status": "normal", // Optional: normal, needs_repair, repaired, reported_lost, scrapped
+    "notes": "New helmet for spring season"
+};
+
+fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': 'your_api_key_here'
+    },
+    body: JSON.stringify(equipmentData)
+})
+.then(response => response.json())
+.then(data => {
+    console.log('Equipment created:', data);
+    // Response includes generated unique_identifier
+});
 ```
 
 **Response (201):**
 ```json
 {
-    "id": 2,
-    "unique_identifier": "0001-0001-00002",
-    "title": "Football Helmet - Adult Large",
+    "id": 123,
+    "unique_identifier": "0001-0001-00005",
+    "title": "Football Helmet",
+    "size": "Large",
     "manufacturer_id": 1,
-    "manufacturer_name": "Schutt",
     "item_type_id": 1,
-    "item_type_name": "Helmet",
     "storage_location": "Storage Room A",
     "condition_status": "normal",
-    "sticker_code": "HELM-001",
-    "created_date": "2024-01-20T14:30:00Z"
+    "notes": "New helmet for spring season",
+    "created_at": "2024-01-15T10:30:00Z",
+    "updated_at": "2024-01-15T10:30:00Z"
 }
 ```
 
-#### PUT `/wp-json/bkgt/v1/equipment/{id}`
-Update equipment item information (Admin only).
+#### Updating Equipment
 
-**Authentication:** JWT Bearer token (admin role)  
-**URL Parameters:**
-- `id` (integer): Equipment item ID
+**Endpoint:** `PUT /wp-json/bkgt/v1/equipment/{id}`  
+**Plugin:** bkgt-inventory  
+**Authentication:** JWT Bearer token or API Key
 
-**Request Body:**
-```json
-{
-    "title": "Football Helmet - Adult Large - Updated",
+```javascript
+const updateData = {
+    "size": "Medium",           // Update equipment size
     "condition_status": "needs_repair",
-    "condition_reason": "Crack in shell"
-}
+    "notes": "Crack in helmet shell - needs repair"
+};
+
+fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment/123', {
+    method: 'PUT',
+    headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': 'your_api_key_here'
+    },
+    body: JSON.stringify(updateData)
+})
+.then(response => response.json())
+.then(data => {
+    console.log('Equipment updated:', data);
+});
 ```
 
-#### DELETE `/wp-json/bkgt/v1/equipment/{id}`
-Delete an equipment item (Admin only).
+#### Deleting Equipment
 
-**Authentication:** JWT Bearer token (admin role)  
-**URL Parameters:**
-- `id` (integer): Equipment item ID
+**Endpoint:** `DELETE /wp-json/bkgt/v1/equipment/{id}`  
+**Plugin:** bkgt-inventory  
+**Authentication:** JWT Bearer token
+
+```javascript
+fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment/123', {
+    method: 'DELETE',
+    headers: {
+        'X-API-Key': 'your_api_key_here'
+    }
+})
+.then(response => {
+    if (response.status === 204) {
+        console.log('Equipment deleted successfully');
+    } else {
+        return response.json();
+    }
+});
+```
+
+#### Bulk Equipment Operations
+
+**Endpoint:** `POST /wp-json/bkgt/v1/equipment/bulk`  
+**Plugin:** bkgt-inventory  
+**Authentication:** JWT Bearer token
+
+```javascript
+const bulkData = {
+    "operation": "update",  // create, update, delete
+    "equipment_ids": [1, 2, 3, 4, 5],
+    "data": {
+        "location_id": 3,
+        "condition_status": "normal"
+    }
+};
+
+fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment/bulk', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': 'your_api_key_here'
+    },
+    body: JSON.stringify(bulkData)
+})
+.then(response => response.json())
+.then(data => {
+    console.log('Bulk operation completed:', data);
+});
+```
+
+**Bulk Operations:**
+- `create`: Add multiple equipment items
+- `update`: Update multiple equipment items with same data
+- `delete`: Delete multiple equipment items
+
+#### Equipment Assignment Management
+
+**Assign Equipment:** `POST /wp-json/bkgt/v1/equipment/{id}/assignment`  
+**Plugin:** bkgt-inventory
+
+```javascript
+const assignmentData = {
+    "assignment_type": "individual",  // individual, team, club
+    "assignee_id": 25,               // User ID for individual, Team ID for team
+    "due_date": "2024-06-30",
+    "notes": "Assigned for spring training"
+};
+
+fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment/123/assignment', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': 'your_api_key_here'
+    },
+    body: JSON.stringify(assignmentData)
+});
+```
+
+**Unassign Equipment:** `DELETE /wp-json/bkgt/v1/equipment/{id}/assignment`  
+**Plugin:** bkgt-inventory
+
+```javascript
+const returnData = {
+    "return_date": "2024-05-15",
+    "condition_status": "normal",
+    "notes": "Returned in good condition"
+};
+
+fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment/123/assignment', {
+    method: 'DELETE',
+    headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': 'your_api_key_here'
+    },
+    body: JSON.stringify(returnData)
+});
+```
 
 ### Equipment Manufacturers
 
@@ -172,6 +783,84 @@ Get specific manufacturer details.
 **Authentication:** JWT Bearer token or API Key  
 **URL Parameters:**
 - `id` (integer): Manufacturer ID
+
+#### POST `/wp-json/bkgt/v1/equipment/manufacturers`
+Create a new manufacturer.
+
+**Authentication:** JWT Bearer token or API Key  
+**Request Body:**
+```json
+{
+    "name": "New Manufacturer Name",
+    "description": "Optional description",
+    "website": "https://manufacturer.com",
+    "contact_email": "contact@manufacturer.com"
+}
+```
+
+**Response (201):**
+```json
+{
+    "message": "Manufacturer created successfully.",
+    "manufacturer": {
+        "id": 123,
+        "manufacturer_id": "MFG-A1B2C3D4",
+        "name": "New Manufacturer Name",
+        "contact_info": {
+            "description": "Optional description",
+            "website": "https://manufacturer.com",
+            "email": "contact@manufacturer.com"
+        }
+    }
+}
+```
+
+#### PUT `/wp-json/bkgt/v1/equipment/manufacturers/{id}`
+Update an existing manufacturer.
+
+**Authentication:** JWT Bearer token or API Key  
+**URL Parameters:**
+- `id` (integer): Manufacturer ID
+
+**Request Body:**
+```json
+{
+    "name": "Updated Manufacturer Name",
+    "description": "Updated description",
+    "website": "https://updated-manufacturer.com",
+    "contact_email": "updated@manufacturer.com"
+}
+```
+
+**Response (200):**
+```json
+{
+    "message": "Manufacturer updated successfully."
+}
+```
+
+#### DELETE `/wp-json/bkgt/v1/equipment/manufacturers/{id}`
+Delete a manufacturer.
+
+**Authentication:** JWT Bearer token or API Key  
+**URL Parameters:**
+- `id` (integer): Manufacturer ID
+
+**Response (200):**
+```json
+{
+    "message": "Manufacturer deleted successfully."
+}
+```
+
+**Error (409):** If manufacturer is assigned to equipment items
+```json
+{
+    "code": "manufacturer_in_use",
+    "message": "Cannot delete manufacturer that is assigned to equipment items.",
+    "data": { "status": 409 }
+}
+```
 
 ### Equipment Types
 
@@ -204,12 +893,121 @@ Get specific equipment type details.
 **URL Parameters:**
 - `id` (integer): Equipment type ID
 
+#### POST `/wp-json/bkgt/v1/equipment/types`
+Create a new equipment type.
+
+**Authentication:** JWT Bearer token or API Key  
+**Request Body:**
+```json
+{
+    "name": "New Equipment Type",
+    "description": "Description of the equipment type",
+    "custom_fields": {
+        "size": "string",
+        "certification": "string",
+        "weight": "number"
+    }
+}
+```
+
+**Response (201):**
+```json
+{
+    "message": "Item type created successfully.",
+    "type": {
+        "id": 123,
+        "item_type_id": "TYPE-A1B2C3D4",
+        "name": "New Equipment Type",
+        "description": "Description of the equipment type",
+        "custom_fields": {
+            "size": "string",
+            "certification": "string",
+            "weight": "number"
+        }
+    }
+}
+```
+
+#### PUT `/wp-json/bkgt/v1/equipment/types/{id}`
+Update an existing equipment type.
+
+**Authentication:** JWT Bearer token or API Key  
+**URL Parameters:**
+- `id` (integer): Equipment type ID
+
+**Request Body:**
+```json
+{
+    "name": "Updated Equipment Type",
+    "description": "Updated description",
+    "custom_fields": {
+        "size": "string",
+        "certification": "string",
+        "color": "string"
+    }
+}
+```
+
+**Response (200):**
+```json
+{
+    "message": "Item type updated successfully."
+}
+```
+
+#### DELETE `/wp-json/bkgt/v1/equipment/types/{id}`
+Delete an equipment type.
+
+**Authentication:** JWT Bearer token or API Key  
+**URL Parameters:**
+- `id` (integer): Equipment type ID
+
+**Response (200):**
+```json
+{
+    "message": "Item type deleted successfully."
+}
+```
+
+**Error (409):** If item type is assigned to equipment items
+```json
+{
+    "code": "item_type_in_use",
+    "message": "Cannot delete item type that is assigned to equipment items.",
+    "data": { "status": 409 }
+}
+```
+
 ### Equipment Assignments
 
-#### POST `/wp-json/bkgt/v1/equipment/{id}/assign`
-Assign equipment to a user, team, or club (Admin only).
+> **Important:** Equipment assignment endpoints are implemented in the `bkgt-inventory` plugin, not this `bkgt-api` plugin. The endpoints documented below are handled by the bkgt-inventory plugin.
 
-**Authentication:** JWT Bearer token (admin role)  
+#### GET `/wp-json/bkgt/v1/equipment/{id}/assignment`
+Get current assignment details for equipment item.
+
+**Plugin:** bkgt-inventory
+**Authentication:** JWT Bearer token or API Key
+**URL Parameters:**
+- `id` (integer): Equipment item ID
+
+**Response (200):**
+```json
+{
+    "assignment": {
+        "type": "individual",
+        "id": 25,
+        "name": "John Doe",
+        "assigned_date": "2024-01-15T10:30:00Z",
+        "due_date": "2024-06-30"
+    }
+}
+```
+
+#### POST `/wp-json/bkgt/v1/equipment/{id}/assignment`
+Assign equipment to a user, team, or club.
+
+**Plugin:** bkgt-inventory
+**Authentication:** JWT Bearer token
 **URL Parameters:**
 - `id` (integer): Equipment item ID
 
@@ -228,19 +1026,34 @@ Assign equipment to a user, team, or club (Admin only).
 - `team` - Assign to team (requires `assignee_id` with team ID)
 - `club` - Assign to club storage (no `assignee_id` required)
 
-#### POST `/wp-json/bkgt/v1/equipment/{id}/return`
-Return equipment from assignment (Admin only).
+**Response (200):**
+```json
+{
+    "message": "Equipment assigned successfully."
+}
+```
 
-**Authentication:** JWT Bearer token (admin role)  
+#### DELETE `/wp-json/bkgt/v1/equipment/{id}/assignment`
+Unassign equipment from current assignment.
+
+**Plugin:** bkgt-inventory
+**Authentication:** JWT Bearer token
 **URL Parameters:**
 - `id` (integer): Equipment item ID
 
-**Request Body:**
+**Request Body (optional):**
 ```json
 {
     "return_date": "2024-01-20",
     "condition_status": "normal",
     "notes": "Returned in good condition"
+}
+```
+
+**Response (200):**
+```json
+{
+    "message": "Equipment unassigned successfully."
 }
 ```
 
@@ -278,6 +1091,92 @@ Get specific location details.
 **Authentication:** JWT Bearer token or API Key  
 **URL Parameters:**
 - `id` (integer): Location ID
+
+#### POST `/wp-json/bkgt/v1/equipment/locations`
+Create a new storage location.
+
+**Authentication:** JWT Bearer token or API Key  
+**Request Body:**
+```json
+{
+    "name": "New Storage Location",
+    "location_type": "storage",
+    "address": "456 Oak St, Stockholm",
+    "contact_person": "John Doe",
+    "contact_phone": "+46 70 987 6543",
+    "contact_email": "john.doe@bkgt.se",
+    "capacity": 150
+}
+```
+
+**Response (201):**
+```json
+{
+    "message": "Location created successfully.",
+    "location": {
+        "id": 123,
+        "name": "New Storage Location",
+        "slug": "new-storage-location",
+        "location_type": "storage",
+        "address": "456 Oak St, Stockholm",
+        "contact_person": "John Doe",
+        "contact_phone": "+46 70 987 6543",
+        "contact_email": "john.doe@bkgt.se",
+        "capacity": 150,
+        "is_active": true
+    }
+}
+```
+
+#### PUT `/wp-json/bkgt/v1/equipment/locations/{id}`
+Update an existing location.
+
+**Authentication:** JWT Bearer token or API Key  
+**URL Parameters:**
+- `id` (integer): Location ID
+
+**Request Body:**
+```json
+{
+    "name": "Updated Storage Location",
+    "location_type": "warehouse",
+    "address": "789 Pine St, Stockholm",
+    "contact_person": "Jane Smith",
+    "contact_phone": "+46 70 555 1234",
+    "contact_email": "jane.smith@bkgt.se",
+    "capacity": 300
+}
+```
+
+**Response (200):**
+```json
+{
+    "message": "Location updated successfully."
+}
+```
+
+#### DELETE `/wp-json/bkgt/v1/equipment/locations/{id}`
+Delete a location (soft delete - marks as inactive).
+
+**Authentication:** JWT Bearer token or API Key  
+**URL Parameters:**
+- `id` (integer): Location ID
+
+**Response (200):**
+```json
+{
+    "message": "Location deleted successfully."
+}
+```
+
+**Error (409):** If location contains equipment items
+```json
+{
+    "code": "location_in_use",
+    "message": "Cannot delete location that contains equipment items.",
+    "data": { "status": 409 }
+}
+```
 
 ### Equipment Analytics
 
@@ -397,10 +1296,12 @@ Invalidate the current session.
 
 ### Teams
 
+> **Note:** Teams are atomic reference data automatically scraped from svenskalag.se. They cannot be created, updated, or deleted through the API. Teams serve as foreign keys for other data entities like players, events, and equipment assignments.
+
 #### GET `/wp-json/bkgt/v1/teams`
 Get all teams with optional filtering.
 
-**Authentication:** JWT Bearer token or API Key  
+**Authentication:** JWT Bearer token or API Key
 **Query Parameters:**
 - `page` (integer): Page number (default: 1)
 - `per_page` (integer): Items per page (default: 10, max: 100)
@@ -415,10 +1316,11 @@ Get all teams with optional filtering.
         {
             "id": 1,
             "name": "BKGT Team Alpha",
-            "description": "Premier team",
+            "source_id": "P2013",
+            "source_url": "https://www.svenskalag.se/bkgt/teams/p2013",
+            "category": "senior",
+            "season": "2024",
             "coach": "John Doe",
-            "founded_year": 2020,
-            "logo_url": "https://ledare.bkgt.se/logo.png",
             "created_date": "2020-01-01T00:00:00Z",
             "updated_date": "2024-01-01T00:00:00Z"
         }
@@ -433,7 +1335,7 @@ Get all teams with optional filtering.
 #### GET `/wp-json/bkgt/v1/teams/{id}`
 Get specific team details.
 
-**Authentication:** JWT Bearer token or API Key  
+**Authentication:** JWT Bearer token or API Key
 **URL Parameters:**
 - `id` (integer): Team ID
 
@@ -442,81 +1344,25 @@ Get specific team details.
 {
     "id": 1,
     "name": "BKGT Team Alpha",
-    "description": "Premier team",
+    "source_id": "P2013",
+    "source_url": "https://www.svenskalag.se/bkgt/teams/p2013",
+    "category": "senior",
+    "season": "2024",
     "coach": "John Doe",
-    "founded_year": 2020,
-    "logo_url": "https://ledare.bkgt.se/logo.png",
     "players_count": 15,
     "created_date": "2020-01-01T00:00:00Z",
     "updated_date": "2024-01-01T00:00:00Z"
 }
 ```
 
-#### POST `/wp-json/bkgt/v1/teams`
-Create a new team (Admin only).
-
-**Authentication:** JWT Bearer token (admin role)  
-**Request Body:**
-```json
-{
-    "name": "BKGT Team Beta",
-    "description": "New development team",
-    "coach": "Jane Smith",
-    "founded_year": 2024,
-    "logo_url": "https://ledare.bkgt.se/logo.png"
-}
-```
-
-**Response (201):**
-```json
-{
-    "id": 2,
-    "name": "BKGT Team Beta",
-    "description": "New development team",
-    "coach": "Jane Smith",
-    "founded_year": 2024,
-    "logo_url": "https://ledare.bkgt.se/logo.png",
-    "created_date": "2024-01-15T10:30:00Z",
-    "updated_date": "2024-01-15T10:30:00Z"
-}
-```
-
-#### PUT `/wp-json/bkgt/v1/teams/{id}`
-Update team information (Admin only).
-
-**Authentication:** JWT Bearer token (admin role)  
-**URL Parameters:**
-- `id` (integer): Team ID
-
-**Request Body:**
-```json
-{
-    "name": "BKGT Team Alpha Updated",
-    "description": "Updated premier team",
-    "coach": "John Doe Jr."
-}
-```
-
-#### DELETE `/wp-json/bkgt/v1/teams/{id}`
-Delete a team (Admin only).
-
-**Authentication:** JWT Bearer token (admin role)  
-**URL Parameters:**
-- `id` (integer): Team ID
-
-**Response (200):**
-```json
-{
-    "message": "Team deleted successfully"
-}
-```
-
 ### Players
+
+> **Note:** Players are atomic reference data automatically scraped from svenskalag.se. They cannot be created, updated, or deleted through the API. Player data serves as reference information for statistics, events, and other team-related activities.
 
 #### GET `/wp-json/bkgt/v1/players`
 Get all players with optional filtering.
 
-**Authentication:** JWT Bearer token or API Key  
+**Authentication:** JWT Bearer token or API Key
 **Query Parameters:**
 - `page` (integer): Page number
 - `per_page` (integer): Items per page (max: 100)
@@ -538,6 +1384,8 @@ Get all players with optional filtering.
             "jersey_number": 10,
             "team_id": 1,
             "team_name": "BKGT Team Alpha",
+            "source_id": "P12345",
+            "source_url": "https://www.svenskalag.se/bkgt/players/p12345",
             "date_of_birth": "1995-05-15",
             "height_cm": 185,
             "weight_kg": 80,
@@ -556,14 +1404,14 @@ Get all players with optional filtering.
 #### GET `/wp-json/bkgt/v1/players/{id}`
 Get specific player details.
 
-**Authentication:** JWT Bearer token or API Key  
+**Authentication:** JWT Bearer token or API Key
 **URL Parameters:**
 - `id` (integer): Player ID
 
 #### GET `/wp-json/bkgt/v1/teams/{team_id}/players`
 Get all players for a specific team.
 
-**Authentication:** JWT Bearer token or API Key  
+**Authentication:** JWT Bearer token or API Key
 **URL Parameters:**
 - `team_id` (integer): Team ID
 
@@ -789,9 +1637,622 @@ Get player statistics.
 }
 ```
 
-## Authentication
+### User Management
 
-The BKGT API supports two authentication methods: API Key authentication and JWT token authentication. API Key authentication is simpler for server-to-server communication, while JWT authentication is better for user sessions.
+#### GET `/wp-json/bkgt/v1/admin/users`
+Get all users with optional filtering (Admin only).
+
+**Authentication:** JWT Bearer token (admin role) or API Key with admin permissions  
+**Query Parameters:**
+- `page` (integer): Page number (default: 1)
+- `per_page` (integer): Items per page (default: 20, max: 100)
+- `search` (string): Search in username, email, or display name
+- `role` (string): Filter by role
+- `orderby` (string): Sort field (ID, user_login, user_email, user_registered, display_name)
+- `order` (string): Sort order (asc, desc)
+
+**Response (200):**
+```json
+{
+    "success": true,
+    "data": {
+        "users": [
+            {
+                "id": 1,
+                "username": "admin",
+                "email": "admin@example.com",
+                "first_name": "Admin",
+                "last_name": "User",
+                "display_name": "Admin User",
+                "roles": ["administrator"],
+                "capabilities": ["manage_options", "edit_users"],
+                "registered_date": "2024-01-01T00:00:00Z",
+                "last_login": "2024-12-01T10:30:00Z"
+            }
+        ],
+        "pagination": {
+            "page": 1,
+            "per_page": 20,
+            "total": 1,
+            "total_pages": 1
+        }
+    }
+}
+```
+
+#### GET `/wp-json/bkgt/v1/admin/users/{id}`
+Get specific user details (Admin only).
+
+**Authentication:** JWT Bearer token (admin role) or API Key with admin permissions  
+**URL Parameters:**
+- `id` (integer): User ID
+
+**Response (200):**
+```json
+{
+    "success": true,
+    "data": {
+        "id": 1,
+        "username": "admin",
+        "email": "admin@example.com",
+        "first_name": "Admin",
+        "last_name": "User",
+        "display_name": "Admin User",
+        "roles": ["administrator"],
+        "capabilities": ["manage_options", "edit_users"],
+        "registered_date": "2024-01-01T00:00:00Z",
+        "last_login": "2024-12-01T10:30:00Z"
+    }
+}
+```
+
+#### POST `/wp-json/bkgt/v1/admin/users`
+Create a new user (Admin only).
+
+**Authentication:** JWT Bearer token (admin role) or API Key with admin permissions  
+**Request Body:**
+```json
+{
+    "username": "newuser",
+    "email": "newuser@example.com",
+    "password": "securepassword123",
+    "first_name": "New",
+    "last_name": "User",
+    "display_name": "New User",
+    "role": "editor"
+}
+```
+
+**Response (201):**
+```json
+{
+    "success": true,
+    "data": {
+        "id": 2,
+        "username": "newuser",
+        "email": "newuser@example.com",
+        "first_name": "New",
+        "last_name": "User",
+        "display_name": "New User",
+        "roles": ["editor"],
+        "capabilities": ["edit_posts", "edit_pages"],
+        "registered_date": "2024-12-01T12:00:00Z"
+    },
+    "message": "User created successfully"
+}
+```
+
+#### PUT `/wp-json/bkgt/v1/admin/users/{id}`
+Update user information (Admin only).
+
+**Authentication:** JWT Bearer token (admin role) or API Key with admin permissions  
+**URL Parameters:**
+- `id` (integer): User ID
+
+**Request Body:**
+```json
+{
+    "email": "updated@example.com",
+    "first_name": "Updated",
+    "last_name": "Name",
+    "display_name": "Updated Name",
+    "role": "author"
+}
+```
+
+**Response (200):**
+```json
+{
+    "success": true,
+    "data": {
+        "id": 2,
+        "username": "newuser",
+        "email": "updated@example.com",
+        "first_name": "Updated",
+        "last_name": "Name",
+        "display_name": "Updated Name",
+        "roles": ["author"],
+        "capabilities": ["edit_posts", "publish_posts"]
+    },
+    "message": "User updated successfully"
+}
+```
+
+#### DELETE `/wp-json/bkgt/v1/admin/users/{id}`
+Delete a user (Admin only).
+
+**Authentication:** JWT Bearer token (admin role) or API Key with admin permissions  
+**URL Parameters:**
+- `id` (integer): User ID
+
+**Query Parameters:**
+- `reassign` (integer, optional): User ID to reassign content to
+
+**Response (200):**
+```json
+{
+    "success": true,
+    "message": "User deleted successfully"
+}
+```
+
+### Role Management
+
+#### GET `/wp-json/bkgt/v1/admin/roles`
+Get all roles and their capabilities (Admin only).
+
+**Authentication:** JWT Bearer token (admin role) or API Key with admin permissions  
+
+**Response (200):**
+```json
+{
+    "success": true,
+    "data": {
+        "administrator": {
+            "name": "Administrator",
+            "capabilities": {
+                "manage_options": true,
+                "edit_users": true,
+                "delete_users": true
+            },
+            "user_count": 1
+        },
+        "editor": {
+            "name": "Editor",
+            "capabilities": {
+                "edit_posts": true,
+                "publish_posts": true,
+                "edit_pages": true
+            },
+            "user_count": 3
+        }
+    }
+}
+```
+
+#### GET `/wp-json/bkgt/v1/admin/roles/{role}`
+Get specific role details (Admin only).
+
+**Authentication:** JWT Bearer token (admin role) or API Key with admin permissions  
+**URL Parameters:**
+- `role` (string): Role slug
+
+**Response (200):**
+```json
+{
+    "success": true,
+    "data": {
+        "role": "editor",
+        "name": "Editor",
+        "capabilities": {
+            "edit_posts": true,
+            "publish_posts": true,
+            "edit_pages": true
+        },
+        "user_count": 3
+    }
+}
+```
+
+#### POST `/wp-json/bkgt/v1/admin/roles`
+Create a new role (Admin only).
+
+**Authentication:** JWT Bearer token (admin role) or API Key with admin permissions  
+**Request Body:**
+```json
+{
+    "role": "coach",
+    "display_name": "Coach",
+    "capabilities": {
+        "read": true,
+        "edit_posts": true,
+        "upload_files": true
+    }
+}
+```
+
+**Response (201):**
+```json
+{
+    "success": true,
+    "data": {
+        "role": "coach",
+        "name": "Coach",
+        "capabilities": {
+            "read": true,
+            "edit_posts": true,
+            "upload_files": true
+        }
+    },
+    "message": "Role created successfully"
+}
+```
+
+#### PUT `/wp-json/bkgt/v1/admin/roles/{role}`
+Update role capabilities (Admin only).
+
+**Authentication:** JWT Bearer token (admin role) or API Key with admin permissions  
+**URL Parameters:**
+- `role` (string): Role slug
+
+**Request Body:**
+```json
+{
+    "display_name": "Team Coach",
+    "capabilities": {
+        "read": true,
+        "edit_posts": true,
+        "upload_files": true,
+        "manage_categories": true
+    }
+}
+```
+
+**Response (200):**
+```json
+{
+    "success": true,
+    "data": {
+        "role": "coach",
+        "name": "Team Coach",
+        "capabilities": {
+            "read": true,
+            "edit_posts": true,
+            "upload_files": true,
+            "manage_categories": true
+        }
+    },
+    "message": "Role updated successfully"
+}
+```
+
+#### DELETE `/wp-json/bkgt/v1/admin/roles/{role}`
+Delete a role (Admin only).
+
+**Authentication:** JWT Bearer token (admin role) or API Key with admin permissions  
+**URL Parameters:**
+- `role` (string): Role slug
+
+**Note:** Cannot delete core WordPress roles (administrator, editor, author, contributor, subscriber).
+
+**Response (200):**
+```json
+{
+    "success": true,
+    "message": "Role deleted successfully"
+}
+```
+
+### User-Role Assignment
+
+#### GET `/wp-json/bkgt/v1/admin/users/{user_id}/roles`
+Get user roles (Admin only).
+
+**Authentication:** JWT Bearer token (admin role) or API Key with admin permissions  
+**URL Parameters:**
+- `user_id` (integer): User ID
+
+**Response (200):**
+```json
+{
+    "success": true,
+    "data": {
+        "administrator": {
+            "name": "Administrator",
+            "capabilities": {
+                "manage_options": true,
+                "edit_users": true
+            }
+        }
+    }
+}
+```
+
+#### POST `/wp-json/bkgt/v1/admin/users/{user_id}/roles`
+Add role to user (Admin only).
+
+**Authentication:** JWT Bearer token (admin role) or API Key with admin permissions  
+**URL Parameters:**
+- `user_id` (integer): User ID
+
+**Request Body:**
+```json
+{
+    "role": "editor"
+}
+```
+
+**Response (200):**
+```json
+{
+    "success": true,
+    "message": "Role added to user successfully"
+}
+```
+
+#### DELETE `/wp-json/bkgt/v1/admin/users/{user_id}/roles/{role}`
+Remove role from user (Admin only).
+
+**Authentication:** JWT Bearer token (admin role) or API Key with admin permissions  
+**URL Parameters:**
+- `user_id` (integer): User ID
+- `role` (string): Role slug
+
+**Response (200):**
+```json
+{
+    "success": true,
+        "message": "Role removed from user successfully"
+}
+```
+
+### Teams Management
+
+#### POST `/wp-json/bkgt/v1/admin/teams/clear-repopulate`
+Clear all teams and repopulate from svenskalag.se (Admin only).
+
+**Authentication:** JWT Bearer token (admin role) or API Key with admin permissions  
+
+**Description:** This endpoint clears all existing teams from the database and repopulates them by scraping the latest data from svenskalag.se. Teams are treated as atomic reference data and cannot be manually created, updated, or deleted through the API.
+
+**Response (200):**
+```json
+{
+    "success": true,
+    "message": "Teams cleared and repopulated successfully. Removed 15 teams, added 12 teams.",
+    "data": {
+        "teams_cleared": 15,
+        "teams_added": 12,
+        "sample_teams": [
+            {
+                "name": "BKGT Herr A",
+                "source_id": "P2013",
+                "source_url": "https://www.svenskalag.se/bkgt/teams/p2013"
+            }
+        ]
+    }
+}
+```
+
+### Players Management
+
+#### POST `/wp-json/bkgt/v1/admin/players/clear-repopulate`
+Clear all players and repopulate from svenskalag.se (Admin only).
+
+**Authentication:** JWT Bearer token (admin role) or API Key with admin permissions  
+
+**Description:** This endpoint clears all existing players from the database and repopulates them by scraping the latest data from svenskalag.se. Players are treated as atomic reference data and cannot be manually created, updated, or deleted through the API.
+
+**Response (200):**
+```json
+{
+    "success": true,
+    "message": "Players cleared and repopulated successfully. Removed 45 players, added 38 players.",
+    "data": {
+        "players_cleared": 45,
+        "players_added": 38,
+        "sample_players": [
+            {
+                "first_name": "John",
+                "last_name": "Doe",
+                "team_id": 1
+            }
+        ]
+    }
+}
+```
+
+### BKGT Dashboard
+
+#### GET `/wp-json/bkgt/v1/admin/dashboard`
+Get comprehensive BKGT system dashboard information (Admin only).
+
+**Authentication:** JWT Bearer token (admin role) or API Key with admin permissions  
+
+**Response (200):**
+```json
+{
+    "success": true,
+    "data": {
+        "system_info": {
+            "wordpress_version": "6.4.1",
+            "php_version": "8.1.12",
+            "bkgt_core_version": "1.0.0",
+            "server_software": "Apache/2.4.54",
+            "database_version": "10.6.12-MariaDB",
+            "memory_limit": "256M",
+            "max_execution_time": "30",
+            "upload_max_filesize": "64M",
+            "post_max_size": "64M",
+            "debug_mode": false,
+            "debug_log": false
+        },
+        "plugins": {
+            "bkgt-core": {
+                "name": "BKGT Core",
+                "version": "1.0.0",
+                "active": true,
+                "path": "bkgt-core/bkgt-core.php"
+            },
+            "bkgt-api": {
+                "name": "BKGT API",
+                "version": "1.0.0",
+                "active": true,
+                "path": "bkgt-api/bkgt-api.php"
+            }
+        },
+        "system_status": {
+            "database_connection": {
+                "status": "healthy",
+                "message": "Database connection is healthy"
+            },
+            "file_permissions": {
+                "status": "healthy",
+                "message": "File permissions are correct"
+            },
+            "memory_usage": {
+                "used": "45.2 MB",
+                "limit": "256M",
+                "percentage": 17.7
+            },
+            "disk_space": {
+                "free": "15.3 GB",
+                "total": "50 GB",
+                "percentage": 69.4
+            }
+        },
+        "recent_activity": {
+            "api_requests_last_24h": 1250,
+            "recent_requests": [
+                {
+                    "endpoint": "/teams",
+                    "method": "GET",
+                    "response_code": 200,
+                    "created_at": "2024-12-01 14:30:25"
+                }
+            ]
+        },
+        "generated_at": "2024-12-01 15:00:00"
+    }
+}
+```
+
+### BKGT Error Logs
+
+#### GET `/wp-json/bkgt/v1/admin/error-logs`
+Get recent error logs with optional filtering (Admin only).
+
+**Authentication:** JWT Bearer token (admin role) or API Key with admin permissions  
+**Query Parameters:**
+- `limit` (integer): Number of logs to retrieve (default: 50, max: 500)
+- `level` (string): Filter by log level (critical, error, warning, info, debug)
+- `start_date` (string): Filter logs from this date (YYYY-MM-DD)
+- `end_date` (string): Filter logs until this date (YYYY-MM-DD)
+
+**Response (200):**
+```json
+{
+    "success": true,
+    "data": {
+        "logs": [
+            {
+                "timestamp": "2024-12-01 14:30:25",
+                "level": "error",
+                "message": "Database connection failed",
+                "user": "admin",
+                "context": {
+                    "operation": "user_update",
+                    "user_id": 123
+                }
+            }
+        ],
+        "total": 1,
+        "limit": 50
+    }
+}
+```
+
+#### DELETE `/wp-json/bkgt/v1/admin/error-logs`
+Clear all error logs (Admin only).
+
+**Authentication:** JWT Bearer token (admin role) or API Key with admin permissions  
+
+**Response (200):**
+```json
+{
+    "success": true,
+    "message": "Error logs cleared successfully"
+}
+```
+
+#### GET `/wp-json/bkgt/v1/admin/error-statistics`
+Get error statistics overview (Admin only).
+
+**Authentication:** JWT Bearer token (admin role) or API Key with admin permissions  
+
+**Response (200):**
+```json
+{
+    "success": true,
+    "data": {
+        "total_errors": 25,
+        "critical": 2,
+        "errors": 15,
+        "warnings": 8,
+        "by_type": {
+            "database": 10,
+            "api": 8,
+            "filesystem": 7
+        }
+    }
+}
+```
+
+#### GET `/wp-json/bkgt/v1/admin/system-health`
+Get comprehensive system health check (Admin only).
+
+**Authentication:** JWT Bearer token (admin role) or API Key with admin permissions  
+
+**Response (200):**
+```json
+{
+    "success": true,
+    "data": {
+        "status": "healthy",
+        "checks": {
+            "database": {
+                "status": "healthy",
+                "message": "Database connection is healthy"
+            },
+            "filesystem": {
+                "status": "healthy",
+                "message": "File permissions are correct"
+            },
+            "memory": {
+                "status": "healthy",
+                "message": "Memory usage is normal",
+                "details": {
+                    "used": "45.2 MB",
+                    "limit": "256M",
+                    "percentage": 17.7
+                }
+            },
+            "disk_space": {
+                "status": "warning",
+                "message": "Low disk space available",
+                "details": {
+                    "free": "2.1 GB",
+                    "total": "50 GB",
+                    "percentage": 95.8
+                }
+            }
+        },
+        "timestamp": "2024-12-01 15:00:00"
+    }
+}
+```
+
+## AuthenticationThe BKGT API supports two authentication methods: API Key authentication and JWT token authentication. API Key authentication is simpler for server-to-server communication, while JWT authentication is better for user sessions.
 
 ### API Key Authentication
 
@@ -1884,21 +3345,22 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 
 ## Changelog
 
-### Version 2.0.0 (Current)
+### Version 1.0.0 (Current)
 - **New Features:**
-  - Webhook system for real-time updates
-  - Enhanced security with request signing
-  - Improved rate limiting with burst handling
-  - Document versioning support
-  - Advanced filtering and search
+  - JWT authentication
+  - Complete REST API endpoints
+  - Admin dashboard
+  - Security monitoring
+  - Rate limiting
+  - CORS support
 - **Breaking Changes:**
-  - JWT token format updated
-  - Rate limiting now applies to all endpoints
-  - Document upload requires `type` parameter
+  - All endpoints now require authentication
 - **Bug Fixes:**
-  - Fixed pagination in large datasets
-  - Improved error messages
-  - Enhanced CORS handling
+  - Fixed database query issues in players and events endpoints
+  - Resolved duplicate method declaration errors
+- **Security:**
+  - API key and JWT token authentication
+  - Request logging and monitoring
 
 ### Version 1.0.0
 - Initial release
@@ -1910,6 +3372,43 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 - CORS support
 
 ## Changelog
+
+### Version 1.2.0 (Current)
+- **Major Architecture Update: API-First Implementation**
+  - Service API key system with automatic rotation
+  - Service-to-service authentication for internal operations
+  - Admin interface migration to API-based operations
+  - Health monitoring and system status endpoints
+- **New Components:**
+  - `BKGT_API_Service_Client` - Service client for internal API calls
+  - `BKGT_API_Service_Admin` - Admin interface for service key management
+  - Service authentication with virtual admin user
+  - Automatic key rotation with transition periods
+- **Security Enhancements:**
+  - Centralized authentication for all data access
+  - Reduced direct database queries in admin interfaces
+  - Consistent API access patterns across all components
+- **API Endpoints Added:**
+  - `GET /health` - System health and authentication status
+- **Admin Features:**
+  - Service API key management interface
+  - Manual key rotation capabilities
+  - Key rotation interval configuration
+  - Service key testing and validation
+
+### Version 1.1.0
+- **New Features:**
+  - Equipment assignment management API endpoints
+  - Enhanced assignment tracking and history
+  - Improved equipment filtering and search
+- **API Endpoints Added:**
+  - `GET /equipment/{id}/assignment` - Get assignment details
+  - `POST /equipment/{id}/assignment` - Assign equipment
+  - `DELETE /equipment/{id}/assignment` - Unassign equipment
+- **Note:** Equipment CRUD and bulk operations moved to `bkgt-inventory` plugin
+- **Documentation Updates:**
+  - Complete API reference for assignment endpoints
+  - Updated examples and usage patterns
 
 ### Version 1.0.0
 - Initial release

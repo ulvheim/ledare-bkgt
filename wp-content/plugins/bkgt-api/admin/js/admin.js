@@ -25,6 +25,7 @@
             $(document).on('click', '.bkgt-api-toggle-key', this.toggleApiKeyVisibility);
             $(document).on('click', '.bkgt-api-generate-key', this.generateApiKey);
             $(document).on('click', '.bkgt-api-revoke-key', this.revokeApiKey);
+            $(document).on('click', '.bkgt-api-delete-key', this.deleteApiKey);
             $(document).on('click', '.bkgt-api-edit-key', this.editApiKey);
 
             // Log filtering
@@ -311,6 +312,47 @@
                 error: function() {
                     alert('Error revoking API key');
                     $button.prop('disabled', false).text('Revoke');
+                }
+            });
+        },
+
+        deleteApiKey: function() {
+            console.log('deleteApiKey function called');
+            const $button = $(this);
+            const keyId = $button.data('key-id');
+            console.log('Key ID:', keyId);
+
+            if (!confirm('Are you sure you want to permanently delete this API key? This action cannot be undone and the key will be completely removed from the database.')) {
+                console.log('User cancelled delete');
+                return;
+            }
+
+            console.log('User confirmed delete, proceeding...');
+            $button.prop('disabled', true).text('Deleting...');
+
+            $.ajax({
+                url: bkgt_api_admin.ajax_url,
+                type: 'POST',
+                data: {
+                    action: 'bkgt_api_delete_key',
+                    key_id: keyId,
+                    _wpnonce: bkgt_api_admin.nonce
+                },
+                success: function(response) {
+                    console.log('AJAX success response:', response);
+                    if (response.success) {
+                        console.log('Delete successful, reloading page');
+                        location.reload();
+                    } else {
+                        console.log('Delete failed:', response.data);
+                        alert('Error deleting API key: ' + response.data);
+                        $button.prop('disabled', false).text('Delete');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.log('AJAX error:', xhr.status, status, error);
+                    alert('Error deleting API key');
+                    $button.prop('disabled', false).text('Delete');
                 }
             });
         },

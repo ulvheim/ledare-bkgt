@@ -19,7 +19,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('BKGT_API_VERSION', '1.0.0');
+define('BKGT_API_VERSION', '1.2.0');
 define('BKGT_API_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('BKGT_API_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('BKGT_API_NAMESPACE', 'bkgt/v1');
@@ -31,6 +31,8 @@ $required_files = array(
     'includes/class-bkgt-endpoints.php',
     'includes/class-bkgt-security.php',
     'includes/class-bkgt-notifications.php',
+    'includes/class-bkgt-service-admin.php',
+    'includes/class-bkgt-service-client.php',
     'admin/class-bkgt-api-admin.php'
 );
 
@@ -239,7 +241,8 @@ class BKGT_API_Plugin {
     private function check_dependencies() {
         $required_plugins = array(
             'bkgt-core/bkgt-core.php' => 'BKGT Core',
-            'bkgt-data-scraping/bkgt-data-scraping.php' => 'BKGT Data Scraping'
+            'bkgt-data-scraping/bkgt-data-scraping.php' => 'BKGT Data Scraping',
+            'bkgt-inventory/bkgt-inventory.php' => 'BKGT Inventory System'
         );
 
         $missing_plugins = array();
@@ -263,6 +266,28 @@ class BKGT_API_Plugin {
 
             // Deactivate this plugin
             deactivate_plugins(plugin_basename(__FILE__));
+        } else {
+            // Load inventory classes if inventory plugin is active
+            $this->load_inventory_classes();
+        }
+    }
+
+    /**
+     * Load BKGT Inventory classes
+     */
+    private function load_inventory_classes() {
+        $inventory_files = array(
+            'includes/class-inventory-item.php',
+            'includes/class-manufacturer.php',
+            'includes/class-item-type.php',
+            'includes/class-assignment.php'
+        );
+
+        foreach ($inventory_files as $file) {
+            $file_path = WP_PLUGIN_DIR . '/bkgt-inventory/' . $file;
+            if (file_exists($file_path)) {
+                require_once $file_path;
+            }
         }
     }
 
@@ -337,9 +362,42 @@ class BKGT_API_Plugin {
             KEY created_at (created_at)
         ) $charset_collate;";
 
+        // Document versions table
+        $document_versions_table = "CREATE TABLE {$wpdb->prefix}bkgt_document_versions (
+            id int(11) NOT NULL AUTO_INCREMENT,
+            document_id bigint(20) unsigned NOT NULL,
+            version_number int(11) NOT NULL,
+            title text NOT NULL,
+            content longtext NOT NULL,
+            created_by bigint(20) unsigned NOT NULL,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            change_summary text,
+            PRIMARY KEY (id),
+            KEY document_id (document_id),
+            KEY version_number (version_number),
+            KEY created_by (created_by)
+        ) $charset_collate;";
+
+        // Document permissions table
+        $document_permissions_table = "CREATE TABLE {$wpdb->prefix}bkgt_document_permissions (
+            id int(11) NOT NULL AUTO_INCREMENT,
+            document_id bigint(20) unsigned NOT NULL,
+            user_id bigint(20) unsigned NOT NULL,
+            access_type enum('read','write','manage') NOT NULL DEFAULT 'read',
+            granted_by bigint(20) unsigned NOT NULL,
+            granted_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY document_user (document_id, user_id),
+            KEY document_id (document_id),
+            KEY user_id (user_id),
+            KEY access_type (access_type)
+        ) $charset_collate;";
+
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($api_keys_table);
         dbDelta($api_logs_table);
+        dbDelta($document_versions_table);
+        dbDelta($document_permissions_table);
     }
 
     /**

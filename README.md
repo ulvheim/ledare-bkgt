@@ -174,7 +174,8 @@ Browser receives response & updates UI
 1. **Read:** Start with [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines
 2. **Understand:** Review [SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md) for detailed architecture
 3. **Reference:** Check [BKGT_CORE_QUICK_REFERENCE.md](BKGT_CORE_QUICK_REFERENCE.md) for API quick ref
-4. **Deploy:** See [DEPLOYMENT.md](DEPLOYMENT.md) for production deployment
+4. **API Docs:** Access live API documentation at `/wp-json/bkgt/v1/docs` or route discovery at `/wp-json/bkgt/v1/routes`
+5. **Deploy:** See [DEPLOYMENT.md](DEPLOYMENT.md) for production deployment
 
 ### Key Developer Commands
 

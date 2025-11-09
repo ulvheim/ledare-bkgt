@@ -72,43 +72,16 @@ class BKGT_Inventory_Item {
      */
     private static function get_next_sequential_number($manufacturer_id, $item_type_id) {
         global $wpdb;
-        
-        // Find the highest sequential number for this combination
-        $existing_items = get_posts(array(
-            'post_type' => 'bkgt_inventory_item',
-            'meta_query' => array(
-                'relation' => 'AND',
-                array(
-                    'key' => '_bkgt_manufacturer_id',
-                    'value' => $manufacturer_id,
-                    'compare' => '='
-                ),
-                array(
-                    'key' => '_bkgt_item_type_id',
-                    'value' => $item_type_id,
-                    'compare' => '='
-                )
-            ),
-            'posts_per_page' => -1,
-            'fields' => 'ids'
+
+        // Find the highest sequential number for this combination in the custom database table
+        $max_identifier = $wpdb->get_var($wpdb->prepare(
+            "SELECT MAX(CAST(SUBSTRING_INDEX(unique_identifier, '-', -1) AS UNSIGNED)) as max_seq
+             FROM {$wpdb->prefix}bkgt_inventory_items
+             WHERE manufacturer_id = %d AND item_type_id = %d",
+            $manufacturer_id, $item_type_id
         ));
-        
-        $max_sequential = 0;
-        
-        foreach ($existing_items as $item_id) {
-            $identifier = get_post_meta($item_id, '_bkgt_unique_identifier', true);
-            
-            if ($identifier) {
-                // Extract sequential number from identifier (last 5 digits)
-                $parts = explode('-', $identifier);
-                if (count($parts) === 3) {
-                    $sequential = intval($parts[2]);
-                    $max_sequential = max($max_sequential, $sequential);
-                }
-            }
-        }
-        
-        return $max_sequential + 1;
+
+        return ($max_identifier ?: 0) + 1;
     }
     
     /**
@@ -447,5 +420,357 @@ class BKGT_Inventory_Item {
         $args = wp_parse_args($args, $defaults);
         
         return get_posts($args);
+    }
+
+    /**
+     * Get items with pagination and filtering
+     */
+    public static function get_items($args = array()) {
+        global $wpdb;
+        global $bkgt_inventory_db;
+        
+        $defaults = array(
+            'page' => 1,
+            'per_page' => 10,
+            'search' => '',
+            'location_id' => null,
+            'condition' => null,
+            'manufacturer_id' => null,
+            'item_type_id' => null,
+        );
+        
+        $args = wp_parse_args($args, $defaults);
+        
+        $table = $bkgt_inventory_db->get_inventory_items_table();
+        $manufacturers_table = $bkgt_inventory_db->get_manufacturers_table();
+        $item_types_table = $bkgt_inventory_db->get_item_types_table();
+        $assignments_table = $bkgt_inventory_db->get_assignments_table();
+        
+        $offset = ($args['page'] - 1) * $args['per_page'];
+        
+        $where_clauses = array();
+        $join_clauses = array();
+        
+        // Search
+        if (!empty($args['search'])) {
+            $where_clauses[] = $wpdb->prepare(
+                "(i.title LIKE %s OR i.unique_identifier LIKE %s OR i.storage_location LIKE %s)",
+                '%' . $wpdb->esc_like($args['search']) . '%',
+                '%' . $wpdb->esc_like($args['search']) . '%',
+                '%' . $wpdb->esc_like($args['search']) . '%'
+            );
+        }
+        
+        // Manufacturer filter
+        if (!empty($args['manufacturer_id'])) {
+            $where_clauses[] = $wpdb->prepare("i.manufacturer_id = %d", $args['manufacturer_id']);
+        }
+        
+        // Item type filter
+        if (!empty($args['item_type_id'])) {
+            $where_clauses[] = $wpdb->prepare("i.item_type_id = %d", $args['item_type_id']);
+        }
+        
+        // Condition filter
+        if (!empty($args['condition'])) {
+            $where_clauses[] = $wpdb->prepare("i.condition_status = %s", $args['condition']);
+        }
+        
+        $where_sql = !empty($where_clauses) ? 'WHERE ' . implode(' AND ', $where_clauses) : '';
+        
+        $sql = $wpdb->prepare(
+            "SELECT i.*, 
+                    m.name as manufacturer_name, 
+                    it.name as item_type_name,
+                    a.assignee_type,
+                    a.assignee_id
+             FROM {$table} i
+             LEFT JOIN {$manufacturers_table} m ON i.manufacturer_id = m.id
+             LEFT JOIN {$item_types_table} it ON i.item_type_id = it.id
+             LEFT JOIN {$assignments_table} a ON i.id = a.item_id AND a.unassigned_date IS NULL
+             {$where_sql}
+             ORDER BY i.id DESC
+             LIMIT %d OFFSET %d",
+            $args['per_page'], $offset
+        );
+        
+        $results = $wpdb->get_results($sql, ARRAY_A);
+        
+        $items = array();
+        foreach ($results as $row) {
+            $items[] = array(
+                'id' => (int) $row['id'],
+                'unique_identifier' => $row['unique_identifier'],
+                'title' => $row['title'],
+                'manufacturer_id' => (int) $row['manufacturer_id'],
+                'manufacturer_name' => $row['manufacturer_name'],
+                'item_type_id' => (int) $row['item_type_id'],
+                'item_type_name' => $row['item_type_name'],
+                'storage_location' => $row['storage_location'],
+                'condition_status' => $row['condition_status'],
+                'notes' => $row['notes'],
+                'created_at' => $row['created_at'],
+                'updated_at' => $row['updated_at'],
+                'assignee_type' => $row['assignee_type'],
+                'assignee_id' => $row['assignee_id'] ? (int) $row['assignee_id'] : null,
+            );
+        }
+        
+        return $items;
+    }
+
+    /**
+     * Get total count of items with filtering
+     */
+    public static function get_total_count($args = array()) {
+        global $wpdb;
+        global $bkgt_inventory_db;
+        
+        $defaults = array(
+            'search' => '',
+            'location_id' => null,
+            'condition' => null,
+            'manufacturer_id' => null,
+            'item_type_id' => null,
+        );
+        
+        $args = wp_parse_args($args, $defaults);
+        
+        $table = $bkgt_inventory_db->get_inventory_items_table();
+        
+        $where_clauses = array();
+        
+        // Search
+        if (!empty($args['search'])) {
+            $where_clauses[] = $wpdb->prepare(
+                "(title LIKE %s OR unique_identifier LIKE %s OR storage_location LIKE %s)",
+                '%' . $wpdb->esc_like($args['search']) . '%',
+                '%' . $wpdb->esc_like($args['search']) . '%',
+                '%' . $wpdb->esc_like($args['search']) . '%'
+            );
+        }
+        
+        // Manufacturer filter
+        if (!empty($args['manufacturer_id'])) {
+            $where_clauses[] = $wpdb->prepare("manufacturer_id = %d", $args['manufacturer_id']);
+        }
+        
+        // Item type filter
+        if (!empty($args['item_type_id'])) {
+            $where_clauses[] = $wpdb->prepare("item_type_id = %d", $args['item_type_id']);
+        }
+        
+        // Condition filter
+        if (!empty($args['condition'])) {
+            $where_clauses[] = $wpdb->prepare("condition_status = %s", $args['condition']);
+        }
+        
+        $where_sql = !empty($where_clauses) ? 'WHERE ' . implode(' AND ', $where_clauses) : '';
+        
+        $sql = "SELECT COUNT(*) FROM {$table} {$where_sql}";
+        
+        return (int) $wpdb->get_var($sql);
+    }
+
+    /**
+     * Get single item by ID (alias for get_item_data)
+     */
+    public static function get_item($item_id) {
+        global $wpdb;
+        global $bkgt_inventory_db;
+        
+        $table = $bkgt_inventory_db->get_inventory_items_table();
+        $manufacturers_table = $bkgt_inventory_db->get_manufacturers_table();
+        $item_types_table = $bkgt_inventory_db->get_item_types_table();
+        $assignments_table = $bkgt_inventory_db->get_assignments_table();
+        
+        $sql = $wpdb->prepare(
+            "SELECT i.*, 
+                    m.name as manufacturer_name, 
+                    it.name as item_type_name,
+                    a.assignee_type,
+                    a.assignee_id
+             FROM {$table} i
+             LEFT JOIN {$manufacturers_table} m ON i.manufacturer_id = m.id
+             LEFT JOIN {$item_types_table} it ON i.item_type_id = it.id
+             LEFT JOIN {$assignments_table} a ON i.id = a.item_id AND a.unassigned_date IS NULL
+             WHERE i.id = %d",
+            $item_id
+        );
+        
+        $row = $wpdb->get_row($sql, ARRAY_A);
+        
+        if (!$row) {
+            return false;
+        }
+        
+        return array(
+            'id' => (int) $row['id'],
+            'unique_identifier' => $row['unique_identifier'],
+            'title' => $row['title'],
+            'size' => $row['size'],
+            'manufacturer_id' => (int) $row['manufacturer_id'],
+            'manufacturer_name' => $row['manufacturer_name'],
+            'item_type_id' => (int) $row['item_type_id'],
+            'item_type_name' => $row['item_type_name'],
+            'storage_location' => $row['storage_location'],
+            'condition_status' => $row['condition_status'],
+            'notes' => $row['notes'],
+            'created_at' => $row['created_at'],
+            'updated_at' => $row['updated_at'],
+            'assignee_type' => $row['assignee_type'],
+            'assignee_id' => $row['assignee_id'] ? (int) $row['assignee_id'] : null,
+        );
+    }
+
+    /**
+     * Create item (alias for create)
+     */
+    public static function create_item($data) {
+        global $wpdb;
+        global $bkgt_inventory_db;
+        
+        // Validate required fields
+        $required_fields = array('manufacturer_id', 'item_type_id', 'title');
+        foreach ($required_fields as $field) {
+            if (empty($data[$field])) {
+                return new WP_Error('missing_field', sprintf(__('Obligatoriskt fält saknas: %s', 'bkgt-inventory'), $field));
+            }
+        }
+        
+        // Generate unique identifier if not provided
+        if (empty($data['unique_identifier'])) {
+            $data['unique_identifier'] = self::generate_unique_identifier($data['manufacturer_id'], $data['item_type_id']);
+        }
+        
+        // Check if identifier already exists
+        if (self::identifier_exists($data['unique_identifier'])) {
+            return new WP_Error('identifier_exists', __('Unik identifierare finns redan.', 'bkgt-inventory'));
+        }
+        
+        $table = $bkgt_inventory_db->get_inventory_items_table();
+        
+        $result = $wpdb->insert(
+            $table,
+            array(
+                'unique_identifier' => $data['unique_identifier'],
+                'manufacturer_id' => intval($data['manufacturer_id']),
+                'item_type_id' => intval($data['item_type_id']),
+                'title' => sanitize_text_field($data['title']),
+                'size' => sanitize_text_field($data['size'] ?? ''),
+                'storage_location' => sanitize_text_field($data['storage_location'] ?? ''),
+                'condition_status' => $data['condition_status'] ?? 'normal',
+                'notes' => sanitize_textarea_field($data['notes'] ?? ''),
+                'created_at' => current_time('mysql'),
+                'updated_at' => current_time('mysql'),
+            ),
+            array('%s', '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s')
+        );
+        
+        if ($result === false) {
+            return new WP_Error('db_error', __('Kunde inte skapa artikel.', 'bkgt-inventory'));
+        }
+        
+        $item_id = $wpdb->insert_id;
+        
+        return $item_id;
+    }
+
+    /**
+     * Update item (alias for update)
+     */
+    public static function update_item($item_id, $data) {
+        global $wpdb;
+        global $bkgt_inventory_db;
+        
+        $table = $bkgt_inventory_db->get_inventory_items_table();
+        
+        // Check if item exists
+        $exists = $wpdb->get_var($wpdb->prepare("SELECT id FROM {$table} WHERE id = %d", $item_id));
+        if (!$exists) {
+            return new WP_Error('not_found', __('Artikel hittades inte.', 'bkgt-inventory'));
+        }
+        
+        $update_data = array(
+            'updated_at' => current_time('mysql'),
+        );
+        
+        $update_format = array('%s');
+        
+        if (isset($data['title'])) {
+            $update_data['title'] = sanitize_text_field($data['title']);
+            $update_format[] = '%s';
+        }
+        
+        if (isset($data['manufacturer_id'])) {
+            $update_data['manufacturer_id'] = intval($data['manufacturer_id']);
+            $update_format[] = '%d';
+        }
+        
+        if (isset($data['item_type_id'])) {
+            $update_data['item_type_id'] = intval($data['item_type_id']);
+            $update_format[] = '%d';
+        }
+        
+        if (isset($data['unique_identifier'])) {
+            $update_data['unique_identifier'] = sanitize_text_field($data['unique_identifier']);
+            $update_format[] = '%s';
+        }
+        
+        if (isset($data['storage_location'])) {
+            $update_data['storage_location'] = sanitize_text_field($data['storage_location']);
+            $update_format[] = '%s';
+        }
+        
+        if (isset($data['size'])) {
+            $update_data['size'] = sanitize_text_field($data['size']);
+            $update_format[] = '%s';
+        }
+        
+        if (isset($data['condition_status'])) {
+            $update_data['condition_status'] = sanitize_text_field($data['condition_status']);
+            $update_format[] = '%s';
+        }
+        
+        if (isset($data['notes'])) {
+            $update_data['notes'] = sanitize_textarea_field($data['notes']);
+            $update_format[] = '%s';
+        }
+        
+        $result = $wpdb->update(
+            $table,
+            $update_data,
+            array('id' => $item_id),
+            $update_format,
+            array('%d')
+        );
+        
+        if ($result === false) {
+            return new WP_Error('db_error', __('Kunde inte uppdatera artikel.', 'bkgt-inventory'));
+        }
+        
+        return true;
+    }
+
+    /**
+     * Delete item (alias for delete)
+     */
+    public static function delete_item($item_id) {
+        global $wpdb;
+        global $bkgt_inventory_db;
+        
+        $table = $bkgt_inventory_db->get_inventory_items_table();
+        
+        $result = $wpdb->delete(
+            $table,
+            array('id' => $item_id),
+            array('%d')
+        );
+        
+        if ($result === false) {
+            return new WP_Error('db_error', __('Kunde inte ta bort artikel.', 'bkgt-inventory'));
+        }
+        
+        return true;
     }
 }

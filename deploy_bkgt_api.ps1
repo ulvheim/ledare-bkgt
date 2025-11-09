@@ -2,10 +2,29 @@
 # Deploys the complete BKGT API plugin to production
 
 param(
-    [string]$SftpServer = "ssh.loopia.se",
-    [string]$SftpUser = "md0600",
+    [string]$SftpServer,
+    [string]$SftpUser,
     [string]$RemotePath = "/public_html/wp-content/plugins/bkgt-api/"
 )
+
+# Load environment variables from .env file
+$envFile = Join-Path $PSScriptRoot ".env"
+$envVars = @{}
+if (Test-Path $envFile) {
+    Get-Content $envFile | ForEach-Object {
+        if ($_ -match '^([^=]+)=(.*)$') {
+            $key = $matches[1].Trim()
+            $value = $matches[2].Trim()
+            $envVars[$key] = $value
+        }
+    }
+}
+
+# Set defaults if not provided
+if (-not $SftpServer) { $SftpServer = $envVars['SSH_HOST'] }
+if (-not $SftpUser) { $SftpUser = $envVars['SSH_USER'] }
+if (-not $SftpServer) { $SftpServer = 'ssh.loopia.se' }
+if (-not $SftpUser) { $SftpUser = 'md0600' }
 
 $localPath = "C:\Users\Olheim\Desktop\GH\ledare-bkgt\wp-content\plugins\bkgt-api"
 
@@ -36,7 +55,9 @@ $adminFiles = @(
 
 # Documentation
 $docFiles = @(
-    @{ local = "$localPath\README.md"; remote = "README.md" }
+    @{ local = "$localPath\README.md"; remote = "README.md" },
+    @{ local = "$localPath\flush-api-keys.php"; remote = "flush-api-keys.php" },
+    @{ local = "$localPath\generate-new-api-key.php"; remote = "generate-new-api-key.php" }
 )
 
 # Combine all files
@@ -68,18 +89,17 @@ Write-Host "  User: $SftpUser"
 Write-Host "  Path: $RemotePath"
 Write-Host ""
 
-# Confirm deployment
-$confirmation = Read-Host "Do you want to proceed with deployment? (y/N)"
-if ($confirmation -ne 'y' -and $confirmation -ne 'Y') {
-    Write-Host "Deployment cancelled." -ForegroundColor Yellow
-    exit 0
-}
-
 # Create SFTP batch script
 $batchFile = "$env:TEMP\sftp_batch_$([System.DateTime]::Now.Ticks).txt"
 $sftpCommands = @"
-open $SftpServer
-$SftpUser
+mkdir public_html
+mkdir public_html/wp-content
+mkdir public_html/wp-content/plugins
+mkdir public_html/wp-content/plugins/bkgt-api
+mkdir public_html/wp-content/plugins/bkgt-api/includes
+mkdir public_html/wp-content/plugins/bkgt-api/admin
+mkdir public_html/wp-content/plugins/bkgt-api/admin/css
+mkdir public_html/wp-content/plugins/bkgt-api/admin/js
 cd $RemotePath
 ls -la
 binary
@@ -99,8 +119,15 @@ $sftpCommands | Out-File -FilePath $batchFile -Encoding ASCII
 
 Write-Host "Starting SFTP upload..." -ForegroundColor Yellow
 
-# Execute SFTP
-$sftpProcess = Start-Process -FilePath "sftp" -ArgumentList "-b $batchFile" -NoNewWindow -Wait -PassThru
+# Execute SFTP with user@host format and SSH key
+$sftpArgs = "-b", $batchFile
+if ($envVars.ContainsKey('SSH_KEY_PATH') -and (Test-Path $envVars['SSH_KEY_PATH'])) {
+    $sftpArgs = "-i", $envVars['SSH_KEY_PATH'], "-b", $batchFile
+    Write-Host "Using SSH key: $($envVars['SSH_KEY_PATH'])" -ForegroundColor Gray
+}
+$sftpArgs += "${SftpUser}@${SftpServer}"
+
+$sftpProcess = Start-Process -FilePath "sftp" -ArgumentList $sftpArgs -NoNewWindow -Wait -PassThru
 
 if ($sftpProcess.ExitCode -eq 0) {
     Write-Host ""

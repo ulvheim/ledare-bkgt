@@ -19,6 +19,7 @@ class BKGT_API_Admin {
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
         add_action('wp_ajax_bkgt_api_create_key', array($this, 'ajax_create_api_key'));
         add_action('wp_ajax_bkgt_api_revoke_key', array($this, 'ajax_revoke_api_key'));
+        add_action('wp_ajax_bkgt_api_delete_key', array($this, 'ajax_delete_api_key'));
         add_action('wp_ajax_bkgt_api_get_logs', array($this, 'ajax_get_logs'));
         add_action('wp_ajax_bkgt_api_get_security_logs', array($this, 'ajax_get_security_logs'));
         add_action('wp_ajax_bkgt_api_mark_notification_read', array($this, 'ajax_mark_notification_read'));
@@ -83,28 +84,38 @@ class BKGT_API_Admin {
             'bkgt-api-settings',
             array($this, 'settings_page')
         );
+
+        add_submenu_page(
+            'bkgt-api',
+            __('Diagnostic', 'bkgt-api'),
+            __('Diagnostic', 'bkgt-api'),
+            'manage_options',
+            'bkgt-api-diagnostic',
+            array($this, 'diagnostic_page')
+        );
     }
 
     /**
      * Enqueue admin scripts and styles
      */
     public function enqueue_admin_scripts($hook) {
-        if (strpos($hook, 'bkgt-api') === false) {
-            return;
-        }
+        // Load scripts on all admin pages for now to debug
+        // if (strpos($hook, 'bkgt-api') === false) {
+        //     return;
+        // }
 
         wp_enqueue_style(
             'bkgt-api-admin',
             BKGT_API_PLUGIN_URL . 'admin/css/admin.css',
             array(),
-            BKGT_API_VERSION
+            time() // Use timestamp to force cache refresh
         );
 
         wp_enqueue_script(
             'bkgt-api-admin',
             BKGT_API_PLUGIN_URL . 'admin/js/admin.js',
             array('jquery'),
-            BKGT_API_VERSION,
+            time(), // Use timestamp to force cache refresh
             true
         );
 
@@ -612,6 +623,9 @@ class BKGT_API_Admin {
                             <button class="button button-small bkgt-api-revoke-key" data-key-id="<?php echo esc_attr($key->id); ?>">
                                 <?php _e('Revoke', 'bkgt-api'); ?>
                             </button>
+                            <button class="button button-small button-link-delete bkgt-api-delete-key" data-key-id="<?php echo esc_attr($key->id); ?>" style="color: #dc3232; margin-left: 5px;">
+                                <?php _e('Delete', 'bkgt-api'); ?>
+                            </button>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -909,6 +923,32 @@ class BKGT_API_Admin {
         wp_send_json_success(__('API key revoked successfully.', 'bkgt-api'));
     }
 
+    public function ajax_delete_api_key() {
+        error_log('BKGT API: ajax_delete_api_key called');
+        check_ajax_referer('bkgt_api_admin_nonce');
+        error_log('BKGT API: nonce verified');
+
+        if (!current_user_can('manage_options')) {
+            error_log('BKGT API: insufficient permissions');
+            wp_send_json_error(__('Insufficient permissions.', 'bkgt-api'));
+        }
+
+        $key_id = intval($_POST['key_id']);
+        error_log('BKGT API: deleting key ID: ' . $key_id);
+
+        $auth = new BKGT_API_Auth();
+        $result = $auth->delete_api_key($key_id, get_current_user_id());
+        error_log('BKGT API: delete result: ' . ($result ? 'success' : 'failed'));
+
+        if ($result === false) {
+            wp_send_json_error(__('Failed to delete API key.', 'bkgt-api'));
+        }
+
+        do_action('bkgt_api_key_deleted', get_current_user_id(), array('id' => $key_id));
+
+        wp_send_json_success(__('API key deleted permanently.', 'bkgt-api'));
+    }
+
     public function ajax_get_logs() {
         check_ajax_referer('bkgt_api_admin_nonce');
 
@@ -959,5 +999,221 @@ class BKGT_API_Admin {
 
         // Implementation for real-time stats
         wp_send_json_success();
+    }
+
+    /**
+     * Diagnostic page
+     */
+    public function diagnostic_page() {
+        ?>
+        <div class="wrap">
+            <h1><?php _e('BKGT API Diagnostic', 'bkgt-api'); ?></h1>
+
+            <div class="bkgt-api-diagnostic">
+                <?php $this->render_diagnostic_section(); ?>
+            </div>
+        </div>
+        <?php
+    }
+
+    /**
+     * Render diagnostic section
+     */
+    private function render_diagnostic_section() {
+        ?>
+        <div class="bkgt-api-diagnostic-section">
+            <h2><?php _e('Plugin Status', 'bkgt-api'); ?></h2>
+            <table class="wp-list-table widefat fixed striped">
+                <thead>
+                    <tr>
+                        <th><?php _e('Plugin', 'bkgt-api'); ?></th>
+                        <th><?php _e('Status', 'bkgt-api'); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php
+                    $plugins = array(
+                        'bkgt-core/bkgt-core.php' => 'BKGT Core',
+                        'bkgt-data-scraping/bkgt-data-scraping.php' => 'BKGT Data Scraping',
+                        'bkgt-inventory/bkgt-inventory.php' => 'BKGT Inventory',
+                        'bkgt-api/bkgt-api.php' => 'BKGT API'
+                    );
+
+                    foreach ($plugins as $file => $name) {
+                        $active = is_plugin_active($file);
+                        $status_class = $active ? 'bkgt-status-active' : 'bkgt-status-inactive';
+                        $status_text = $active ? __('ACTIVE', 'bkgt-api') : __('INACTIVE', 'bkgt-api');
+                        ?>
+                        <tr>
+                            <td><?php echo esc_html($name); ?></td>
+                            <td><span class="bkgt-status <?php echo esc_attr($status_class); ?>"><?php echo esc_html($status_text); ?></span></td>
+                        </tr>
+                        <?php
+                    }
+                    ?>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="bkgt-api-diagnostic-section">
+            <h2><?php _e('Database Tables', 'bkgt-api'); ?></h2>
+            <table class="wp-list-table widefat fixed striped">
+                <thead>
+                    <tr>
+                        <th><?php _e('Table', 'bkgt-api'); ?></th>
+                        <th><?php _e('Status', 'bkgt-api'); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php
+                    global $wpdb;
+                    $tables = array(
+                        'bkgt_inventory_items',
+                        'bkgt_manufacturers',
+                        'bkgt_item_types',
+                        'bkgt_inventory_assignments',
+                        'bkgt_locations'
+                    );
+
+                    foreach ($tables as $table) {
+                        $table_name = $wpdb->prefix . $table;
+                        $exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'") === $table_name;
+                        $status_class = $exists ? 'bkgt-status-active' : 'bkgt-status-inactive';
+                        $status_text = $exists ? __('EXISTS', 'bkgt-api') : __('MISSING', 'bkgt-api');
+                        ?>
+                        <tr>
+                            <td><?php echo esc_html($table); ?></td>
+                            <td><span class="bkgt-status <?php echo esc_attr($status_class); ?>"><?php echo esc_html($status_text); ?></span></td>
+                        </tr>
+                        <?php
+                    }
+                    ?>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="bkgt-api-diagnostic-section">
+            <h2><?php _e('API Endpoints', 'bkgt-api'); ?></h2>
+            <p><em><?php _e('Note: Most endpoints require authentication. HTTP 401 is expected for unauthenticated requests.', 'bkgt-api'); ?></em></p>
+            <table class="wp-list-table widefat fixed striped">
+                <thead>
+                    <tr>
+                        <th><?php _e('Endpoint', 'bkgt-api'); ?></th>
+                        <th><?php _e('Status', 'bkgt-api'); ?></th>
+                        <th><?php _e('Expected', 'bkgt-api'); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php
+                    $endpoints = array(
+                        'wp-json/bkgt/v1/equipment' => 'Requires authentication',
+                        'wp-json/bkgt/v1/equipment/preview-identifier' => 'Requires authentication',
+                        'wp-json/bkgt/v1/equipment/manufacturers' => 'Requires authentication',
+                        'wp-json/bkgt/v1/equipment/types' => 'Requires authentication'
+                    );
+
+                    foreach ($endpoints as $endpoint => $description) {
+                        $url = home_url($endpoint);
+                        $response = wp_remote_head($url);
+                        $status = wp_remote_retrieve_response_code($response);
+                        $is_expected = ($status == 401);
+                        $status_class = $is_expected ? 'bkgt-status-active' : 'bkgt-status-inactive';
+                        $expected_text = $is_expected ? __('✅ Expected (401)', 'bkgt-api') : __('❌ Unexpected', 'bkgt-api');
+                        ?>
+                        <tr>
+                            <td><?php echo esc_html($endpoint); ?><br><small><?php echo esc_html($description); ?></small></td>
+                            <td><span class="bkgt-status <?php echo esc_attr($status_class); ?>">HTTP <?php echo esc_html($status); ?></span></td>
+                            <td><?php echo $expected_text; ?></td>
+                        </tr>
+                        <?php
+                    }
+                    ?>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="bkgt-api-diagnostic-section">
+            <h2><?php _e('Inventory Items', 'bkgt-api'); ?></h2>
+            <table class="wp-list-table widefat fixed striped">
+                <thead>
+                    <tr>
+                        <th><?php _e('ID', 'bkgt-api'); ?></th>
+                        <th><?php _e('Identifier', 'bkgt-api'); ?></th>
+                        <th><?php _e('Title', 'bkgt-api'); ?></th>
+                        <th><?php _e('Manufacturer', 'bkgt-api'); ?></th>
+                        <th><?php _e('Type', 'bkgt-api'); ?></th>
+                        <th><?php _e('Status', 'bkgt-api'); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php
+                    global $wpdb;
+                    $items = $wpdb->get_results(
+                        "SELECT i.id, i.unique_identifier, i.title, m.name as manufacturer_name, it.name as item_type_name, i.condition_status
+                         FROM {$wpdb->prefix}bkgt_inventory_items i
+                         LEFT JOIN {$wpdb->prefix}bkgt_manufacturers m ON i.manufacturer_id = m.id
+                         LEFT JOIN {$wpdb->prefix}bkgt_item_types it ON i.item_type_id = it.id
+                         ORDER BY i.id DESC LIMIT 10"
+                    );
+
+                    if (empty($items)) {
+                        echo '<tr><td colspan="6">' . __('No inventory items found.', 'bkgt-api') . '</td></tr>';
+                    } else {
+                        foreach ($items as $item) {
+                            $status_class = $item->condition_status === 'normal' ? 'bkgt-status-active' : 'bkgt-status-inactive';
+                            ?>
+                            <tr>
+                                <td><?php echo esc_html($item->id); ?></td>
+                                <td><code><?php echo esc_html($item->unique_identifier); ?></code></td>
+                                <td><?php echo esc_html($item->title); ?></td>
+                                <td><?php echo esc_html($item->manufacturer_name ?: 'Unknown'); ?></td>
+                                <td><?php echo esc_html($item->item_type_name ?: 'Unknown'); ?></td>
+                                <td><span class="bkgt-status <?php echo esc_attr($status_class); ?>"><?php echo esc_html($item->condition_status); ?></span></td>
+                            </tr>
+                            <?php
+                        }
+                    }
+                    ?>
+                </tbody>
+            </table>
+            <?php if (!empty($items)): ?>
+            <p><em><?php _e('Showing last 10 items. Total items:', 'bkgt-api'); ?> <?php echo $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_inventory_items"); ?></em></p>
+            <?php endif; ?>
+        </div>
+
+        <div class="bkgt-api-diagnostic-section">
+            <h2><?php _e('Class Availability', 'bkgt-api'); ?></h2>
+            <table class="wp-list-table widefat fixed striped">
+                <thead>
+                    <tr>
+                        <th><?php _e('Class', 'bkgt-api'); ?></th>
+                        <th><?php _e('Status', 'bkgt-api'); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php
+                    $classes = array(
+                        'BKGT_Inventory_Item',
+                        'BKGT_Manufacturer',
+                        'BKGT_Item_Type',
+                        'BKGT_Assignment'
+                    );
+
+                    foreach ($classes as $class) {
+                        $exists = class_exists($class);
+                        $status_class = $exists ? 'bkgt-status-active' : 'bkgt-status-inactive';
+                        $status_text = $exists ? __('EXISTS', 'bkgt-api') : __('MISSING', 'bkgt-api');
+                        ?>
+                        <tr>
+                            <td><?php echo esc_html($class); ?></td>
+                            <td><span class="bkgt-status <?php echo esc_attr($status_class); ?>"><?php echo esc_html($status_text); ?></span></td>
+                        </tr>
+                        <?php
+                    }
+                    ?>
+                </tbody>
+            </table>
+        </div>
+        <?php
     }
 }

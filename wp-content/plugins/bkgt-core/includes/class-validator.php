@@ -471,4 +471,173 @@ class BKGT_Validator {
         }
         return true;
     }
+    
+    /**
+     * Check if validation errors exist
+     * 
+     * @param array $errors Array of validation errors
+     * 
+     * @return bool True if errors exist, false otherwise
+     */
+    public static function has_errors( $errors ) {
+        return ! empty( $errors ) && is_array( $errors );
+    }
+    
+    /**
+     * General validation method called by sanitizer
+     * 
+     * @param array  $data       Sanitized data to validate
+     * @param string $entity_type Type of entity being validated
+     * @param int    $entity_id   Optional entity ID for updates
+     * 
+     * @return array Array of validation errors (empty if valid)
+     */
+    public static function validate( $data, $entity_type, $entity_id = null ) {
+        $errors = array();
+        
+        switch ( $entity_type ) {
+            case 'manufacturer':
+                $errors = self::validate_manufacturer( $data, $entity_id );
+                break;
+                
+            case 'item_type':
+                $errors = self::validate_item_type( $data, $entity_id );
+                break;
+                
+            case 'inventory_item':
+                $errors = self::validate_inventory_item( $data, $entity_id );
+                break;
+                
+            case 'equipment_item':
+                $errors = self::validate_equipment_item( $data );
+                break;
+                
+            default:
+                // No specific validation for this entity type
+                break;
+        }
+        
+        return $errors;
+    }
+    
+    /**
+     * Validate manufacturer data
+     * 
+     * @param array $data     Manufacturer data
+     * @param int   $entity_id Optional manufacturer ID for updates
+     * 
+     * @return array Validation errors
+     */
+    private static function validate_manufacturer( $data, $entity_id = null ) {
+        $errors = array();
+        
+        // Name is required
+        if ( empty( $data['name'] ) ) {
+            $errors['name'] = self::$error_messages['required'];
+        } elseif ( strlen( $data['name'] ) > 255 ) {
+            $errors['name'] = sprintf( self::$error_messages['max_length'], 255 );
+        }
+        
+        // Check for duplicate name if creating new manufacturer
+        if ( ! $entity_id && ! empty( $data['name'] ) ) {
+            global $wpdb;
+            $existing = $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_manufacturers WHERE name = %s",
+                $data['name']
+            ) );
+            if ( $existing > 0 ) {
+                $errors['name'] = __( 'En tillverkare med detta namn finns redan', 'bkgt' );
+            }
+        }
+        
+        return $errors;
+    }
+    
+    /**
+     * Validate item type data
+     * 
+     * @param array $data     Item type data
+     * @param int   $entity_id Optional item type ID for updates
+     * 
+     * @return array Validation errors
+     */
+    private static function validate_item_type( $data, $entity_id = null ) {
+        $errors = array();
+        
+        // Name is required
+        if ( empty( $data['name'] ) ) {
+            $errors['name'] = self::$error_messages['required'];
+        } elseif ( strlen( $data['name'] ) > 255 ) {
+            $errors['name'] = sprintf( self::$error_messages['max_length'], 255 );
+        }
+        
+        // Check for duplicate name if creating new item type
+        if ( ! $entity_id && ! empty( $data['name'] ) ) {
+            global $wpdb;
+            $existing = $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_item_types WHERE name = %s",
+                $data['name']
+            ) );
+            if ( $existing > 0 ) {
+                $errors['name'] = __( 'En artikeltyp med detta namn finns redan', 'bkgt' );
+            }
+        }
+        
+        return $errors;
+    }
+    
+    /**
+     * Validate inventory item data
+     * 
+     * @param array $data     Inventory item data
+     * @param int   $entity_id Optional inventory item ID for updates
+     * 
+     * @return array Validation errors
+     */
+    private static function validate_inventory_item( $data, $entity_id = null ) {
+        $errors = array();
+        
+        // Manufacturer ID is required and must be numeric
+        if ( empty( $data['manufacturer_id'] ) ) {
+            $errors['manufacturer_id'] = self::$error_messages['required'];
+        } elseif ( ! is_numeric( $data['manufacturer_id'] ) ) {
+            $errors['manufacturer_id'] = self::$error_messages['numeric'];
+        } else {
+            // Check if manufacturer exists
+            global $wpdb;
+            $manufacturer_exists = $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_manufacturers WHERE id = %d",
+                $data['manufacturer_id']
+            ) );
+            if ( ! $manufacturer_exists ) {
+                $errors['manufacturer_id'] = __( 'Ogiltig tillverkare vald', 'bkgt' );
+            }
+        }
+        
+        // Item type ID is required and must be numeric
+        if ( empty( $data['item_type_id'] ) ) {
+            $errors['item_type_id'] = self::$error_messages['required'];
+        } elseif ( ! is_numeric( $data['item_type_id'] ) ) {
+            $errors['item_type_id'] = self::$error_messages['numeric'];
+        } else {
+            // Check if item type exists
+            global $wpdb;
+            $item_type_exists = $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_item_types WHERE id = %d",
+                $data['item_type_id']
+            ) );
+            if ( ! $item_type_exists ) {
+                $errors['item_type_id'] = __( 'Ogiltig artikeltyp vald', 'bkgt' );
+            }
+        }
+        
+        // Title is required
+        if ( empty( $data['title'] ) ) {
+            $errors['title'] = self::$error_messages['required'];
+        } elseif ( strlen( $data['title'] ) > 255 ) {
+            $errors['title'] = sprintf( self::$error_messages['max_length'], 255 );
+        }
+        
+        return $errors;
+    }
 }

@@ -44,6 +44,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/class-manufacturer.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-item-type.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-inventory-item.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-assignment.php';
+require_once plugin_dir_path(__FILE__) . 'includes/class-api-endpoints.php';
 
 // Include admin files if in admin area
 if (is_admin()) {
@@ -55,7 +56,8 @@ if (is_admin()) {
 global $bkgt_inventory_db;
 $bkgt_inventory_db = new BKGT_Inventory_Database();
 
-// Initialize admin class if in admin area or AJAX request
+// Initialize API endpoints
+        new BKGT_Inventory_API_Endpoints();// Initialize admin class if in admin area or AJAX request
 if (is_admin() || (defined('DOING_AJAX') && DOING_AJAX)) {
     new BKGT_Inventory_Admin();
 }

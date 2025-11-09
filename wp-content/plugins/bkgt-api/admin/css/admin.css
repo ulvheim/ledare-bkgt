@@ -506,3 +506,78 @@
     font-size: 12px;
     line-height: 1.4;
 }
+
+/* Diagnostic page styles */
+.bkgt-api-diagnostic {
+    margin-top: 20px;
+}
+
+.bkgt-api-diagnostic-section {
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    margin-bottom: 30px;
+    overflow: hidden;
+}
+
+.bkgt-api-diagnostic-section h2 {
+    margin: 0;
+    padding: 20px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e5e5e5;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.bkgt-api-diagnostic-section table {
+    margin: 0;
+}
+
+.bkgt-api-diagnostic-section table thead th {
+    background: #f8f9fa;
+    border-bottom: 1px solid #e5e5e5;
+    font-weight: 600;
+    padding: 12px 20px;
+}
+
+.bkgt-api-diagnostic-section table tbody td {
+    padding: 12px 20px;
+    border-bottom: 1px solid #f0f0f1;
+}
+
+.bkgt-api-diagnostic-section table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.bkgt-status {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.bkgt-status-active {
+    background: #e8f5e8;
+    color: #28a745;
+}
+
+.bkgt-status-inactive {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.bkgt-api-response {
+    background: #f8f9fa;
+    border: 1px solid #e5e5e5;
+    border-radius: 4px;
+    padding: 15px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
