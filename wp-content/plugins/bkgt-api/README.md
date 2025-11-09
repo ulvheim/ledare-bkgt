@@ -421,6 +421,16 @@ curl -X GET "https://ledare.bkgt.se/wp-json/bkgt/v1/routes?detailed=true"
 
 ## Changelog
 
+### v2.2.0 - Equipment Title Simplification (2025-11-09)
+- 🗑️ **Removed title parameter from equipment API**
+  - **BREAKING CHANGE**: `title` field no longer accepted in equipment creation/update
+  - Title is now automatically generated from `unique_identifier`
+  - Unique identifier serves as the equipment identifier and display title
+- 🔄 **Simplified equipment data model**
+  - Equipment identification now uses unique identifier exclusively
+  - Consistent behavior between admin interface and API
+  - Reduced API complexity by eliminating redundant title field
+
 ### v2.1.0 - Dynamic Documentation (2025-11-09)
 - ✨ **Added self-documenting API endpoints**
   - `/docs` endpoint with HTML, JSON, and Markdown formats
@@ -586,7 +596,6 @@ Get specific equipment item details.
 
 ```javascript
 const equipmentData = {
-    "title": "Football Helmet",    // Required: Equipment name/title
     "manufacturer_id": 1,         // Required: Get from /equipment/manufacturers
     "item_type_id": 1,            // Required: Get from /equipment/types
     "size": "Large",              // Optional: Equipment size (S, M, L, XL, etc.)
@@ -606,7 +615,7 @@ fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment', {
 .then(response => response.json())
 .then(data => {
     console.log('Equipment created:', data);
-    // Response includes generated unique_identifier
+    // Response includes auto-generated unique_identifier (used as title)
 });
 ```
 
@@ -615,7 +624,7 @@ fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment', {
 {
     "id": 123,
     "unique_identifier": "0001-0001-00005",
-    "title": "Football Helmet",
+    "title": "0001-0001-00005",
     "size": "Large",
     "manufacturer_id": 1,
     "item_type_id": 1,
@@ -626,6 +635,8 @@ fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment', {
     "updated_at": "2024-01-15T10:30:00Z"
 }
 ```
+
+**Note:** The `title` field is automatically generated from the `unique_identifier` and cannot be manually specified.
 
 #### Updating Equipment
 
