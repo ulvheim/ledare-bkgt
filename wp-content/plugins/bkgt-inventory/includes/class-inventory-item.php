@@ -88,24 +88,29 @@ class BKGT_Inventory_Item {
      * Create inventory item
      */
     public static function create($data) {
-        // Validate required fields
-        $required_fields = array('manufacturer_id', 'item_type_id', 'title');
+        // Validate required fields (title is now optional - will be auto-generated)
+        $required_fields = array('manufacturer_id', 'item_type_id');
         foreach ($required_fields as $field) {
             if (empty($data[$field])) {
                 return new WP_Error('missing_field', sprintf(__('Obligatoriskt fält saknas: %s', 'bkgt-inventory'), $field));
             }
         }
-        
+
         // Generate unique identifier if not provided
         if (empty($data['unique_identifier'])) {
             $data['unique_identifier'] = self::generate_unique_identifier($data['manufacturer_id'], $data['item_type_id']);
         }
-        
+
         // Check if identifier already exists
         if (self::identifier_exists($data['unique_identifier'])) {
             return new WP_Error('identifier_exists', __('Unik identifierare finns redan.', 'bkgt-inventory'));
         }
-        
+
+        // Auto-generate title from unique identifier if not provided
+        if (empty($data['title'])) {
+            $data['title'] = $data['unique_identifier'];
+        }
+
         // Create the post
         $post_data = array(
             'post_type' => 'bkgt_inventory_item',

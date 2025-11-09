@@ -58,7 +58,7 @@ class BKGT_Inventory_API_Endpoints {
                 'permission_callback' => array($this, 'validate_token'),
                 'args' => array(
                     'title' => array(
-                        'required' => true,
+                        'required' => false,
                         'sanitize_callback' => 'sanitize_text_field',
                     ),
                     'manufacturer_id' => array(
@@ -412,6 +412,10 @@ class BKGT_Inventory_API_Endpoints {
 
     /**
      * Create equipment item
+     */
+    /**
+     * Create new equipment item
+     * Title is optional - will be auto-generated from unique identifier if not provided
      */
     public function create_equipment($request) {
         try {
