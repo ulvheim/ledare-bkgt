@@ -14,6 +14,11 @@ if (!defined('ABSPATH')) {
 class BKGT_Inventory_Admin {
     
     /**
+     * Service client for API calls
+     */
+    private $service_client;
+    
+    /**
      * Constructor
      */
     public function __construct() {
