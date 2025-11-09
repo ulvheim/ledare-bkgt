@@ -88,7 +88,7 @@ class BKGT_Inventory_Item {
      * Create inventory item
      */
     public static function create($data) {
-        // Validate required fields (title is now optional - will be auto-generated)
+        // Validate required fields (title is not accepted - will be auto-generated from unique identifier)
         $required_fields = array('manufacturer_id', 'item_type_id');
         foreach ($required_fields as $field) {
             if (empty($data[$field])) {
@@ -106,10 +106,8 @@ class BKGT_Inventory_Item {
             return new WP_Error('identifier_exists', __('Unik identifierare finns redan.', 'bkgt-inventory'));
         }
 
-        // Auto-generate title from unique identifier if not provided
-        if (empty($data['title'])) {
-            $data['title'] = $data['unique_identifier'];
-        }
+        // Title is always the unique identifier (the unique identifier IS the title)
+        $data['title'] = $data['unique_identifier'];
 
         // Create the post
         $post_data = array(
@@ -635,7 +633,7 @@ class BKGT_Inventory_Item {
         global $wpdb;
         global $bkgt_inventory_db;
         
-        // Validate required fields (title is now optional - will be auto-generated)
+        // Validate required fields (title is not accepted - will be auto-generated from unique identifier)
         $required_fields = array('manufacturer_id', 'item_type_id');
         foreach ($required_fields as $field) {
             if (empty($data[$field])) {
@@ -653,10 +651,8 @@ class BKGT_Inventory_Item {
             return new WP_Error('identifier_exists', __('Unik identifierare finns redan.', 'bkgt-inventory'));
         }
         
-        // Auto-generate title from unique identifier if not provided
-        if (empty($data['title'])) {
-            $data['title'] = $data['unique_identifier'];
-        }
+        // Title is always the unique identifier (the unique identifier IS the title)
+        $data['title'] = $data['unique_identifier'];
         
         $table = $bkgt_inventory_db->get_inventory_items_table();
         
@@ -706,11 +702,6 @@ class BKGT_Inventory_Item {
         
         $update_format = array('%s');
         
-        if (isset($data['title'])) {
-            $update_data['title'] = sanitize_text_field($data['title']);
-            $update_format[] = '%s';
-        }
-        
         if (isset($data['manufacturer_id'])) {
             $update_data['manufacturer_id'] = intval($data['manufacturer_id']);
             $update_format[] = '%d';
@@ -723,6 +714,8 @@ class BKGT_Inventory_Item {
         
         if (isset($data['unique_identifier'])) {
             $update_data['unique_identifier'] = sanitize_text_field($data['unique_identifier']);
+            $update_data['title'] = sanitize_text_field($data['unique_identifier']); // Title is always the unique identifier
+            $update_format[] = '%s';
             $update_format[] = '%s';
         }
         

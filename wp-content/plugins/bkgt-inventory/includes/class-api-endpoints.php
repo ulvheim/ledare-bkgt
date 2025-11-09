@@ -57,10 +57,6 @@ class BKGT_Inventory_API_Endpoints {
                 'callback' => array($this, 'create_equipment'),
                 'permission_callback' => array($this, 'validate_token'),
                 'args' => array(
-                    'title' => array(
-                        'required' => false,
-                        'sanitize_callback' => 'sanitize_text_field',
-                    ),
                     'manufacturer_id' => array(
                         'required' => true,
                         'sanitize_callback' => 'absint',
@@ -107,9 +103,6 @@ class BKGT_Inventory_API_Endpoints {
                     'id' => array(
                         'required' => true,
                         'sanitize_callback' => 'absint',
-                    ),
-                    'title' => array(
-                        'sanitize_callback' => 'sanitize_text_field',
                     ),
                     'manufacturer_id' => array(
                         'sanitize_callback' => 'absint',
@@ -415,12 +408,11 @@ class BKGT_Inventory_API_Endpoints {
      */
     /**
      * Create new equipment item
-     * Title is optional - will be auto-generated from unique identifier if not provided
+     * Title is not accepted - will be auto-generated from unique identifier
      */
     public function create_equipment($request) {
         try {
             $data = array(
-                'title' => $request->get_param('title'),
                 'manufacturer_id' => $request->get_param('manufacturer_id'),
                 'item_type_id' => $request->get_param('item_type_id'),
                 'unique_identifier' => $request->get_param('unique_identifier'),
@@ -452,7 +444,6 @@ class BKGT_Inventory_API_Endpoints {
         try {
             $id = $request->get_param('id');
             $data = array(
-                'title' => $request->get_param('title'),
                 'manufacturer_id' => $request->get_param('manufacturer_id'),
                 'item_type_id' => $request->get_param('item_type_id'),
                 'unique_identifier' => $request->get_param('unique_identifier'),
