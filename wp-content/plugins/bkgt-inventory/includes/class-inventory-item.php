@@ -667,14 +667,13 @@ class BKGT_Inventory_Item {
                 'manufacturer_id' => intval($data['manufacturer_id']),
                 'item_type_id' => intval($data['item_type_id']),
                 'title' => sanitize_text_field($data['title']),
-                'size' => sanitize_text_field($data['size'] ?? ''),
                 'storage_location' => sanitize_text_field($data['storage_location'] ?? ''),
                 'condition_status' => $data['condition_status'] ?? 'normal',
                 'notes' => sanitize_textarea_field($data['notes'] ?? ''),
                 'created_at' => current_time('mysql'),
                 'updated_at' => current_time('mysql'),
             ),
-            array('%s', '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s')
+            array('%s', '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s')
         );
         
         if ($result === false) {
