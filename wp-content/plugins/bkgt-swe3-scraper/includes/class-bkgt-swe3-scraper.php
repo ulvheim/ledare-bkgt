@@ -79,77 +79,30 @@ class BKGT_SWE3_Scraper {
      * Scrape the SWE3 rules page for documents
      */
     public function scrape_rules_page() {
-        $this->log('info', 'Scraping SWE3 rules page: ' . self::SWE3_RULES_URL);
+        $this->log('info', 'Fetching SWE3 rules page HTML content');
 
+        // Fetch the HTML content from SWE3 rules page
         $response = $this->make_request(self::SWE3_RULES_URL);
 
         if (is_wp_error($response)) {
-            $this->log('error', 'Failed to fetch rules page: ' . $response->get_error_message());
+            $this->log('error', 'Failed to fetch SWE3 rules page: ' . $response->get_error_message());
             return array();
         }
 
-        $html = wp_remote_retrieve_body($response);
+        $html_content = wp_remote_retrieve_body($response);
 
-        if (empty($html)) {
-            $this->log('error', 'Empty response from rules page');
+        if (empty($html_content)) {
+            $this->log('error', 'Empty HTML content received from SWE3 rules page');
             return array();
         }
 
-        // Parse HTML for document links
-        $documents = $this->parse_document_links($html);
+        $this->log('info', 'Successfully fetched HTML content, parsing for documents');
 
-        $this->log('info', sprintf('Parsed %d document links from rules page', count($documents)));
+        // Parse HTML content to extract documents
+        $parser = bkgt_swe3_scraper()->parser;
+        $documents = $parser->parse_documents($html_content);
 
-        return $documents;
-    }
-
-    /**
-     * Parse HTML for document links
-     */
-    private function parse_document_links($html) {
-        $documents = array();
-
-        // Use DOMDocument for parsing
-        $dom = new DOMDocument();
-        @$dom->loadHTML($html); // Suppress warnings for malformed HTML
-
-        $xpath = new DOMXPath($dom);
-
-        // Look for PDF links and document links
-        $link_patterns = array(
-            '//a[contains(@href, ".pdf")]',           // PDF files
-            '//a[contains(@href, "wp-content/uploads")]', // Uploaded files
-        );
-
-        foreach ($link_patterns as $pattern) {
-            $links = $xpath->query($pattern);
-
-            foreach ($links as $link) {
-                $href = $link->getAttribute('href');
-                $text = trim($link->textContent);
-
-                if (empty($href) || empty($text)) {
-                    continue;
-                }
-
-                // Convert relative URLs to absolute
-                $absolute_url = $this->make_absolute_url($href, self::SWE3_RULES_URL);
-
-                // Skip if not a document URL
-                if (!$this->is_document_url($absolute_url)) {
-                    continue;
-                }
-
-                $documents[] = array(
-                    'url' => $absolute_url,
-                    'title' => $text,
-                    'type' => $this->determine_document_type($text, $absolute_url),
-                );
-            }
-        }
-
-        // Remove duplicates based on URL
-        $documents = array_unique($documents, SORT_REGULAR);
+        $this->log('info', sprintf('Parsed %d documents from SWE3 rules page', count($documents)));
 
         return $documents;
     }
@@ -162,14 +115,14 @@ class BKGT_SWE3_Scraper {
             $this->log('info', sprintf('Processing document: %s', $document['title']));
 
             // Check if document already exists
-            $existing_doc = $this->get_existing_document($document['url']);
+            $existing_doc = $this->get_existing_document($document['swe3_url']);
 
             // Download the document
-            $download_result = $this->download_document($document['url']);
+            $download_result = $this->download_document($document['swe3_url']);
 
             if (!$download_result) {
-                $this->log('error', sprintf('Failed to download document: %s', $document['url']));
-                $this->update_document_status($document['url'], 'error', 'Download failed');
+                $this->log('error', sprintf('Failed to download document: %s', $document['swe3_url']));
+                $this->update_document_status($document['swe3_url'], 'error', 'Download failed');
                 return false;
             }
 
@@ -179,12 +132,12 @@ class BKGT_SWE3_Scraper {
             // Check if document has changed
             if ($existing_doc && $existing_doc->file_hash === $file_hash) {
                 $this->log('info', sprintf('Document unchanged: %s', $document['title']));
-                $this->update_document_last_checked($document['url']);
+                $this->update_document_last_checked($document['swe3_url']);
                 return true;
             }
 
             // Extract metadata
-            $metadata = $this->extract_document_metadata($file_path, $document);
+            $metadata = $this->extract_document_metadata($document);
 
             // Create or update DMS document
             $dms_result = $this->create_or_update_dms_document($document, $file_path, $metadata, $file_hash);
@@ -203,7 +156,7 @@ class BKGT_SWE3_Scraper {
 
         } catch (Exception $e) {
             $this->log('error', sprintf('Error processing document %s: %s', $document['title'], $e->getMessage()));
-            $this->update_document_status($document['url'], 'error', $e->getMessage());
+            $this->update_document_status($document['swe3_url'], 'error', $e->getMessage());
             return false;
         }
     }
@@ -310,28 +263,6 @@ class BKGT_SWE3_Scraper {
         $filename = sprintf('%s-%d.%s', $name, $timestamp, $ext);
 
         return 'swe3-' . $filename;
-    }
-
-    /**
-     * Make relative URL absolute
-     */
-    private function make_absolute_url($url, $base_url) {
-        if (filter_var($url, FILTER_VALIDATE_URL)) {
-            return $url; // Already absolute
-        }
-
-        return rtrim($base_url, '/') . '/' . ltrim($url, '/');
-    }
-
-    /**
-     * Check if URL is a document URL
-     */
-    private function is_document_url($url) {
-        $document_extensions = array('pdf', 'doc', 'docx', 'xls', 'xlsx');
-        $path = parse_url($url, PHP_URL_PATH);
-        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-
-        return in_array($extension, $document_extensions);
     }
 
     /**
@@ -469,10 +400,10 @@ class BKGT_SWE3_Scraper {
         $table_name = $wpdb->prefix . 'bkgt_swe3_documents';
 
         $data = array(
-            'swe3_id' => md5($document['url']),
+            'swe3_id' => isset($document['swe3_id']) ? $document['swe3_id'] : md5($document['swe3_url']),
             'title' => $metadata['title'],
             'document_type' => $metadata['type'],
-            'swe3_url' => $document['url'],
+            'swe3_url' => $document['swe3_url'],
             'local_path' => $file_path,
             'file_hash' => $file_hash,
             'version' => $metadata['version'],
@@ -483,13 +414,13 @@ class BKGT_SWE3_Scraper {
             'error_message' => null,
         );
 
-        $existing_doc = $this->get_existing_document($document['url']);
+        $existing_doc = $this->get_existing_document($document['swe3_url']);
 
         if ($existing_doc) {
             $wpdb->update(
                 $table_name,
                 $data,
-                array('swe3_url' => $document['url']),
+                array('swe3_url' => $document['swe3_url']),
                 array('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s'),
                 array('%s')
             );
@@ -533,5 +464,17 @@ class BKGT_SWE3_Scraper {
         }
 
         // TODO: Implement custom log file writing
+    }
+
+    /**
+     * Extract metadata from document data
+     */
+    private function extract_document_metadata($document) {
+        return array(
+            'title' => isset($document['title']) ? $document['title'] : 'Unknown Document',
+            'type' => isset($document['document_type']) ? $document['document_type'] : 'other',
+            'version' => isset($document['version']) ? $document['version'] : '1.0',
+            'publication_date' => isset($document['publication_date']) ? $document['publication_date'] : null,
+        );
     }
 }

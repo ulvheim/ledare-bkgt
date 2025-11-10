@@ -20,6 +20,13 @@ class BKGT_SWE3_DMS_Integration {
     const DMS_PREFIX = 'SWE3-';
 
     /**
+     * Get DMS post type
+     */
+    private function get_dms_post_type() {
+        return 'bkgt_document';
+    }
+
+    /**
      * Create or update DMS document
      */
     public function create_or_update_document($document, $file_path, $metadata, $file_hash) {
@@ -218,15 +225,6 @@ class BKGT_SWE3_DMS_Integration {
         }
 
         return $excerpt;
-    }
-
-    /**
-     * Get DMS post type
-     */
-    private function get_dms_post_type() {
-        // This should match your DMS post type
-        // Adjust based on your actual DMS implementation
-        return defined('BKGT_DMS_POST_TYPE') ? BKGT_DMS_POST_TYPE : 'document';
     }
 
     /**

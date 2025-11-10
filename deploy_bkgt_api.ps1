@@ -4,7 +4,7 @@
 param(
     [string]$SftpServer,
     [string]$SftpUser,
-    [string]$RemotePath = "/public_html/wp-content/plugins/bkgt-api/"
+    [string]$RemotePath
 )
 
 # Load environment variables from .env file
@@ -23,8 +23,10 @@ if (Test-Path $envFile) {
 # Set defaults if not provided
 if (-not $SftpServer) { $SftpServer = $envVars['SSH_HOST'] }
 if (-not $SftpUser) { $SftpUser = $envVars['SSH_USER'] }
+if (-not $RemotePath) { $RemotePath = $envVars['REMOTE_FOLDER'] + "/wp-content/plugins/bkgt-api/" }
 if (-not $SftpServer) { $SftpServer = 'ssh.loopia.se' }
 if (-not $SftpUser) { $SftpUser = 'md0600' }
+if (-not $RemotePath) { $RemotePath = "~/ledare.bkgt.se/public_html/wp-content/plugins/bkgt-api/" }
 
 $localPath = "C:\Users\Olheim\Desktop\GH\ledare-bkgt\wp-content\plugins\bkgt-api"
 
@@ -92,14 +94,6 @@ Write-Host ""
 # Create SFTP batch script
 $batchFile = "$env:TEMP\sftp_batch_$([System.DateTime]::Now.Ticks).txt"
 $sftpCommands = @"
-mkdir public_html
-mkdir public_html/wp-content
-mkdir public_html/wp-content/plugins
-mkdir public_html/wp-content/plugins/bkgt-api
-mkdir public_html/wp-content/plugins/bkgt-api/includes
-mkdir public_html/wp-content/plugins/bkgt-api/admin
-mkdir public_html/wp-content/plugins/bkgt-api/admin/css
-mkdir public_html/wp-content/plugins/bkgt-api/admin/js
 cd $RemotePath
 ls -la
 binary

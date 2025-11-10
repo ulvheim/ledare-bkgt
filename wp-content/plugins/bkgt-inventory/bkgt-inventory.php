@@ -80,6 +80,12 @@ function bkgt_inventory_activate() {
     global $bkgt_inventory_db;
     $bkgt_inventory_db->create_tables();
     
+    // Upgrade database for search enhancements
+    $bkgt_inventory_db->upgrade_for_search();
+    
+    // Upgrade database for equipment update fields
+    $bkgt_inventory_db->upgrade_for_equipment_updates();
+    
     // Create history table
     BKGT_History::create_history_table();
     

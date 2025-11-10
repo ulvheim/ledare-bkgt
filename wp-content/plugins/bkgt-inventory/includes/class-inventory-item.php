@@ -436,6 +436,10 @@ class BKGT_Inventory_Item {
             'page' => 1,
             'per_page' => 10,
             'search' => '',
+            'search_fields' => '',
+            'search_operator' => 'OR',
+            'fuzzy' => false,
+            'search_mode' => 'partial',
             'location_id' => null,
             'condition' => null,
             'manufacturer_id' => null,
@@ -456,12 +460,16 @@ class BKGT_Inventory_Item {
         
         // Search
         if (!empty($args['search'])) {
-            $where_clauses[] = $wpdb->prepare(
-                "(i.title LIKE %s OR i.unique_identifier LIKE %s OR i.storage_location LIKE %s)",
-                '%' . $wpdb->esc_like($args['search']) . '%',
-                '%' . $wpdb->esc_like($args['search']) . '%',
-                '%' . $wpdb->esc_like($args['search']) . '%'
+            $search_conditions = $this->build_search_conditions(
+                $args['search'], 
+                $args['search_fields'], 
+                $args['search_operator'], 
+                $args['fuzzy'], 
+                $args['search_mode']
             );
+            if (!empty($search_conditions)) {
+                $where_clauses[] = $search_conditions;
+            }
         }
         
         // Manufacturer filter
@@ -511,7 +519,10 @@ class BKGT_Inventory_Item {
                 'item_type_name' => $row['item_type_name'],
                 'storage_location' => $row['storage_location'],
                 'condition_status' => $row['condition_status'],
+                'condition_reason' => $row['condition_reason'],
+                'size' => $row['size'],
                 'notes' => $row['notes'],
+                'sticker_code' => $row['sticker_code'],
                 'created_at' => $row['created_at'],
                 'updated_at' => $row['updated_at'],
                 'assignee_type' => $row['assignee_type'],
@@ -531,6 +542,10 @@ class BKGT_Inventory_Item {
         
         $defaults = array(
             'search' => '',
+            'search_fields' => '',
+            'search_operator' => 'OR',
+            'fuzzy' => false,
+            'search_mode' => 'partial',
             'location_id' => null,
             'condition' => null,
             'manufacturer_id' => null,
@@ -545,12 +560,16 @@ class BKGT_Inventory_Item {
         
         // Search
         if (!empty($args['search'])) {
-            $where_clauses[] = $wpdb->prepare(
-                "(title LIKE %s OR unique_identifier LIKE %s OR storage_location LIKE %s)",
-                '%' . $wpdb->esc_like($args['search']) . '%',
-                '%' . $wpdb->esc_like($args['search']) . '%',
-                '%' . $wpdb->esc_like($args['search']) . '%'
+            $search_conditions = $this->build_search_conditions_for_count(
+                $args['search'], 
+                $args['search_fields'], 
+                $args['search_operator'], 
+                $args['fuzzy'], 
+                $args['search_mode']
             );
+            if (!empty($search_conditions)) {
+                $where_clauses[] = $search_conditions;
+            }
         }
         
         // Manufacturer filter
@@ -618,6 +637,8 @@ class BKGT_Inventory_Item {
             'item_type_name' => $row['item_type_name'],
             'storage_location' => $row['storage_location'],
             'condition_status' => $row['condition_status'],
+            'condition_reason' => $row['condition_reason'],
+            'sticker_code' => $row['sticker_code'],
             'notes' => $row['notes'],
             'created_at' => $row['created_at'],
             'updated_at' => $row['updated_at'],
@@ -724,6 +745,26 @@ class BKGT_Inventory_Item {
             $update_format[] = '%s';
         }
         
+        if (isset($data['location_id'])) {
+            $update_data['location_id'] = intval($data['location_id']);
+            $update_format[] = '%d';
+        }
+        
+        if (isset($data['purchase_date'])) {
+            $update_data['purchase_date'] = sanitize_text_field($data['purchase_date']);
+            $update_format[] = '%s';
+        }
+        
+        if (isset($data['purchase_price'])) {
+            $update_data['purchase_price'] = floatval($data['purchase_price']);
+            $update_format[] = '%f';
+        }
+        
+        if (isset($data['warranty_expiry'])) {
+            $update_data['warranty_expiry'] = sanitize_text_field($data['warranty_expiry']);
+            $update_format[] = '%s';
+        }
+        
         if (isset($data['size'])) {
             $update_data['size'] = sanitize_text_field($data['size']);
             $update_format[] = '%s';
@@ -774,5 +815,161 @@ class BKGT_Inventory_Item {
         }
         
         return true;
+    }
+
+    /**
+     * Resolve item identifier (ID or unique_identifier) to database ID
+     */
+    public static function resolve_item_identifier($identifier) {
+        global $wpdb;
+        global $bkgt_inventory_db;
+        
+        $table = $bkgt_inventory_db->get_inventory_items_table();
+        
+        // Check if it's a numeric ID
+        if (is_numeric($identifier)) {
+            $item_id = intval($identifier);
+            $exists = $wpdb->get_var($wpdb->prepare("SELECT id FROM {$table} WHERE id = %d", $item_id));
+            return $exists ? $item_id : false;
+        }
+        
+        // Check if it's a unique identifier
+        $item_id = $wpdb->get_var($wpdb->prepare("SELECT id FROM {$table} WHERE unique_identifier = %s", $identifier));
+        return $item_id ? intval($item_id) : false;
+    }
+    
+    /**
+     * Build search conditions based on search parameters
+     */
+    private static function build_search_conditions($search, $search_fields, $operator, $fuzzy, $mode) {
+        global $wpdb;
+
+        // Define available search fields and their table aliases
+        $available_fields = array(
+            'unique_identifier' => 'i.unique_identifier',
+            'title' => 'i.title',
+            'storage_location' => 'i.storage_location',
+            'notes' => 'i.notes',
+            'size' => 'i.size',
+            'condition_reason' => 'i.condition_reason',
+            'sticker_code' => 'i.sticker_code',
+            'manufacturer_name' => 'm.name',
+            'item_type_name' => 'it.name'
+        );
+
+        // Determine which fields to search in
+        if (!empty($search_fields)) {
+            $fields_to_search = array_map('trim', explode(',', $search_fields));
+            // Filter to only allowed fields
+            $fields_to_search = array_intersect($fields_to_search, array_keys($available_fields));
+        } else {
+            // Default to all fields
+            $fields_to_search = array_keys($available_fields);
+        }
+
+        if (empty($fields_to_search)) {
+            return '';
+        }
+
+        $conditions = array();
+        $search_term = $fuzzy ? $search : '%' . $wpdb->esc_like($search) . '%';
+
+        foreach ($fields_to_search as $field) {
+            $table_field = $available_fields[$field];
+
+            if ($fuzzy) {
+                // Fuzzy search using SOUNDEX for phonetic matching
+                $conditions[] = $wpdb->prepare(
+                    "SOUNDEX({$table_field}) = SOUNDEX(%s)",
+                    $search
+                );
+            } elseif ($mode === 'exact') {
+                // Exact match
+                $conditions[] = $wpdb->prepare(
+                    "{$table_field} = %s",
+                    $search
+                );
+            } else {
+                // Partial match (default)
+                $conditions[] = $wpdb->prepare(
+                    "{$table_field} LIKE %s",
+                    '%' . $wpdb->esc_like($search) . '%'
+                );
+            }
+        }
+
+        $operator_sql = strtoupper($operator) === 'AND' ? ' AND ' : ' OR ';
+        return '(' . implode($operator_sql, $conditions) . ')';
+    }
+
+    /**
+     * Build search conditions for count query (limited to inventory_items table fields only)
+     */
+    private static function build_search_conditions_for_count($search, $search_fields, $operator, $fuzzy, $mode) {
+        global $wpdb;
+
+        // Define available search fields in inventory_items table only (no joins in count query)
+        $available_fields = array(
+            'unique_identifier' => 'unique_identifier',
+            'title' => 'title',
+            'storage_location' => 'storage_location',
+            'notes' => 'notes',
+            'size' => 'size',
+            'condition_reason' => 'condition_reason',
+            'sticker_code' => 'sticker_code'
+        );
+
+        // Determine which fields to search in
+        if (!empty($search_fields)) {
+            $fields_to_search = array_map('trim', explode(',', $search_fields));
+            // Filter to only allowed fields that are in inventory_items table
+            $fields_to_search = array_intersect($fields_to_search, array_keys($available_fields));
+        } else {
+            // Default to all available fields in inventory_items table
+            $fields_to_search = array_keys($available_fields);
+        }
+
+        if (empty($fields_to_search)) {
+            return '';
+        }
+
+        $conditions = array();
+        $search_term = $fuzzy ? $search : '%' . $wpdb->esc_like($search) . '%';
+
+        foreach ($fields_to_search as $field) {
+            $table_field = $available_fields[$field];
+
+            if ($fuzzy) {
+                // Fuzzy search using SOUNDEX for phonetic matching
+                $conditions[] = $wpdb->prepare(
+                    "SOUNDEX({$table_field}) = SOUNDEX(%s)",
+                    $search
+                );
+                
+                // Also try Levenshtein distance for edit distance (MySQL 8.0+)
+                // This provides a fallback for cases where SOUNDEX doesn't match
+                if ($wpdb->db_version() >= '8.0') {
+                    $conditions[] = $wpdb->prepare(
+                        "LEVENSHTEIN({$table_field}, %s) <= 2",
+                        $search
+                    );
+                }
+            } elseif ($mode === 'exact') {
+                // Exact match
+                $conditions[] = $wpdb->prepare(
+                    "{$table_field} = %s",
+                    $search
+                );
+            } else {
+                // Partial match (default)
+                $conditions[] = $wpdb->prepare(
+                    "{$table_field} LIKE %s",
+                    '%' . $wpdb->esc_like($search) . '%'
+                );
+            }
+        }
+
+        $operator_sql = strtoupper($operator) === 'AND' ? ' AND ' : ' OR ';
+        return '(' . implode($operator_sql, $conditions) . ')';
     }
 }

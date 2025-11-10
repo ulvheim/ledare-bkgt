@@ -79,19 +79,64 @@
             $button.prop('disabled', false);
 
             if (response.success) {
-                $status.removeClass('loading error').addClass('success').text(bkgt_swe3_ajax.strings.success + ': ' + response.data.message);
+                $status.removeClass('loading error').addClass('success').text(bkgt_swe3_ajax.strings.success + ': ' + response.message);
                 BKGT_SWE3_Admin.refreshActivityLog();
-                BKGT_SWE3_Admin.showSuccessMessage(response.data.message);
+                BKGT_SWE3_Admin.showSuccessMessage(response.message);
             } else {
-                $status.removeClass('loading success').addClass('error').text(bkgt_swe3_ajax.strings.error + ': ' + response.data.message);
-                BKGT_SWE3_Admin.showErrorMessage(response.data.message);
+                $status.removeClass('loading success').addClass('error').text(bkgt_swe3_ajax.strings.error + ': ' + response.message);
+                BKGT_SWE3_Admin.showErrorMessage(response.message);
             }
         },
 
         handleScrapeError: function(xhr, status, error, $button, $status) {
             $button.prop('disabled', false);
-            $status.removeClass('loading success').addClass('error').text(bkgt_swe3_ajax.strings.error + ': ' + error);
-            BKGT_SWE3_Admin.showErrorMessage('AJAX Error: ' + error);
+
+            // Capture comprehensive error details
+            var errorDetails = {
+                timestamp: new Date().toISOString(),
+                ajaxStatus: status,
+                errorThrown: error,
+                xhrStatus: xhr ? xhr.status : 'unknown',
+                xhrStatusText: xhr ? xhr.statusText : 'unknown',
+                responseText: xhr ? xhr.responseText : 'no response',
+                responseJSON: null,
+                headers: xhr ? xhr.getAllResponseHeaders() : 'no headers',
+                readyState: xhr ? xhr.readyState : 'unknown'
+            };
+
+            // Try to parse response as JSON
+            if (xhr && xhr.responseText) {
+                try {
+                    errorDetails.responseJSON = JSON.parse(xhr.responseText);
+                } catch (e) {
+                    errorDetails.responseJSON = 'Failed to parse JSON: ' + e.message;
+                }
+            }
+
+            // Store error details for debugging
+            BKGT_SWE3_Admin.lastErrorDetails = errorDetails;
+
+            // Create user-friendly error message
+            var errorMessage = 'Unknown error occurred';
+            if (errorDetails.responseJSON && errorDetails.responseJSON.data && errorDetails.responseJSON.data.message) {
+                // WordPress structured error response
+                errorMessage = errorDetails.responseJSON.data.message;
+            } else if (error) {
+                errorMessage = error;
+            } else if (xhr && xhr.status) {
+                errorMessage = 'HTTP ' + xhr.status + ' ' + xhr.statusText;
+            } else if (status === 'timeout') {
+                errorMessage = 'Request timed out';
+            } else if (status === 'abort') {
+                errorMessage = 'Request was aborted';
+            } else if (status === 'parsererror') {
+                errorMessage = 'Response parsing failed';
+            }
+
+            $status.removeClass('loading success').addClass('error').text(bkgt_swe3_ajax.strings.error + ': ' + errorMessage);
+
+            // Show detailed error information
+            BKGT_SWE3_Admin.showDetailedError(errorDetails);
         },
 
         handleSettingsUpdate: function(e) {
@@ -241,6 +286,50 @@
         formatTime: function(timestamp) {
             var date = new Date(timestamp * 1000);
             return date.toLocaleString();
+        },
+
+        showDetailedError: function(errorDetails) {
+            // Create or update debug section
+            var $debugSection = $('#bkgt-swe3-debug-section');
+            if (!$debugSection.length) {
+                $debugSection = $('<div id="bkgt-swe3-debug-section" class="bkgt-swe3-debug-section" style="display: none;">' +
+                    '<h3>Debug Information <button type="button" id="bkgt-swe3-toggle-debug" class="button">Toggle Details</button></h3>' +
+                    '<div id="bkgt-swe3-debug-content" class="bkgt-swe3-debug-content" style="display: none;">' +
+                        '<pre id="bkgt-swe3-debug-output"></pre>' +
+                    '</div>' +
+                '</div>');
+                $('#bkgt-swe3-scraper-status').after($debugSection);
+
+                // Bind toggle event
+                $('#bkgt-swe3-toggle-debug').on('click', function() {
+                    $('#bkgt-swe3-debug-content').toggle();
+                });
+            }
+
+            // Format error details for display
+            var debugOutput = '=== AJAX Error Details ===\n';
+            debugOutput += 'Timestamp: ' + errorDetails.timestamp + '\n';
+            debugOutput += 'AJAX Status: ' + errorDetails.ajaxStatus + '\n';
+            debugOutput += 'Error Thrown: ' + (errorDetails.errorThrown || 'null') + '\n';
+            debugOutput += 'XHR Status: ' + errorDetails.xhrStatus + '\n';
+            debugOutput += 'XHR Status Text: ' + errorDetails.xhrStatusText + '\n';
+            debugOutput += 'Ready State: ' + errorDetails.readyState + '\n\n';
+
+            debugOutput += '=== Response Headers ===\n';
+            debugOutput += errorDetails.headers + '\n\n';
+
+            debugOutput += '=== Response Text ===\n';
+            debugOutput += errorDetails.responseText + '\n\n';
+
+            debugOutput += '=== Parsed Response JSON ===\n';
+            if (typeof errorDetails.responseJSON === 'object') {
+                debugOutput += JSON.stringify(errorDetails.responseJSON, null, 2) + '\n';
+            } else {
+                debugOutput += errorDetails.responseJSON + '\n';
+            }
+
+            $('#bkgt-swe3-debug-output').text(debugOutput);
+            $debugSection.show();
         },
 
         formatBytes: function(bytes) {

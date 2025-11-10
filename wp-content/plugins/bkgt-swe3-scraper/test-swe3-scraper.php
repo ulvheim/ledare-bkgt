@@ -73,21 +73,18 @@ try {
     echo "✗ Scraper class error: " . $e->getMessage() . PHP_EOL;
 }
 
-// Test parser class
-echo PHP_EOL . "4. Testing parser class..." . PHP_EOL;
+// Test DMS integration class
+echo PHP_EOL . "4. Testing DMS integration class..." . PHP_EOL;
 try {
-    $parser = $plugin->parser;
-    if ($parser instanceof BKGT_SWE3_Parser) {
-        echo "✓ Parser class instantiated" . PHP_EOL;
+    $dms_integration = $plugin->dms_integration;
+    if ($dms_integration instanceof BKGT_SWE3_DMS_Integration) {
+        echo "✓ DMS integration class instantiated" . PHP_EOL;
     } else {
-        echo "✗ Parser class not properly instantiated" . PHP_EOL;
+        echo "✗ DMS integration class not properly instantiated" . PHP_EOL;
     }
 } catch (Exception $e) {
-    echo "✗ Parser class error: " . $e->getMessage() . PHP_EOL;
+    echo "✗ DMS integration class error: " . $e->getMessage() . PHP_EOL;
 }
-
-// Test scheduler class
-echo PHP_EOL . "5. Testing scheduler class..." . PHP_EOL;
 try {
     $scheduler = $plugin->scheduler;
     if ($scheduler instanceof BKGT_SWE3_Scheduler) {

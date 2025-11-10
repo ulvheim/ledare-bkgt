@@ -159,6 +159,79 @@ class BKGT_Inventory_Database {
     }
     
     /**
+     * Upgrade database for search enhancements
+     */
+    public function upgrade_for_search() {
+        global $wpdb;
+        
+        $current_version = get_option('bkgt_inventory_db_version', '1.0.0');
+        
+        // Only upgrade if not already upgraded for search
+        if (version_compare($current_version, '1.3.0', '<')) {
+            // Add search indexes
+            $table = $this->inventory_items_table;
+            
+            // Composite indexes for common search patterns
+            $wpdb->query("CREATE INDEX idx_equipment_search_core ON {$table}(unique_identifier, title, size)");
+            $wpdb->query("CREATE INDEX idx_equipment_search_text ON {$table}(notes, storage_location, condition_reason)");
+            
+            // Individual field indexes for filtered searches
+            $wpdb->query("CREATE INDEX idx_equipment_size ON {$table}(size)");
+            $wpdb->query("CREATE INDEX idx_equipment_notes ON {$table}(notes)");
+            $wpdb->query("CREATE INDEX idx_equipment_storage ON {$table}(storage_location)");
+            $wpdb->query("CREATE INDEX idx_equipment_condition_reason ON {$table}(condition_reason)");
+            $wpdb->query("CREATE INDEX idx_equipment_sticker_code ON {$table}(sticker_code)");
+            
+            // Update database version
+            update_option('bkgt_inventory_db_version', '1.3.0');
+            
+            // Log the upgrade
+            if (function_exists('bkgt_log')) {
+                bkgt_log('info', 'BKGT Inventory database upgraded for search enhancements', array(
+                    'old_version' => $current_version,
+                    'new_version' => '1.3.0'
+                ));
+            }
+        }
+    }
+    
+    /**
+     * Upgrade database for equipment update fields
+     */
+    public function upgrade_for_equipment_updates() {
+        global $wpdb;
+        
+        $current_version = get_option('bkgt_inventory_db_version', '1.0.0');
+        
+        // Only upgrade if not already upgraded for equipment updates
+        if (version_compare($current_version, '1.4.0', '<')) {
+            $table = $this->inventory_items_table;
+            
+            // Add new fields for equipment updates
+            $wpdb->query("ALTER TABLE {$table} ADD COLUMN location_id int(11) DEFAULT NULL AFTER storage_location");
+            $wpdb->query("ALTER TABLE {$table} ADD COLUMN purchase_date date DEFAULT NULL AFTER location_id");
+            $wpdb->query("ALTER TABLE {$table} ADD COLUMN purchase_price decimal(10,2) DEFAULT NULL AFTER purchase_date");
+            $wpdb->query("ALTER TABLE {$table} ADD COLUMN warranty_expiry date DEFAULT NULL AFTER purchase_price");
+            
+            // Add indexes for the new fields
+            $wpdb->query("CREATE INDEX idx_equipment_location_id ON {$table}(location_id)");
+            $wpdb->query("CREATE INDEX idx_equipment_purchase_date ON {$table}(purchase_date)");
+            $wpdb->query("CREATE INDEX idx_equipment_warranty_expiry ON {$table}(warranty_expiry)");
+            
+            // Update database version
+            update_option('bkgt_inventory_db_version', '1.4.0');
+            
+            // Log the upgrade
+            if (function_exists('bkgt_log')) {
+                bkgt_log('info', 'BKGT Inventory database upgraded for equipment update fields', array(
+                    'old_version' => $current_version,
+                    'new_version' => '1.4.0'
+                ));
+            }
+        }
+    }
+    
+    /**
      * Drop database tables
      */
     public function drop_tables() {

@@ -31,18 +31,22 @@ class BKGT_Inventory_Admin {
         add_action('add_meta_boxes', array($this, 'add_meta_boxes'));
         add_action('save_post_bkgt_inventory_item', array($this, 'save_inventory_item'), 10, 2);
 
-        // Initialize service client for API calls
-        $this->service_client = $this->get_service_client();
+        // Initialize service client for API calls (lazy-loaded)
+        // $this->service_client = $this->get_service_client(); // Removed to prevent REST API initialization issues
     }
 
     /**
-     * Get service client for API calls
+     * Get service client for API calls (lazy-loaded)
      */
     private function get_service_client() {
-        if (class_exists('BKGT_API_Service_Client')) {
-            return new BKGT_API_Service_Client();
+        if ($this->service_client === null && class_exists('BKGT_API_Service_Client')) {
+            // Only create service client if not during very early initialization
+            // Check if we're past the plugins_loaded hook
+            if (did_action('plugins_loaded')) {
+                $this->service_client = new BKGT_API_Service_Client();
+            }
         }
-        return null;
+        return $this->service_client;
     }
     
     /**
@@ -441,7 +445,8 @@ class BKGT_Inventory_Admin {
      */
     private function get_inventory_stats() {
         // Try to get stats from API first
-        if ($this->service_client) {
+        $service_client = $this->get_service_client();
+        if ($service_client) {
             $stats = $this->get_inventory_stats_from_api();
             if ($stats !== false) {
                 return $stats;
@@ -457,8 +462,13 @@ class BKGT_Inventory_Admin {
      */
     private function get_inventory_stats_from_api() {
         try {
+            $service_client = $this->get_service_client();
+            if (!$service_client) {
+                return false;
+            }
+
             // Get all equipment from API
-            $response = $this->service_client->get_equipment(array('per_page' => 1000));
+            $response = $service_client->get_equipment(array('per_page' => 1000));
 
             if (is_wp_error($response) || $response['code'] !== 200) {
                 return false;

@@ -40,9 +40,48 @@ class BKGT_Inventory_API_Endpoints {
                     'per_page' => array(
                         'default' => 10,
                         'sanitize_callback' => 'absint',
+                        'validate_callback' => function($value) {
+                            return $value > 0 && $value <= 100;
+                        }
                     ),
                     'search' => array(
                         'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'search_fields' => array(
+                        'sanitize_callback' => 'sanitize_text_field',
+                        'validate_callback' => function($value) {
+                            if (empty($value)) return true;
+                            $allowed_fields = array(
+                                'unique_identifier', 'title', 'storage_location', 'notes', 
+                                'size', 'condition_reason', 'sticker_code', 
+                                'manufacturer_name', 'item_type_name'
+                            );
+                            $fields = explode(',', $value);
+                            foreach ($fields as $field) {
+                                if (!in_array(trim($field), $allowed_fields)) {
+                                    return false;
+                                }
+                            }
+                            return true;
+                        }
+                    ),
+                    'search_operator' => array(
+                        'default' => 'OR',
+                        'sanitize_callback' => 'sanitize_text_field',
+                        'validate_callback' => function($value) {
+                            return in_array(strtoupper($value), array('AND', 'OR'));
+                        }
+                    ),
+                    'fuzzy' => array(
+                        'default' => false,
+                        'sanitize_callback' => 'wp_validate_boolean',
+                    ),
+                    'search_mode' => array(
+                        'default' => 'partial',
+                        'sanitize_callback' => 'sanitize_text_field',
+                        'validate_callback' => function($value) {
+                            return in_array($value, array('exact', 'partial', 'fulltext'));
+                        }
                     ),
                     'location_id' => array(
                         'sanitize_callback' => 'absint',
@@ -116,6 +155,26 @@ class BKGT_Inventory_API_Endpoints {
                     'storage_location' => array(
                         'sanitize_callback' => 'sanitize_text_field',
                     ),
+                    'location_id' => array(
+                        'sanitize_callback' => 'absint',
+                    ),
+                    'purchase_date' => array(
+                        'sanitize_callback' => 'sanitize_text_field',
+                        'validate_callback' => function($value) {
+                            return empty($value) || preg_match('/^\d{4}-\d{2}-\d{2}$/', $value);
+                        },
+                    ),
+                    'purchase_price' => array(
+                        'sanitize_callback' => function($value) {
+                            return is_numeric($value) ? floatval($value) : null;
+                        },
+                    ),
+                    'warranty_expiry' => array(
+                        'sanitize_callback' => 'sanitize_text_field',
+                        'validate_callback' => function($value) {
+                            return empty($value) || preg_match('/^\d{4}-\d{2}-\d{2}$/', $value);
+                        },
+                    ),
                     'condition_status' => array(
                         'sanitize_callback' => 'sanitize_text_field',
                     ),
@@ -132,6 +191,90 @@ class BKGT_Inventory_API_Endpoints {
                     'id' => array(
                         'required' => true,
                         'sanitize_callback' => 'absint',
+                    ),
+                ),
+            ),
+        ));
+
+        // Individual equipment item endpoint (supports both ID and unique_identifier)
+        register_rest_route('bkgt/v1', '/equipment/(?P<identifier>[^/]+)', array(
+            array(
+                'methods' => 'GET',
+                'callback' => array($this, 'get_equipment_item'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'identifier' => array(
+                        'required' => true,
+                        'sanitize_callback' => 'sanitize_text_field',
+                        'validate_callback' => array($this, 'validate_equipment_identifier'),
+                    ),
+                ),
+            ),
+            array(
+                'methods' => 'PUT',
+                'callback' => array($this, 'update_equipment_item'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'identifier' => array(
+                        'required' => true,
+                        'sanitize_callback' => 'sanitize_text_field',
+                        'validate_callback' => array($this, 'validate_equipment_identifier'),
+                    ),
+                    'manufacturer_id' => array(
+                        'sanitize_callback' => 'absint',
+                    ),
+                    'item_type_id' => array(
+                        'sanitize_callback' => 'absint',
+                    ),
+                    'unique_identifier' => array(
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'size' => array(
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'storage_location' => array(
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'location_id' => array(
+                        'sanitize_callback' => 'absint',
+                    ),
+                    'purchase_date' => array(
+                        'sanitize_callback' => 'sanitize_text_field',
+                        'validate_callback' => function($value) {
+                            return empty($value) || preg_match('/^\d{4}-\d{2}-\d{2}$/', $value);
+                        },
+                    ),
+                    'purchase_price' => array(
+                        'sanitize_callback' => function($value) {
+                            return is_numeric($value) ? floatval($value) : null;
+                        },
+                    ),
+                    'warranty_expiry' => array(
+                        'sanitize_callback' => 'sanitize_text_field',
+                        'validate_callback' => function($value) {
+                            return empty($value) || preg_match('/^\d{4}-\d{2}-\d{2}$/', $value);
+                        },
+                    ),
+                    'condition_status' => array(
+                        'sanitize_callback' => 'sanitize_text_field',
+                        'validate_callback' => function($value) {
+                            return in_array($value, array('normal', 'needs_repair', 'repaired', 'reported_lost', 'scrapped'));
+                        },
+                    ),
+                    'notes' => array(
+                        'sanitize_callback' => 'sanitize_textarea_field',
+                    ),
+                ),
+            ),
+            array(
+                'methods' => 'DELETE',
+                'callback' => array($this, 'delete_equipment_item'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'identifier' => array(
+                        'required' => true,
+                        'sanitize_callback' => 'sanitize_text_field',
+                        'validate_callback' => array($this, 'validate_equipment_identifier'),
                     ),
                 ),
             ),
@@ -162,15 +305,16 @@ class BKGT_Inventory_API_Endpoints {
         ));
 
         // Equipment assignment endpoint
-        register_rest_route('bkgt/v1', '/equipment/(?P<id>\d+)/assignment', array(
+        register_rest_route('bkgt/v1', '/equipment/(?P<identifier>[^/]+)/assignment', array(
             array(
                 'methods' => 'GET',
                 'callback' => array($this, 'get_equipment_assignment'),
                 'permission_callback' => array($this, 'validate_token'),
                 'args' => array(
-                    'id' => array(
+                    'identifier' => array(
                         'required' => true,
-                        'sanitize_callback' => 'absint',
+                        'sanitize_callback' => 'sanitize_text_field',
+                        'validate_callback' => array($this, 'validate_equipment_identifier'),
                     ),
                 ),
             ),
@@ -179,9 +323,10 @@ class BKGT_Inventory_API_Endpoints {
                 'callback' => array($this, 'create_equipment_assignment'),
                 'permission_callback' => array($this, 'validate_token'),
                 'args' => array(
-                    'id' => array(
+                    'identifier' => array(
                         'required' => true,
-                        'sanitize_callback' => 'absint',
+                        'sanitize_callback' => 'sanitize_text_field',
+                        'validate_callback' => array($this, 'validate_equipment_identifier'),
                     ),
                     'assignment_type' => array(
                         'required' => true,
@@ -206,9 +351,10 @@ class BKGT_Inventory_API_Endpoints {
                 'callback' => array($this, 'delete_equipment_assignment'),
                 'permission_callback' => array($this, 'validate_token'),
                 'args' => array(
-                    'id' => array(
+                    'identifier' => array(
                         'required' => true,
-                        'sanitize_callback' => 'absint',
+                        'sanitize_callback' => 'sanitize_text_field',
+                        'validate_callback' => array($this, 'validate_equipment_identifier'),
                     ),
                     'return_date' => array(
                         'sanitize_callback' => 'sanitize_text_field',
@@ -257,6 +403,31 @@ class BKGT_Inventory_API_Endpoints {
                     ),
                     'notes' => array(
                         'sanitize_callback' => 'sanitize_textarea_field',
+                    ),
+                ),
+            ),
+        ));
+
+        // Popular searches analytics endpoint
+        register_rest_route('bkgt/v1', '/equipment/search-analytics', array(
+            array(
+                'methods' => 'GET',
+                'callback' => array($this, 'get_popular_searches'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'limit' => array(
+                        'default' => 10,
+                        'sanitize_callback' => 'absint',
+                        'validate_callback' => function($value) {
+                            return $value > 0 && $value <= 100;
+                        }
+                    ),
+                    'days' => array(
+                        'default' => 30,
+                        'sanitize_callback' => 'absint',
+                        'validate_callback' => function($value) {
+                            return $value > 0 && $value <= 365;
+                        }
                     ),
                 ),
             ),
@@ -354,30 +525,65 @@ class BKGT_Inventory_API_Endpoints {
             $page = $request->get_param('page');
             $per_page = $request->get_param('per_page');
             $search = $request->get_param('search');
+            $search_fields = $request->get_param('search_fields');
+            $search_operator = $request->get_param('search_operator');
+            $fuzzy = $request->get_param('fuzzy');
+            $search_mode = $request->get_param('search_mode');
             $location_id = $request->get_param('location_id');
             $condition = $request->get_param('condition');
+
+            $start_time = microtime(true);
 
             $items = BKGT_Inventory_Item::get_items(array(
                 'page' => $page,
                 'per_page' => $per_page,
                 'search' => $search,
+                'search_fields' => $search_fields,
+                'search_operator' => $search_operator,
+                'fuzzy' => $fuzzy,
+                'search_mode' => $search_mode,
                 'location_id' => $location_id,
                 'condition' => $condition,
             ));
 
             $total = BKGT_Inventory_Item::get_total_count(array(
                 'search' => $search,
+                'search_fields' => $search_fields,
+                'search_operator' => $search_operator,
+                'fuzzy' => $fuzzy,
+                'search_mode' => $search_mode,
                 'location_id' => $location_id,
                 'condition' => $condition,
             ));
 
-            return new WP_REST_Response(array(
+            $search_time_ms = round((microtime(true) - $start_time) * 1000, 2);
+
+            $response = array(
                 'inventory_items' => $items,
                 'total' => $total,
                 'page' => $page,
                 'per_page' => $per_page,
                 'total_pages' => ceil($total / $per_page),
-            ), 200);
+            );
+
+            // Add search metadata if search was performed
+            if (!empty($search)) {
+                $response['search'] = array(
+                    'term' => $search,
+                    'fields_searched' => !empty($search_fields) ? explode(',', $search_fields) : 
+                        array('unique_identifier', 'title', 'storage_location', 'notes', 'size', 'condition_reason', 'sticker_code', 'manufacturer_name', 'item_type_name'),
+                    'operator' => $search_operator,
+                    'fuzzy' => $fuzzy,
+                    'mode' => $search_mode,
+                    'total_matches' => $total,
+                    'search_time_ms' => $search_time_ms
+                );
+
+                // Log search query for analytics
+                $this->log_search_query($search, $total, $search_fields, $search_operator, $fuzzy, $search_time_ms);
+            }
+
+            return new WP_REST_Response($response, 200);
 
         } catch (Exception $e) {
             return new WP_Error('equipment_error', $e->getMessage(), array('status' => 500));
@@ -385,21 +591,40 @@ class BKGT_Inventory_API_Endpoints {
     }
 
     /**
+     * Validate equipment identifier (ID or unique_identifier)
+     */
+    public function validate_equipment_identifier($identifier) {
+        if (empty($identifier)) {
+            return false;
+        }
+        
+        // Try to resolve the identifier
+        $item_id = BKGT_Inventory_Item::resolve_item_identifier($identifier);
+        return $item_id !== false;
+    }
+
+    /**
      * Get single equipment item
      */
     public function get_equipment_item($request) {
         try {
-            $id = $request->get_param('id');
-            $item = BKGT_Inventory_Item::get_item($id);
-
+            $identifier = $request->get_param('identifier');
+            $item_id = BKGT_Inventory_Item::resolve_item_identifier($identifier);
+            
+            if (!$item_id) {
+                return new WP_Error('not_found', 'Equipment item not found', array('status' => 404));
+            }
+            
+            $item = BKGT_Inventory_Item::get_item($item_id);
+            
             if (!$item) {
                 return new WP_Error('not_found', 'Equipment item not found', array('status' => 404));
             }
-
+            
             return new WP_REST_Response($item, 200);
-
+            
         } catch (Exception $e) {
-            return new WP_Error('equipment_error', $e->getMessage(), array('status' => 500));
+            return new WP_Error('server_error', $e->getMessage(), array('status' => 500));
         }
     }
 
@@ -449,6 +674,10 @@ class BKGT_Inventory_API_Endpoints {
                 'unique_identifier' => $request->get_param('unique_identifier'),
                 'size' => $request->get_param('size'),
                 'storage_location' => $request->get_param('storage_location'),
+                'location_id' => $request->get_param('location_id'),
+                'purchase_date' => $request->get_param('purchase_date'),
+                'purchase_price' => $request->get_param('purchase_price'),
+                'warranty_expiry' => $request->get_param('warranty_expiry'),
                 'condition_status' => $request->get_param('condition_status'),
                 'notes' => $request->get_param('notes'),
             );
@@ -563,7 +792,7 @@ class BKGT_Inventory_API_Endpoints {
                         case 'update':
                             if (!isset($item_data['id'])) {
                                 $errors[] = array('data' => $item_data, 'error' => 'Missing item ID for update');
-                                continue;
+                                continue 2;
                             }
                             $result = BKGT_Inventory_Item::update_item($item_data['id'], $item_data);
                             if (is_wp_error($result)) {
@@ -576,7 +805,7 @@ class BKGT_Inventory_API_Endpoints {
                         case 'delete':
                             if (!isset($item_data['id'])) {
                                 $errors[] = array('data' => $item_data, 'error' => 'Missing item ID for deletion');
-                                continue;
+                                continue 2;
                             }
                             $result = BKGT_Inventory_Item::delete_item($item_data['id']);
                             if (is_wp_error($result)) {
@@ -610,9 +839,14 @@ class BKGT_Inventory_API_Endpoints {
      */
     public function get_equipment_assignment($request) {
         try {
-            $id = $request->get_param('id');
+            $identifier = $request->get_param('identifier');
+            $item_id = BKGT_Inventory_Item::resolve_item_identifier($identifier);
+            
+            if (!$item_id) {
+                return new WP_Error('not_found', 'Equipment item not found', array('status' => 404));
+            }
 
-            $assignment = BKGT_Assignment::get_assignment($id);
+            $assignment = BKGT_Assignment::get_assignment($item_id);
 
             if (!$assignment) {
                 return new WP_REST_Response(array('assignment' => null), 200);
@@ -630,33 +864,39 @@ class BKGT_Inventory_API_Endpoints {
      */
     public function create_equipment_assignment($request) {
         try {
-            $id = $request->get_param('id');
+            $identifier = $request->get_param('identifier');
+            $item_id = BKGT_Inventory_Item::resolve_item_identifier($identifier);
+            
+            if (!$item_id) {
+                return new WP_Error('not_found', 'Equipment item not found', array('status' => 404));
+            }
+            
             $assignment_type = $request->get_param('assignment_type');
             $assignee_id = $request->get_param('assignee_id');
             $due_date = $request->get_param('due_date');
             $notes = $request->get_param('notes');
 
             // Validate that equipment exists
-            $item = BKGT_Inventory_Item::get_item($id);
+            $item = BKGT_Inventory_Item::get_item($item_id);
             if (!$item) {
                 return new WP_Error('not_found', 'Equipment item not found', array('status' => 404));
             }
 
             switch ($assignment_type) {
                 case 'club':
-                    $result = BKGT_Assignment::assign_to_club($id);
+                    $result = BKGT_Assignment::assign_to_club($item_id);
                     break;
                 case 'team':
                     if (!$assignee_id) {
                         return new WP_Error('missing_assignee', 'Assignee ID required for team assignment', array('status' => 400));
                     }
-                    $result = BKGT_Assignment::assign_to_team($id, $assignee_id);
+                    $result = BKGT_Assignment::assign_to_team($item_id, $assignee_id);
                     break;
                 case 'individual':
                     if (!$assignee_id) {
                         return new WP_Error('missing_assignee', 'Assignee ID required for individual assignment', array('status' => 400));
                     }
-                    $result = BKGT_Assignment::assign_to_individual($id, $assignee_id);
+                    $result = BKGT_Assignment::assign_to_individual($item_id, $assignee_id);
                     break;
                 default:
                     return new WP_Error('invalid_assignment_type', 'Invalid assignment type', array('status' => 400));
@@ -705,13 +945,19 @@ class BKGT_Inventory_API_Endpoints {
      */
     public function delete_equipment_assignment($request) {
         try {
-            $id = $request->get_param('id');
+            $identifier = $request->get_param('identifier');
+            $item_id = BKGT_Inventory_Item::resolve_item_identifier($identifier);
+            
+            if (!$item_id) {
+                return new WP_Error('not_found', 'Equipment item not found', array('status' => 404));
+            }
+            
             $return_date = $request->get_param('return_date');
             $condition_status = $request->get_param('condition_status');
             $notes = $request->get_param('notes');
 
             // Validate that equipment exists
-            $item = BKGT_Inventory_Item::get_item($id);
+            $item = BKGT_Inventory_Item::get_item($item_id);
             if (!$item) {
                 return new WP_Error('not_found', 'Equipment item not found', array('status' => 404));
             }
@@ -730,7 +976,7 @@ class BKGT_Inventory_API_Endpoints {
                     'return_notes' => $notes
                 ),
                 array(
-                    'item_id' => $id,
+                    'item_id' => $item_id,
                     'unassigned_date' => null // Only active assignments
                 ),
                 array('%s', '%d', '%s', '%s'),
@@ -743,13 +989,138 @@ class BKGT_Inventory_API_Endpoints {
 
             // Update item condition if provided
             if ($condition_status) {
-                BKGT_Inventory_Item::update_item($id, array('condition_status' => $condition_status));
+                BKGT_Inventory_Item::update_item($item_id, array('condition_status' => $condition_status));
             }
 
             return new WP_REST_Response(array('message' => 'Equipment unassigned successfully'), 200);
 
         } catch (Exception $e) {
             return new WP_Error('assignment_error', $e->getMessage(), array('status' => 500));
+        }
+    }
+
+    /**
+     * Log search query for analytics
+     */
+    private function log_search_query($search_term, $results_count, $search_fields, $operator, $fuzzy, $search_time_ms) {
+        global $wpdb;
+
+        // Create search_logs table if it doesn't exist
+        $this->create_search_logs_table();
+
+        $table = $wpdb->prefix . 'bkgt_search_logs';
+
+        $wpdb->insert(
+            $table,
+            array(
+                'search_term' => $search_term,
+                'results_count' => $results_count,
+                'search_fields' => $search_fields,
+                'search_operator' => $operator,
+                'fuzzy' => $fuzzy ? 1 : 0,
+                'search_time_ms' => $search_time_ms,
+                'user_id' => get_current_user_id(),
+                'ip_address' => $this->get_client_ip(),
+                'timestamp' => current_time('mysql'),
+            ),
+            array('%s', '%d', '%s', '%s', '%d', '%f', '%d', '%s', '%s')
+        );
+    }
+
+    /**
+     * Create search logs table if it doesn't exist
+     */
+    private function create_search_logs_table() {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'bkgt_search_logs';
+        $charset_collate = $wpdb->get_charset_collate();
+
+        if ($wpdb->get_var("SHOW TABLES LIKE '$table'") != $table) {
+            $sql = "CREATE TABLE $table (
+                id int(11) NOT NULL AUTO_INCREMENT,
+                search_term varchar(255) NOT NULL,
+                results_count int(11) NOT NULL DEFAULT 0,
+                search_fields text,
+                search_operator varchar(10) DEFAULT 'OR',
+                fuzzy tinyint(1) DEFAULT 0,
+                search_time_ms float DEFAULT 0,
+                user_id bigint(20) unsigned DEFAULT 0,
+                ip_address varchar(45),
+                timestamp datetime DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                KEY search_term (search_term),
+                KEY timestamp (timestamp),
+                KEY user_id (user_id)
+            ) $charset_collate;";
+
+            require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+            dbDelta($sql);
+        }
+    }
+
+    /**
+     * Get client IP address
+     */
+    private function get_client_ip() {
+        $ip_headers = array(
+            'HTTP_CF_CONNECTING_IP',
+            'HTTP_CLIENT_IP',
+            'HTTP_X_FORWARDED_FOR',
+            'HTTP_X_FORWARDED',
+            'HTTP_X_CLUSTER_CLIENT_IP',
+            'HTTP_FORWARDED_FOR',
+            'HTTP_FORWARDED',
+            'REMOTE_ADDR'
+        );
+
+        foreach ($ip_headers as $header) {
+            if (!empty($_SERVER[$header])) {
+                $ip = $_SERVER[$header];
+                // Handle comma-separated IPs (like X-Forwarded-For)
+                if (strpos($ip, ',') !== false) {
+                    $ip = trim(explode(',', $ip)[0]);
+                }
+                // Validate IP
+                if (filter_var($ip, FILTER_VALIDATE_IP)) {
+                    return $ip;
+                }
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * Get popular searches for analytics
+     */
+    public function get_popular_searches($request) {
+        try {
+            $limit = $request->get_param('limit') ?: 10;
+            $days = $request->get_param('days') ?: 30;
+
+            global $wpdb;
+            $table = $wpdb->prefix . 'bkgt_search_logs';
+
+            $results = $wpdb->get_results($wpdb->prepare("
+                SELECT search_term, COUNT(*) as frequency,
+                       AVG(results_count) as avg_results,
+                       AVG(search_time_ms) as avg_search_time
+                FROM {$table}
+                WHERE timestamp > DATE_SUB(NOW(), INTERVAL %d DAY)
+                GROUP BY search_term
+                ORDER BY frequency DESC
+                LIMIT %d
+            ", $days, $limit), ARRAY_A);
+
+            return new WP_REST_Response(array(
+                'popular_searches' => $results,
+                'period_days' => $days,
+                'limit' => $limit
+            ), 200);
+
+        } catch (Exception $e) {
+            return new WP_Error('analytics_error', $e->getMessage(), array('status' => 500));
         }
     }
 }

@@ -656,12 +656,12 @@ class BKGT_Offboarding_System {
 
         // Get all equipment assigned to this user
         $assignments = $wpdb->get_results($wpdb->prepare("
-            SELECT a.*, i.name as item_name, i.item_id, m.name as manufacturer_name, t.name as type_name
-            FROM {$wpdb->prefix}bkgt_assignments a
+            SELECT a.*, i.title as item_name, i.unique_identifier as item_id, m.name as manufacturer_name, t.name as type_name
+            FROM {$wpdb->prefix}bkgt_inventory_assignments a
             LEFT JOIN {$wpdb->prefix}bkgt_inventory_items i ON a.item_id = i.id
             LEFT JOIN {$wpdb->prefix}bkgt_manufacturers m ON i.manufacturer_id = m.id
             LEFT JOIN {$wpdb->prefix}bkgt_item_types t ON i.item_type_id = t.id
-            WHERE a.assignee_id = %d AND a.status = 'assigned'
+            WHERE a.assignee_id = %d AND a.unassigned_date IS NULL
         ", $user_id));
 
         update_post_meta($post_id, '_bkgt_offboarding_equipment', $assignments);
@@ -960,10 +960,10 @@ class BKGT_Offboarding_System {
 
         // Update equipment assignment status
         $result = $wpdb->update(
-            $wpdb->prefix . 'bkgt_assignments',
-            array('status' => $status),
+            $wpdb->prefix . 'bkgt_inventory_assignments',
+            array('unassigned_date' => current_time('mysql'), 'unassigned_by' => get_current_user_id()),
             array('id' => $assignment_id),
-            array('%s'),
+            array('%s', '%d'),
             array('%d')
         );
 

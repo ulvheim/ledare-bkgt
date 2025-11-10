@@ -264,3 +264,52 @@
 .bkgt-swe3-loading-content .spinner {
     margin: 0 auto 10px;
 }
+
+/* Debug section styling */
+.bkgt-swe3-debug-section {
+    background: #fff;
+    border: 2px solid #dc3232;
+    border-radius: 4px;
+    margin-top: 20px;
+    padding: 15px;
+}
+
+.bkgt-swe3-debug-section h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #dc3232;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.bkgt-swe3-debug-section h3 .button {
+    margin-left: 10px;
+    background: #dc3232;
+    color: #fff;
+    border-color: #dc3232;
+}
+
+.bkgt-swe3-debug-section h3 .button:hover {
+    background: #c92c2c;
+    border-color: #c92c2c;
+}
+
+.bkgt-swe3-debug-content {
+    margin-top: 15px;
+}
+
+.bkgt-swe3-debug-content pre {
+    background: #f8f9fa;
+    border: 1px solid #e1e1e1;
+    border-radius: 4px;
+    padding: 15px;
+    margin: 0;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    max-height: 400px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}

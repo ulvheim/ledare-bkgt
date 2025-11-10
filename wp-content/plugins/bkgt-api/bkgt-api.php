@@ -21,7 +21,7 @@ if (!defined('ABSPATH')) {
 // Define plugin constants
 define('BKGT_API_VERSION', '2.4.0');
 define('BKGT_API_PLUGIN_DIR', plugin_dir_path(__FILE__));
-define('BKGT_API_PLUGIN_URL', plugin_dir(__FILE__));
+define('BKGT_API_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('BKGT_API_NAMESPACE', 'bkgt/v1');
 
 // Include required files with error handling

@@ -99,13 +99,45 @@ class BKGT_SWE3_Scraper_Plugin {
      * Initialize plugin components
      */
     private function init_components() {
-        $this->scraper = new BKGT_SWE3_Scraper();
-        $this->parser = new BKGT_SWE3_Parser();
-        $this->scheduler = new BKGT_SWE3_Scheduler();
-        $this->dms_integration = new BKGT_SWE3_DMS_Integration();
+        try {
+            $this->scraper = new BKGT_SWE3_Scraper();
+            error_log('BKGT SWE3: Scraper initialized');
+        } catch (Exception $e) {
+            error_log('BKGT SWE3: Failed to initialize scraper: ' . $e->getMessage());
+            return;
+        }
+
+        try {
+            $this->parser = new BKGT_SWE3_Parser();
+            error_log('BKGT SWE3: Parser initialized');
+        } catch (Exception $e) {
+            error_log('BKGT SWE3: Failed to initialize parser: ' . $e->getMessage());
+            return;
+        }
+
+        try {
+            $this->scheduler = new BKGT_SWE3_Scheduler();
+            error_log('BKGT SWE3: Scheduler initialized');
+        } catch (Exception $e) {
+            error_log('BKGT SWE3: Failed to initialize scheduler: ' . $e->getMessage());
+            return;
+        }
+
+        try {
+            $this->dms_integration = new BKGT_SWE3_DMS_Integration();
+            error_log('BKGT SWE3: DMS integration initialized');
+        } catch (Exception $e) {
+            error_log('BKGT SWE3: Failed to initialize DMS integration: ' . $e->getMessage());
+            return;
+        }
 
         if (is_admin()) {
-            $this->admin = new BKGT_SWE3_Admin();
+            try {
+                $this->admin = new BKGT_SWE3_Admin();
+                error_log('BKGT SWE3: Admin initialized');
+            } catch (Exception $e) {
+                error_log('BKGT SWE3: Failed to initialize admin: ' . $e->getMessage());
+            }
         }
     }
 

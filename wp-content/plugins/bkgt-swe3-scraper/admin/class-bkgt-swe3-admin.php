@@ -257,16 +257,57 @@ class BKGT_SWE3_Admin {
      * Handle manual scrape AJAX request
      */
     public function handle_manual_scrape() {
-        check_ajax_referer('bkgt_swe3_admin_nonce', 'nonce');
+        try {
+            check_ajax_referer('bkgt_swe3_admin_nonce', 'nonce');
 
-        if (!current_user_can('manage_options')) {
-            wp_die(__('Insufficient permissions'));
+            if (!current_user_can('manage_options')) {
+                wp_send_json_error(array(
+                    'message' => __('Insufficient permissions'),
+                    'error_code' => 'insufficient_permissions',
+                    'user_id' => get_current_user_id(),
+                    'required_cap' => 'manage_options'
+                ));
+                return;
+            }
+
+            $scheduler = bkgt_swe3_scraper()->scheduler;
+            if (!$scheduler) {
+                wp_send_json_error(array(
+                    'message' => __('Scheduler not available'),
+                    'error_code' => 'scheduler_unavailable',
+                    'scheduler_class' => 'BKGT_SWE3_Scheduler'
+                ));
+                return;
+            }
+
+            $result = $scheduler->trigger_manual_scrape();
+
+            if (is_array($result) && isset($result['success'])) {
+                wp_send_json($result);
+            } else {
+                wp_send_json_error(array(
+                    'message' => __('Invalid response from scheduler'),
+                    'error_code' => 'invalid_scheduler_response',
+                    'response_type' => gettype($result),
+                    'response_data' => $result
+                ));
+            }
+
+        } catch (Exception $e) {
+            $this->log('error', 'AJAX handler error: ' . $e->getMessage());
+            wp_send_json_error(array(
+                'message' => __('An unexpected error occurred: ' . $e->getMessage()),
+                'error_code' => 'unexpected_exception',
+                'exception_type' => get_class($e),
+                'exception_message' => $e->getMessage(),
+                'exception_file' => $e->getFile(),
+                'exception_line' => $e->getLine(),
+                'exception_trace' => $e->getTraceAsString(),
+                'php_version' => PHP_VERSION,
+                'wp_version' => get_bloginfo('version'),
+                'server_info' => $_SERVER['SERVER_SOFTWARE'] ?? 'unknown'
+            ));
         }
-
-        $scheduler = bkgt_swe3_scraper()->scheduler;
-        $result = $scheduler->trigger_manual_scrape();
-
-        wp_send_json($result);
     }
 
     /**

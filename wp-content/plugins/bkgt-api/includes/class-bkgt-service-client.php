@@ -26,13 +26,21 @@ class BKGT_API_Service_Client {
      */
     public function __construct() {
         $this->service_key = get_option('bkgt_service_api_key');
-        $this->api_base_url = rest_url('bkgt/v1');
+        // Delay API base URL initialization until first use
+        // $this->api_base_url = rest_url('bkgt/v1');
     }
 
     /**
      * Make an authenticated API call using service key
      */
     public function call($endpoint, $method = 'GET', $data = array(), $headers = array()) {
+        // Initialize API base URL if not already done
+        if (empty($this->api_base_url)) {
+            // Construct REST URL manually to avoid initialization issues
+            $site_url = get_site_url();
+            $this->api_base_url = rtrim($site_url, '/') . '/wp-json/bkgt/v1';
+        }
+
         $url = $this->api_base_url . ltrim($endpoint, '/');
 
         $default_headers = array(

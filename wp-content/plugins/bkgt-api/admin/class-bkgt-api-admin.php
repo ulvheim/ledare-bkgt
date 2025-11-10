@@ -24,6 +24,9 @@ class BKGT_API_Admin {
         add_action('wp_ajax_bkgt_api_get_security_logs', array($this, 'ajax_get_security_logs'));
         add_action('wp_ajax_bkgt_api_mark_notification_read', array($this, 'ajax_mark_notification_read'));
         add_action('wp_ajax_bkgt_api_get_stats', array($this, 'ajax_get_stats'));
+        add_action('wp_ajax_bkgt_api_upload_update', array($this, 'ajax_upload_update'));
+        add_action('wp_ajax_bkgt_api_get_updates', array($this, 'ajax_get_updates'));
+        add_action('wp_ajax_bkgt_api_deactivate_update', array($this, 'ajax_deactivate_update'));
     }
 
     /**
@@ -93,16 +96,25 @@ class BKGT_API_Admin {
             'bkgt-api-diagnostic',
             array($this, 'diagnostic_page')
         );
+
+        add_submenu_page(
+            'bkgt-api',
+            __('Updates', 'bkgt-api'),
+            __('Updates', 'bkgt-api'),
+            'manage_options',
+            'bkgt-api-updates',
+            array($this, 'updates_page')
+        );
     }
 
     /**
      * Enqueue admin scripts and styles
      */
     public function enqueue_admin_scripts($hook) {
-        // Load scripts on all admin pages for now to debug
-        // if (strpos($hook, 'bkgt-api') === false) {
-        //     return;
-        // }
+        // Only load on BKGT API admin pages
+        if (strpos($hook, 'bkgt-api') === false) {
+            return;
+        }
 
         wp_enqueue_style(
             'bkgt-api-admin',
@@ -1215,5 +1227,242 @@ class BKGT_API_Admin {
             </table>
         </div>
         <?php
+    }
+
+    /**
+     * Updates management page
+     */
+    public function updates_page() {
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.'));
+        }
+
+        ?>
+        <div class="wrap">
+            <h1><?php _e('BKGT API - Updates Management', 'bkgt-api'); ?></h1>
+
+            <div class="bkgt-api-updates-container">
+                <!-- Upload New Update Section -->
+                <div class="bkgt-api-section">
+                    <h2><?php _e('Upload New Update', 'bkgt-api'); ?></h2>
+                    <form id="bkgt-update-upload-form" enctype="multipart/form-data">
+                        <?php wp_nonce_field('bkgt_update_upload', 'bkgt_update_nonce'); ?>
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row"><label for="update_version"><?php _e('Version', 'bkgt-api'); ?> *</label></th>
+                                <td>
+                                    <input type="text" id="update_version" name="version" class="regular-text" pattern="\d+\.\d+\.\d+" required />
+                                    <p class="description"><?php _e('Semantic version (e.g., 1.2.3)', 'bkgt-api'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="update_platform"><?php _e('Platform', 'bkgt-api'); ?> *</label></th>
+                                <td>
+                                    <select id="update_platform" name="platform" required>
+                                        <option value="win32-x64"><?php _e('Windows 64-bit', 'bkgt-api'); ?></option>
+                                        <option value="darwin-x64"><?php _e('macOS Intel', 'bkgt-api'); ?></option>
+                                        <option value="darwin-arm64"><?php _e('macOS Apple Silicon', 'bkgt-api'); ?></option>
+                                        <option value="linux-x64"><?php _e('Linux 64-bit', 'bkgt-api'); ?></option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="update_changelog"><?php _e('Changelog', 'bkgt-api'); ?></label></th>
+                                <td>
+                                    <textarea id="update_changelog" name="changelog" rows="4" class="large-text"></textarea>
+                                    <p class="description"><?php _e('Describe the changes in this update', 'bkgt-api'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="update_critical"><?php _e('Critical Update', 'bkgt-api'); ?></label></th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" id="update_critical" name="critical" value="1" />
+                                        <?php _e('This is a critical security update', 'bkgt-api'); ?>
+                                    </label>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="update_minimum_version"><?php _e('Minimum Version', 'bkgt-api'); ?></label></th>
+                                <td>
+                                    <input type="text" id="update_minimum_version" name="minimum_version" class="regular-text" pattern="\d+\.\d+\.\d+" />
+                                    <p class="description"><?php _e('Minimum version required to install this update (optional)', 'bkgt-api'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="update_file"><?php _e('Update File', 'bkgt-api'); ?> *</label></th>
+                                <td>
+                                    <input type="file" id="update_file" name="file" accept=".exe,.dmg,.AppImage,.zip" required />
+                                    <p class="description"><?php _e('Upload the update package file (max 500MB)', 'bkgt-api'); ?></p>
+                                </td>
+                            </tr>
+                        </table>
+                        <p class="submit">
+                            <button type="submit" class="button button-primary" id="bkgt-update-upload-btn">
+                                <?php _e('Upload Update', 'bkgt-api'); ?>
+                            </button>
+                            <span id="bkgt-update-upload-status"></span>
+                        </p>
+                    </form>
+                </div>
+
+                <!-- Updates List Section -->
+                <div class="bkgt-api-section">
+                    <h2><?php _e('Available Updates', 'bkgt-api'); ?></h2>
+                    <div id="bkgt-updates-list">
+                        <p><?php _e('Loading updates...', 'bkgt-api'); ?></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php
+    }
+
+    /**
+     * AJAX handler for uploading updates
+     */
+    public function ajax_upload_update() {
+        try {
+            // Verify nonce
+            if (!wp_verify_nonce($_POST['nonce'] ?? '', 'bkgt_update_upload')) {
+                throw new Exception(__('Security check failed', 'bkgt-api'));
+            }
+
+            // Check permissions
+            if (!current_user_can('manage_options')) {
+                throw new Exception(__('Insufficient permissions', 'bkgt-api'));
+            }
+
+            // Validate required fields
+            $required_fields = array('version', 'platform');
+            foreach ($required_fields as $field) {
+                if (empty($_POST[$field])) {
+                    throw new Exception(sprintf(__('Field "%s" is required', 'bkgt-api'), $field));
+                }
+            }
+
+            // Validate version format
+            if (!preg_match('/^\d+\.\d+\.\d+$/', $_POST['version'])) {
+                throw new Exception(__('Version must follow semantic versioning (x.y.z)', 'bkgt-api'));
+            }
+
+            // Prepare data
+            $data = array(
+                'version' => sanitize_text_field($_POST['version']),
+                'platform' => sanitize_text_field($_POST['platform']),
+                'changelog' => sanitize_textarea_field($_POST['changelog'] ?? ''),
+                'critical' => isset($_POST['critical']) ? 1 : 0,
+                'minimum_version' => sanitize_text_field($_POST['minimum_version'] ?? null),
+            );
+
+            // Handle file upload
+            if (empty($_FILES['file'])) {
+                throw new Exception(__('No file uploaded', 'bkgt-api'));
+            }
+
+            $file = $_FILES['file'];
+
+            // Get updates handler
+            $updates = bkgt_api()->updates;
+            if (!$updates) {
+                throw new Exception(__('Updates service unavailable', 'bkgt-api'));
+            }
+
+            $result = $updates->upload_update_package(
+                $data['version'],
+                $data['platform'],
+                $file,
+                $data['changelog'],
+                $data['critical'],
+                $data['minimum_version']
+            );
+
+            if (is_wp_error($result)) {
+                throw new Exception($result->get_error_message());
+            }
+
+            wp_send_json_success(array(
+                'message' => __('Update uploaded successfully', 'bkgt-api'),
+                'data' => $result
+            ));
+
+        } catch (Exception $e) {
+            wp_send_json_error(array(
+                'message' => $e->getMessage()
+            ));
+        }
+    }
+
+    /**
+     * AJAX handler for getting updates list
+     */
+    public function ajax_get_updates() {
+        try {
+            // Check permissions
+            if (!current_user_can('manage_options')) {
+                throw new Exception(__('Insufficient permissions', 'bkgt-api'));
+            }
+
+            $page = intval($_POST['page'] ?? 1);
+            $per_page = intval($_POST['per_page'] ?? 20);
+
+            // Get updates handler
+            $updates = bkgt_api()->updates;
+            if (!$updates) {
+                throw new Exception(__('Updates service unavailable', 'bkgt-api'));
+            }
+
+            $result = $updates->get_admin_updates($page, $per_page);
+
+            wp_send_json_success($result);
+
+        } catch (Exception $e) {
+            wp_send_json_error(array(
+                'message' => $e->getMessage()
+            ));
+        }
+    }
+
+    /**
+     * AJAX handler for deactivating updates
+     */
+    public function ajax_deactivate_update() {
+        try {
+            // Verify nonce
+            if (!wp_verify_nonce($_POST['nonce'] ?? '', 'bkgt_update_deactivate')) {
+                throw new Exception(__('Security check failed', 'bkgt-api'));
+            }
+
+            // Check permissions
+            if (!current_user_can('manage_options')) {
+                throw new Exception(__('Insufficient permissions', 'bkgt-api'));
+            }
+
+            $version = sanitize_text_field($_POST['version'] ?? '');
+            if (empty($version)) {
+                throw new Exception(__('Version is required', 'bkgt-api'));
+            }
+
+            // Get updates handler
+            $updates = bkgt_api()->updates;
+            if (!$updates) {
+                throw new Exception(__('Updates service unavailable', 'bkgt-api'));
+            }
+
+            $deactivated = $updates->deactivate_update($version);
+
+            if (!$deactivated) {
+                throw new Exception(__('Failed to deactivate update', 'bkgt-api'));
+            }
+
+            wp_send_json_success(array(
+                'message' => sprintf(__('Update version %s deactivated successfully', 'bkgt-api'), $version)
+            ));
+
+        } catch (Exception $e) {
+            wp_send_json_error(array(
+                'message' => $e->getMessage()
+            ));
+        }
     }
 }

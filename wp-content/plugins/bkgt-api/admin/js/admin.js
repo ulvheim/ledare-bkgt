@@ -11,12 +11,6 @@
             this.initCharts();
             this.initFilters();
             this.initModals();
-
-            // Debug: Check if modal elements exist on page load
-            console.log('BKGT API Admin initialized');
-            console.log('Modal element exists:', $('#bkgt-api-key-modal').length > 0);
-            console.log('Input element exists:', $('#bkgt-api-key-display').length > 0);
-            console.log('Copy button exists:', $('#bkgt-api-key-copy').length > 0);
         },
 
         bindEvents: function() {
@@ -806,12 +800,201 @@
             $('#bkgt-api-key-modal').hide();
             // Reload the page to show the new key in the list
             location.reload();
+        },
+
+        // Update management
+        initUpdates: function() {
+            if (!$('#bkgt-updates-list').length) {
+                return;
+            }
+
+            this.loadUpdates();
+            this.bindUpdateEvents();
+        },
+
+        bindUpdateEvents: function() {
+            // Update upload form
+            $(document).on('submit', '#bkgt-update-upload-form', this.uploadUpdate);
+
+            // Update list actions
+            $(document).on('click', '.bkgt-update-deactivate', this.deactivateUpdate);
+            $(document).on('click', '.bkgt-update-refresh', this.loadUpdates);
+        },
+
+        uploadUpdate: function(e) {
+            e.preventDefault();
+
+            const $form = $(this);
+            const $submitBtn = $form.find('#bkgt-update-upload-btn');
+            const $status = $('#bkgt-update-upload-status');
+
+            // Get form data
+            const formData = new FormData(this);
+
+            // Add nonce
+            formData.append('action', 'bkgt_api_upload_update');
+            formData.append('nonce', bkgt_api_admin.nonce);
+
+            // Disable form
+            $submitBtn.prop('disabled', true).text(bkgt_api_admin.strings.loading);
+            $status.removeClass('success error').addClass('loading').text(bkgt_api_admin.strings.loading);
+
+            // Upload via AJAX
+            $.ajax({
+                url: bkgt_api_admin.ajax_url,
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    if (response.success) {
+                        $status.removeClass('loading error').addClass('success').text(response.data.message || bkgt_api_admin.strings.success);
+                        $form[0].reset();
+                        BKGT_API_Admin.loadUpdates();
+                    } else {
+                        $status.removeClass('loading success').addClass('error').text(response.data.message || bkgt_api_admin.strings.error);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    let message = bkgt_api_admin.strings.error;
+                    if (xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message) {
+                        message = xhr.responseJSON.data.message;
+                    }
+                    $status.removeClass('loading success').addClass('error').text(message);
+                },
+                complete: function() {
+                    $submitBtn.prop('disabled', false).text(bkgt_api.strings ? bkgt_api.strings.upload_update : 'Upload Update');
+                }
+            });
+        },
+
+        loadUpdates: function() {
+            const $container = $('#bkgt-updates-list');
+
+            $container.html('<p>' + bkgt_api_admin.strings.loading + '</p>');
+
+            $.ajax({
+                url: bkgt_api_admin.ajax_url,
+                type: 'POST',
+                data: {
+                    action: 'bkgt_api_get_updates',
+                    nonce: bkgt_api_admin.nonce,
+                    page: 1,
+                    per_page: 20
+                },
+                success: function(response) {
+                    if (response.success) {
+                        BKGT_API_Admin.renderUpdatesList(response.data);
+                    } else {
+                        $container.html('<p class="error">' + (response.data.message || bkgt_api_admin.strings.error) + '</p>');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    $container.html('<p class="error">' + bkgt_api_admin.strings.error + '</p>');
+                }
+            });
+        },
+
+        renderUpdatesList: function(data) {
+            const $container = $('#bkgt-updates-list');
+
+            if (!data.updates || data.updates.length === 0) {
+                $container.html('<p>' + (bkgt_api.strings ? bkgt_api.strings.no_updates : 'No updates found.') + '</p>');
+                return;
+            }
+
+            let html = '<table class="wp-list-table widefat fixed striped">';
+            html += '<thead><tr>';
+            html += '<th>Version</th>';
+            html += '<th>Release Date</th>';
+            html += '<th>Platforms</th>';
+            html += '<th>Downloads</th>';
+            html += '<th>Status</th>';
+            html += '<th>Actions</th>';
+            html += '</tr></thead>';
+            html += '<tbody>';
+
+            data.updates.forEach(function(update) {
+                const statusClass = update.status === 'active' ? 'bkgt-status-active' : 'bkgt-status-inactive';
+                const statusText = update.status === 'active' ? 'Active' : 'Inactive';
+                const platforms = update.platforms ? update.platforms.join(', ') : 'None';
+
+                html += '<tr>';
+                html += '<td><strong>' + update.version + '</strong></td>';
+                html += '<td>' + update.release_date + '</td>';
+                html += '<td>' + platforms + '</td>';
+                html += '<td>' + (update.download_count || 0) + '</td>';
+                html += '<td><span class="bkgt-status ' + statusClass + '">' + statusText + '</span></td>';
+                html += '<td>';
+
+                if (update.status === 'active') {
+                    html += '<button class="button button-small bkgt-update-deactivate" data-version="' + update.version + '" data-nonce="' + wp_create_nonce('bkgt_update_deactivate') + '">Deactivate</button>';
+                }
+
+                html += '</td>';
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+
+            // Pagination
+            if (data.pagination && data.pagination.total_pages > 1) {
+                html += '<div class="tablenav bottom">';
+                html += '<div class="tablenav-pages">';
+                html += '<span class="displaying-num">' + data.pagination.total + ' items</span>';
+                html += '<span class="pagination-links">';
+
+                // Add pagination links here if needed
+
+                html += '</span>';
+                html += '</div>';
+                html += '</div>';
+            }
+
+            $container.html(html);
+        },
+
+        deactivateUpdate: function(e) {
+            e.preventDefault();
+
+            const $btn = $(this);
+            const version = $btn.data('version');
+            const nonce = $btn.data('nonce');
+
+            if (!confirm(bkgt_api.strings ? bkgt_api.strings.confirm_deactivate : 'Are you sure you want to deactivate this update?')) {
+                return;
+            }
+
+            $btn.prop('disabled', true).text(bkgt_api_admin.strings.loading);
+
+            $.ajax({
+                url: bkgt_api_admin.ajax_url,
+                type: 'POST',
+                data: {
+                    action: 'bkgt_api_deactivate_update',
+                    nonce: nonce,
+                    version: version
+                },
+                success: function(response) {
+                    if (response.success) {
+                        BKGT_API_Admin.loadUpdates();
+                    } else {
+                        alert(response.data.message || bkgt_api_admin.strings.error);
+                        $btn.prop('disabled', false).text('Deactivate');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    alert(bkgt_api_admin.strings.error);
+                    $btn.prop('disabled', false).text('Deactivate');
+                }
+            });
         }
     };
 
     // Initialize when document is ready
     $(document).ready(function() {
         BKGT_API_Admin.init();
+        BKGT_API_Admin.initUpdates();
     });
 
     // Expose for debugging

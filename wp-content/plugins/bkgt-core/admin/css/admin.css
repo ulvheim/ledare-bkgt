@@ -1,0 +1,212 @@
+/**
+ * BKGT Core Admin Styles
+ *
+ * Provides consistent styling for BKGT admin interfaces
+ *
+ * @package BKGT_Core
+ * @since 1.0.0
+ */
+
+/* BKGT Admin Styles */
+.bkgt-admin-wrapper {
+    margin: 20px 0;
+}
+
+.bkgt-admin-header {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+}
+
+.bkgt-admin-header h1 {
+    margin: 0 0 10px 0;
+    color: #1d2327;
+    font-size: 23px;
+    font-weight: 400;
+}
+
+.bkgt-admin-header .description {
+    color: #646970;
+    font-size: 14px;
+    margin: 0;
+}
+
+.bkgt-admin-section {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+}
+
+.bkgt-admin-section h2 {
+    background: #f6f7f7;
+    border-bottom: 1px solid #ccd0d4;
+    padding: 15px 20px;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1d2327;
+}
+
+.bkgt-admin-section .inside {
+    padding: 20px;
+}
+
+.bkgt-admin-field {
+    margin-bottom: 20px;
+}
+
+.bkgt-admin-field label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 5px;
+    color: #1d2327;
+}
+
+.bkgt-admin-field input[type="text"],
+.bkgt-admin-field input[type="password"],
+.bkgt-admin-field input[type="email"],
+.bkgt-admin-field input[type="number"],
+.bkgt-admin-field select,
+.bkgt-admin-field textarea {
+    width: 100%;
+    max-width: 400px;
+    padding: 8px 12px;
+    border: 1px solid #8c8f94;
+    border-radius: 4px;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.bkgt-admin-field textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+.bkgt-admin-field .description {
+    color: #646970;
+    font-size: 13px;
+    margin-top: 5px;
+    font-style: italic;
+}
+
+.bkgt-admin-actions {
+    padding: 20px;
+    background: #f6f7f7;
+    border-top: 1px solid #ccd0d4;
+    text-align: right;
+}
+
+.bkgt-admin-actions .button {
+    margin-left: 10px;
+}
+
+/* Status Messages */
+.bkgt-notice {
+    padding: 12px 16px;
+    margin: 0 0 20px 0;
+    border-left: 4px solid #72aee6;
+    background: #fff;
+    border-radius: 4px;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+}
+
+.bkgt-notice.success {
+    border-left-color: #46b450;
+    background: #f6ffed;
+}
+
+.bkgt-notice.error {
+    border-left-color: #dc3232;
+    background: #ffeaea;
+}
+
+.bkgt-notice.warning {
+    border-left-color: #ffb900;
+    background: #fff8e5;
+}
+
+.bkgt-notice.info {
+    border-left-color: #72aee6;
+    background: #f0f6fc;
+}
+
+.bkgt-notice p {
+    margin: 0;
+    color: #1d2327;
+    font-size: 14px;
+}
+
+/* Loading States */
+.bkgt-loading {
+    opacity: 0.6;
+    pointer-events: none;
+    position: relative;
+}
+
+.bkgt-loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid #f3f4f5;
+    border-top: 2px solid #007cba;
+    border-radius: 50%;
+    animation: bkgt-spin 1s linear infinite;
+}
+
+@keyframes bkgt-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Tables */
+.bkgt-admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+}
+
+.bkgt-admin-table th,
+.bkgt-admin-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #e2e4e7;
+    vertical-align: top;
+}
+
+.bkgt-admin-table th {
+    background: #f6f7f7;
+    font-weight: 600;
+    color: #1d2327;
+    border-bottom: 1px solid #ccd0d4;
+}
+
+.bkgt-admin-table tr:hover {
+    background: #f9f9f9;
+}
+
+/* Responsive */
+@media screen and (max-width: 782px) {
+    .bkgt-admin-header,
+    .bkgt-admin-section .inside,
+    .bkgt-admin-actions {
+        padding: 15px;
+    }
+
+    .bkgt-admin-field input[type="text"],
+    .bkgt-admin-field input[type="password"],
+    .bkgt-admin-field input[type="email"],
+    .bkgt-admin-field input[type="number"],
+    .bkgt-admin-field select,
+    .bkgt-admin-field textarea {
+        max-width: 100%;
+    }
+}
