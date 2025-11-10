@@ -127,78 +127,9 @@ function bkgt_inventory_register_shortcodes() {
     add_shortcode('bkgt_inventory', 'bkgt_inventory_shortcode');
 }
 
-// Register custom post type
-add_action('init', 'bkgt_inventory_register_post_type');
-function bkgt_inventory_register_post_type() {
-    register_post_type('bkgt_inventory_item', array(
-        'labels' => array(
-            'name' => __('Utrustning', 'bkgt-inventory'),
-            'singular_name' => __('Artikel', 'bkgt-inventory'),
-            'add_new' => __('Lägg till artikel', 'bkgt-inventory'),
-            'add_new_item' => __('Lägg till ny artikel', 'bkgt-inventory'),
-            'edit_item' => __('Redigera artikel', 'bkgt-inventory'),
-            'new_item' => __('Ny artikel', 'bkgt-inventory'),
-            'view_item' => __('Visa artikel', 'bkgt-inventory'),
-            'search_items' => __('Sök artiklar', 'bkgt-inventory'),
-            'not_found' => __('Inga artiklar hittades', 'bkgt-inventory'),
-            'not_found_in_trash' => __('Inga artiklar i papperskorgen', 'bkgt-inventory'),
-        ),
-        'public' => true,
-        'show_ui' => true,
-        'show_in_menu' => false, // Will be shown under our custom menu
-        'capability_type' => 'post',
-        'capabilities' => array(
-            'edit_post' => 'manage_inventory',
-            'read_post' => 'manage_inventory',
-            'delete_post' => 'manage_inventory',
-            'edit_posts' => 'manage_inventory',
-            'edit_others_posts' => 'manage_inventory',
-            'publish_posts' => 'manage_inventory',
-            'read_private_posts' => 'manage_inventory',
-        ),
-        'supports' => array('custom-fields'),
-        'has_archive' => false,
-        'rewrite' => array('slug' => 'utrustning/artikel'),
-    ));
-}
+// Custom post type removed - using database-only storage
 
-// Remove default title and content fields from inventory item edit screen
-add_action('admin_head', 'bkgt_inventory_remove_default_fields');
-function bkgt_inventory_remove_default_fields() {
-    $screen = get_current_screen();
-    if ($screen && $screen->post_type === 'bkgt_inventory_item') {
-        // Remove title field
-        remove_post_type_support('bkgt_inventory_item', 'title');
-        // Remove content editor
-        remove_post_type_support('bkgt_inventory_item', 'editor');
-    }
-}
-
-// Remove unwanted metaboxes from inventory item edit screen
-add_action('add_meta_boxes', 'bkgt_inventory_remove_metaboxes', 99);
-function bkgt_inventory_remove_metaboxes() {
-    $screen = get_current_screen();
-    if ($screen && $screen->post_type === 'bkgt_inventory_item') {
-        // Remove publish metabox
-        remove_meta_box('submitdiv', 'bkgt_inventory_item', 'side');
-        // Remove slug metabox
-        remove_meta_box('slugdiv', 'bkgt_inventory_item', 'normal');
-        // Remove author metabox
-        remove_meta_box('authordiv', 'bkgt_inventory_item', 'normal');
-        // Remove comments metabox
-        remove_meta_box('commentsdiv', 'bkgt_inventory_item', 'normal');
-        // Remove revisions metabox
-        remove_meta_box('revisionsdiv', 'bkgt_inventory_item', 'normal');
-        // Remove custom fields metabox (we have our own)
-        remove_meta_box('postcustom', 'bkgt_inventory_item', 'normal');
-        // Remove excerpt metabox
-        remove_meta_box('postexcerpt', 'bkgt_inventory_item', 'normal');
-        // Remove trackbacks metabox
-        remove_meta_box('trackbacksdiv', 'bkgt_inventory_item', 'normal');
-        // Remove tags metabox
-        remove_meta_box('tagsdiv-bkgt_condition', 'bkgt_inventory_item', 'side');
-    }
-}
+// Post type modification functions removed - using database-only storage
 
 // Register custom taxonomies
 add_action('init', 'bkgt_inventory_register_taxonomies');

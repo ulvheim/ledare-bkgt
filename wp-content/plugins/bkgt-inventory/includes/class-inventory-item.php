@@ -636,10 +636,16 @@ class BKGT_Inventory_Item {
             'item_type_id' => (int) $row['item_type_id'],
             'item_type_name' => $row['item_type_name'],
             'storage_location' => $row['storage_location'],
+            'location_id' => isset($row['location_id']) ? (int) $row['location_id'] : null,
             'condition_status' => $row['condition_status'],
+            'condition_date' => $row['condition_date'],
             'condition_reason' => $row['condition_reason'],
             'sticker_code' => $row['sticker_code'],
+            'purchase_date' => $row['purchase_date'] ?? null,
+            'purchase_price' => isset($row['purchase_price']) ? (float) $row['purchase_price'] : null,
+            'warranty_expiry' => $row['warranty_expiry'] ?? null,
             'notes' => $row['notes'],
+            'metadata' => $row['metadata'],
             'created_at' => $row['created_at'],
             'updated_at' => $row['updated_at'],
             'assignee_type' => $row['assignee_type'],
@@ -717,47 +723,6 @@ class BKGT_Inventory_Item {
         }
         
         $item_id = $wpdb->insert_id;
-        
-        // Also create a WordPress post for admin interface compatibility
-        $post_data = array(
-            'post_type' => 'bkgt_inventory_item',
-            'post_title' => sanitize_text_field($data['title']),
-            'post_status' => 'publish',
-            'post_date' => current_time('mysql'),
-            'post_date_gmt' => current_time('mysql', true),
-        );
-        
-        $post_id = wp_insert_post($post_data);
-        
-        if (!is_wp_error($post_id)) {
-            // Save meta data for admin interface
-            update_post_meta($post_id, '_bkgt_unique_identifier', $data['unique_identifier']);
-            update_post_meta($post_id, '_bkgt_manufacturer_id', intval($data['manufacturer_id']));
-            update_post_meta($post_id, '_bkgt_item_type_id', intval($data['item_type_id']));
-            
-            // Save additional fields to post meta for admin compatibility
-            if (isset($data['size'])) {
-                update_post_meta($post_id, '_bkgt_size', sanitize_text_field($data['size']));
-            }
-            if (isset($data['sticker_code'])) {
-                update_post_meta($post_id, '_bkgt_sticker_code', sanitize_text_field($data['sticker_code']));
-            }
-            if (isset($data['purchase_date'])) {
-                update_post_meta($post_id, '_bkgt_purchase_date', sanitize_text_field($data['purchase_date']));
-            }
-            if (isset($data['purchase_price'])) {
-                update_post_meta($post_id, '_bkgt_purchase_price', floatval($data['purchase_price']));
-            }
-            if (isset($data['warranty_expiry'])) {
-                update_post_meta($post_id, '_bkgt_warranty_expiry', sanitize_text_field($data['warranty_expiry']));
-            }
-            if (isset($data['location_id'])) {
-                update_post_meta($post_id, '_bkgt_location_id', intval($data['location_id']));
-            }
-            if (isset($data['notes'])) {
-                update_post_meta($post_id, '_bkgt_notes', sanitize_textarea_field($data['notes']));
-            }
-        }
         
         return $item_id;
     }
@@ -850,63 +815,6 @@ class BKGT_Inventory_Item {
         
         if ($result === false) {
             return new WP_Error('db_error', __('Kunde inte uppdatera artikel.', 'bkgt-inventory'));
-        }
-        
-        // Also update the corresponding WordPress post for admin interface compatibility
-        $current_item = self::get_item($item_id);
-        if ($current_item) {
-            // Find the WordPress post with this unique identifier
-            $posts = get_posts(array(
-                'post_type' => 'bkgt_inventory_item',
-                'meta_key' => '_bkgt_unique_identifier',
-                'meta_value' => $current_item['unique_identifier'],
-                'posts_per_page' => 1,
-                'fields' => 'ids'
-            ));
-            
-            if (!empty($posts)) {
-                $post_id = $posts[0];
-                
-                // Update post title if unique_identifier changed
-                if (isset($data['unique_identifier'])) {
-                    wp_update_post(array(
-                        'ID' => $post_id,
-                        'post_title' => sanitize_text_field($data['unique_identifier'])
-                    ));
-                }
-                
-                // Update post meta for admin interface
-                if (isset($data['manufacturer_id'])) {
-                    update_post_meta($post_id, '_bkgt_manufacturer_id', intval($data['manufacturer_id']));
-                }
-                if (isset($data['item_type_id'])) {
-                    update_post_meta($post_id, '_bkgt_item_type_id', intval($data['item_type_id']));
-                }
-                if (isset($data['unique_identifier'])) {
-                    update_post_meta($post_id, '_bkgt_unique_identifier', sanitize_text_field($data['unique_identifier']));
-                }
-                if (isset($data['size'])) {
-                    update_post_meta($post_id, '_bkgt_size', sanitize_text_field($data['size']));
-                }
-                if (isset($data['sticker_code'])) {
-                    update_post_meta($post_id, '_bkgt_sticker_code', sanitize_text_field($data['sticker_code']));
-                }
-                if (isset($data['purchase_date'])) {
-                    update_post_meta($post_id, '_bkgt_purchase_date', sanitize_text_field($data['purchase_date']));
-                }
-                if (isset($data['purchase_price'])) {
-                    update_post_meta($post_id, '_bkgt_purchase_price', floatval($data['purchase_price']));
-                }
-                if (isset($data['warranty_expiry'])) {
-                    update_post_meta($post_id, '_bkgt_warranty_expiry', sanitize_text_field($data['warranty_expiry']));
-                }
-                if (isset($data['location_id'])) {
-                    update_post_meta($post_id, '_bkgt_location_id', intval($data['location_id']));
-                }
-                if (isset($data['notes'])) {
-                    update_post_meta($post_id, '_bkgt_notes', sanitize_textarea_field($data['notes']));
-                }
-            }
         }
         
         return true;

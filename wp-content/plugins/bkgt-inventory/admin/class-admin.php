@@ -1654,27 +1654,21 @@ class BKGT_Inventory_Admin {
     }
 
     /**
-     * Add meta boxes
+     * Add meta boxes - removed for database-only storage
      */
     public function add_meta_boxes() {
-        add_meta_box(
-            'bkgt_inventory_form',
-            __('Utrustningsinformation', 'bkgt-inventory'),
-            array($this, 'render_inventory_form'),
-            'bkgt_inventory_item',
-            'normal',
-            'high'
-        );
+        // Meta boxes removed - using database-only storage
     }
     
     /**
      * Render inventory form (single comprehensive form)
      */
+    /**
+     * Render inventory form - removed for database-only storage
+     */
     public function render_inventory_form($post) {
-        wp_nonce_field('bkgt_inventory_meta', 'bkgt_inventory_meta_nonce');
-
-        // Get all meta values
-        $manufacturer_id = get_post_meta($post->ID, '_bkgt_manufacturer_id', true);
+        // Method removed - using database-only storage
+    }
         $item_type_id = get_post_meta($post->ID, '_bkgt_item_type_id', true);
         $unique_id = get_post_meta($post->ID, '_bkgt_unique_id', true);
         $unique_id_short = get_post_meta($post->ID, '_bkgt_unique_id_short', true);
@@ -2219,25 +2213,15 @@ class BKGT_Inventory_Admin {
     }
     
     /**
-     * Save inventory item
+     * Save inventory item - removed for database-only storage
      */
     public function save_inventory_item($post_id, $post) {
-        if (!isset($_POST['bkgt_inventory_meta_nonce']) || 
-            !wp_verify_nonce($_POST['bkgt_inventory_meta_nonce'], 'bkgt_inventory_meta')) {
-            return;
-        }
-        
-        if (!current_user_can('edit_post', $post_id)) {
-            return;
-        }
-        
-        if ($post->post_type !== 'bkgt_inventory_item') {
-            return;
-        }
-        
-        // Extract and sanitize form data using BKGT_Sanitizer for unified data cleaning
-        $raw_data = array(
-            'bkgt_manufacturer_id' => $_POST['bkgt_manufacturer_id'] ?? '',
+        // Method removed - using database-only storage
+    }
+    
+    /**
+     * Render locations page
+     */
             'bkgt_item_type_id' => $_POST['bkgt_item_type_id'] ?? '',
             'bkgt_unique_id' => $_POST['bkgt_unique_id'] ?? '',
             'bkgt_unique_id_short' => $_POST['bkgt_unique_id_short'] ?? '',
