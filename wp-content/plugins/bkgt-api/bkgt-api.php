@@ -3,7 +3,7 @@
  * Plugin Name: BKGT API
  * Plugin URI: https://github.com/your-repo/bkgt-api
  * Description: Secure REST API for mobile and desktop applications to access BKGT features. Provides JWT authentication, comprehensive endpoints for teams, players, events, documents, and statistics with enterprise-grade security.
- * Version: 1.0.0
+ * Version: 2.4.0
  * Author: BKGT Development Team
  * License: GPL v2 or later
  * Text Domain: bkgt-api
@@ -19,9 +19,9 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('BKGT_API_VERSION', '1.2.0');
+define('BKGT_API_VERSION', '2.4.0');
 define('BKGT_API_PLUGIN_DIR', plugin_dir_path(__FILE__));
-define('BKGT_API_PLUGIN_URL', plugin_dir_url(__FILE__));
+define('BKGT_API_PLUGIN_URL', plugin_dir(__FILE__));
 define('BKGT_API_NAMESPACE', 'bkgt/v1');
 
 // Include required files with error handling
@@ -33,6 +33,7 @@ $required_files = array(
     'includes/class-bkgt-notifications.php',
     'includes/class-bkgt-service-admin.php',
     'includes/class-bkgt-service-client.php',
+    'includes/class-bkgt-updates.php',
     'admin/class-bkgt-api-admin.php'
 );
 
@@ -87,6 +88,11 @@ class BKGT_API_Plugin {
     public $admin;
 
     /**
+     * Updates handler instance
+     */
+    public $updates;
+
+    /**
      * Get single instance of the plugin
      */
     public static function get_instance() {
@@ -110,6 +116,7 @@ class BKGT_API_Plugin {
     private function init_hooks() {
         add_action('plugins_loaded', array($this, 'load_textdomain'));
         add_action('plugins_loaded', array($this, 'register_ajax_handlers'));
+        add_action('plugins_loaded', array($this, 'load_inventory_classes'));
         add_action('rest_api_init', array($this, 'register_rest_routes'));
         add_action('init', array($this, 'init_plugin'));
     }
@@ -142,6 +149,11 @@ class BKGT_API_Plugin {
         // Initialize admin interface
         if ((is_admin() || defined('DOING_AJAX')) && class_exists('BKGT_API_Admin')) {
             $this->admin = new BKGT_API_Admin();
+        }
+
+        // Initialize updates handler
+        if (class_exists('BKGT_API_Updates')) {
+            $this->updates = new BKGT_API_Updates();
         }
     }
 
@@ -212,6 +224,9 @@ class BKGT_API_Plugin {
      * Register REST API routes
      */
     public function register_rest_routes() {
+        // Ensure inventory classes are loaded for REST API requests
+        $this->load_inventory_classes();
+
         if ($this->endpoints) {
             $this->endpoints->register_routes();
         }
@@ -267,19 +282,22 @@ class BKGT_API_Plugin {
             // Deactivate this plugin
             deactivate_plugins(plugin_basename(__FILE__));
         } else {
-            // Load inventory classes if inventory plugin is active
-            $this->load_inventory_classes();
+            // Dependencies are met - plugin will continue loading
         }
     }
 
     /**
      * Load BKGT Inventory classes
      */
-    private function load_inventory_classes() {
+    public function load_inventory_classes() {
+        // Check if bkgt-inventory plugin is active
+        if (!is_plugin_active('bkgt-inventory/bkgt-inventory.php')) {
+            return;
+        }
+
         $inventory_files = array(
-            'includes/class-inventory-item.php',
-            'includes/class-manufacturer.php',
-            'includes/class-item-type.php',
+            'includes/class-database.php',
+            'includes/class-history.php',
             'includes/class-assignment.php'
         );
 

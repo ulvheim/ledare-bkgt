@@ -421,6 +421,42 @@ curl -X GET "https://ledare.bkgt.se/wp-json/bkgt/v1/routes?detailed=true"
 
 ## Changelog
 
+### v2.4.0 - Advanced Equipment Features (2025-11-10)
+- 🔍 **Implemented equipment search functionality**
+  - `GET /wp-json/bkgt/v1/equipment/search` endpoint
+  - Multi-field search across title, identifier, manufacturer, type, assignee
+  - Configurable result fields and limits
+  - Optimized database queries for performance
+- 📦 **Implemented bulk equipment operations**
+  - `POST /wp-json/bkgt/v1/equipment/bulk` endpoint
+  - Bulk delete and export operations
+  - Proper error handling and transaction safety
+  - CSV export functionality for selected items
+- 🔧 **Enhanced class loading system**
+  - Automatic loading of bkgt-inventory classes in API context
+  - Proper dependency management between plugins
+  - Error handling for missing plugin dependencies
+- 📚 **Updated documentation**
+  - Complete API reference for new endpoints
+  - Usage examples and response formats
+  - Field specifications and validation rules
+
+### v2.3.0 - Equipment Database Schema Enhancement (2025-11-10)
+- 🗄️ **Added comprehensive equipment fields to database**
+  - `location_id` (integer): Equipment storage location reference
+  - `purchase_date` (date): Date equipment was purchased (YYYY-MM-DD format)
+  - `purchase_price` (decimal): Equipment purchase cost
+  - `warranty_expiry` (date): Warranty expiration date (YYYY-MM-DD format)
+  - `size` (varchar): Equipment size specification
+- 🔧 **Fixed critical equipment API bugs**
+  - Resolved HTTP 500 errors on PUT/DELETE operations
+  - Added missing database columns causing update failures
+  - Enhanced error handling and validation
+- 📋 **Updated API documentation**
+  - Added new fields to equipment CRUD examples
+  - Improved field validation documentation
+  - Enhanced error response details
+
 ### v2.2.0 - Equipment Title Simplification (2025-11-09)
 - 🗑️ **Removed title parameter from equipment API**
   - **BREAKING CHANGE**: `title` field no longer accepted in equipment creation/update
@@ -472,13 +508,14 @@ curl -X GET "https://ledare.bkgt.se/wp-json/bkgt/v1/routes?detailed=true"
 >
 > **Plugin Separation:**
 > - **bkgt-api**: Read-only equipment endpoints, manufacturers, types, locations, analytics
-> - **bkgt-inventory**: Equipment CRUD operations, assignments, bulk operations
+> - **bkgt-inventory**: Full equipment CRUD operations, assignments, bulk operations, comprehensive database schema
 >
 > For equipment CRUD operations, use the `bkgt-inventory` plugin endpoints:
 > - `POST /wp-json/bkgt/v1/equipment` - Create equipment (bkgt-inventory plugin)
-> - `PUT /wp-json/bkgt/v1/equipment/{id}` - Update equipment (bkgt-inventory plugin)
-> - `DELETE /wp-json/bkgt/v1/equipment/{id}` - Delete equipment (bkgt-inventory plugin)
-> - `POST /wp-json/bkgt/v1/equipment/bulk` - Bulk operations (bkgt-inventory plugin)
+> - `PUT /wp-json/bkgt/v1/equipment/{id}` - Update equipment (bkgt-inventory plugin) ✅ **FIXED**
+> - `DELETE /wp-json/bkgt/v1/equipment/{id}` - Delete equipment (bkgt-inventory plugin) ✅ **FIXED**
+> - `POST /wp-json/bkgt/v1/equipment/bulk` - Bulk operations ✅ **IMPLEMENTED**
+> - `GET /wp-json/bkgt/v1/equipment/search` - Search functionality ✅ **IMPLEMENTED**
 
 #### GET `/wp-json/bkgt/v1/equipment/preview-identifier`
 Preview the unique identifier that would be generated for new equipment.
@@ -600,6 +637,10 @@ const equipmentData = {
     "item_type_id": 1,            // Required: Get from /equipment/types
     "size": "Large",              // Optional: Equipment size (S, M, L, XL, etc.)
     "storage_location": "Storage Room A", // Optional: Storage location
+    "location_id": 1,             // Optional: Location ID from /locations
+    "purchase_date": "2024-01-15", // Optional: Purchase date (YYYY-MM-DD)
+    "purchase_price": 299.99,     // Optional: Purchase price (numeric)
+    "warranty_expiry": "2026-01-15", // Optional: Warranty expiry (YYYY-MM-DD)
     "condition_status": "normal", // Optional: normal, needs_repair, repaired, reported_lost, scrapped
     "notes": "New helmet for spring season"
 };
@@ -629,6 +670,10 @@ fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment', {
     "manufacturer_id": 1,
     "item_type_id": 1,
     "storage_location": "Storage Room A",
+    "location_id": 1,
+    "purchase_date": "2024-01-15",
+    "purchase_price": 299.99,
+    "warranty_expiry": "2026-01-15",
     "condition_status": "normal",
     "notes": "New helmet for spring season",
     "created_at": "2024-01-15T10:30:00Z",
@@ -637,6 +682,19 @@ fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment', {
 ```
 
 **Note:** The `title` field is automatically generated from the `unique_identifier` and cannot be manually specified.
+
+#### Field Validation
+
+The equipment API includes validation for data integrity:
+
+- **`purchase_date`**: Must be in `YYYY-MM-DD` format (e.g., "2024-01-15")
+- **`warranty_expiry`**: Must be in `YYYY-MM-DD` format (e.g., "2026-01-15") 
+- **`purchase_price`**: Must be a valid numeric value (e.g., 299.99)
+- **`location_id`**: Must reference an existing location ID
+- **`manufacturer_id`**: Must reference an existing manufacturer ID
+- **`item_type_id`**: Must reference an existing item type ID
+
+Invalid data will result in a `400 Bad Request` response with validation error details.
 
 #### Updating Equipment
 
@@ -647,6 +705,9 @@ fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment', {
 ```javascript
 const updateData = {
     "size": "Medium",           // Update equipment size
+    "location_id": 2,           // Update storage location
+    "purchase_price": 279.99,   // Update purchase price
+    "warranty_expiry": "2026-06-15", // Update warranty date
     "condition_status": "needs_repair",
     "notes": "Crack in helmet shell - needs repair"
 };
@@ -690,17 +751,13 @@ fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment/123', {
 #### Bulk Equipment Operations
 
 **Endpoint:** `POST /wp-json/bkgt/v1/equipment/bulk`  
-**Plugin:** bkgt-inventory  
-**Authentication:** JWT Bearer token
+**Plugin:** bkgt-api (with bkgt-inventory classes)  
+**Authentication:** JWT Bearer token or API Key
 
 ```javascript
 const bulkData = {
-    "operation": "update",  // create, update, delete
-    "equipment_ids": [1, 2, 3, 4, 5],
-    "data": {
-        "location_id": 3,
-        "condition_status": "normal"
-    }
+    "operation": "delete",  // delete, export
+    "item_ids": [1, 2, 3, 4, 5]
 };
 
 fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment/bulk', {
@@ -718,9 +775,89 @@ fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment/bulk', {
 ```
 
 **Bulk Operations:**
-- `create`: Add multiple equipment items
-- `update`: Update multiple equipment items with same data
 - `delete`: Delete multiple equipment items
+- `export`: Export multiple equipment items to CSV format
+
+**Response for delete operation:**
+```json
+{
+    "message": "Bulk delete completed. 3 items deleted.",
+    "deleted_count": 3,
+    "errors": []
+}
+```
+
+**Response for export operation:**
+```json
+{
+    "message": "Bulk export completed.",
+    "item_count": 5,
+    "csv_data": [
+        ["Unik Identifierare", "Artikelnamn", "Tillverkare", ...],
+        ["0001-0001-00001", "Fotboll", "Nike", ...],
+        ...
+    ]
+}
+```
+
+#### Equipment Search
+
+**Endpoint:** `GET /wp-json/bkgt/v1/equipment/search`  
+**Plugin:** bkgt-api (with bkgt-inventory classes)  
+**Authentication:** JWT Bearer token or API Key
+
+Search equipment across multiple fields including title, unique identifier, serial number, manufacturer, item type, and assignee name.
+
+**Query Parameters:**
+- `q` (string, required): Search query
+- `limit` (integer, optional): Maximum results to return (default: 20, max: 100)
+- `fields` (array, optional): Fields to include in results (default: ['id', 'unique_identifier', 'title'])
+
+**Example Request:**
+```javascript
+fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment/search?q=football&limit=10&fields[]=id&fields[]=title&fields[]=manufacturer_name', {
+    headers: {
+        'X-API-Key': 'your_api_key_here'
+    }
+})
+.then(response => response.json())
+.then(data => {
+    console.log('Search results:', data.results);
+});
+```
+
+**Response (200):**
+```json
+{
+    "query": "football",
+    "results": [
+        {
+            "id": 1,
+            "unique_identifier": "0001-0001-00001",
+            "title": "Fotboll Nike",
+            "manufacturer_name": "Nike"
+        },
+        {
+            "id": 5,
+            "unique_identifier": "0001-0002-00005",
+            "title": "Träningsfotboll",
+            "manufacturer_name": "Adidas"
+        }
+    ],
+    "total": 2,
+    "limit": 10,
+    "fields": ["id", "unique_identifier", "title", "manufacturer_name"]
+}
+```
+
+**Available Fields:**
+- `id`: Equipment ID
+- `unique_identifier`: Unique identifier
+- `title`: Equipment title
+- `manufacturer_name`: Manufacturer name
+- `item_type_name`: Item type name
+- `condition_status`: Condition status
+- `assignee_name`: Current assignee name
 
 #### Equipment Assignment Management
 
@@ -3429,6 +3566,123 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 - Security monitoring
 - Rate limiting
 - CORS support
+
+## 🔄 Auto-Update API
+
+The BKGT API includes comprehensive auto-update functionality for the BKGT Manager desktop application. This allows seamless updates without user intervention.
+
+### Update Endpoints
+
+#### Get Latest Version Information
+```http
+GET /wp-json/bkgt/v1/updates/latest
+Headers:
+  X-API-Key: your_api_key_here
+  User-Agent: BKGT-Manager/{current_version} ({platform})
+```
+
+**Response (200):**
+```json
+{
+  "version": "1.2.3",
+  "release_date": "2025-11-09T10:00:00Z",
+  "changelog": "Fixed equipment update issues, improved performance",
+  "critical": false,
+  "platforms": {
+    "win32-x64": {
+      "filename": "BKGT-Manager-1.2.3-win32-x64.exe",
+      "size": 85431234,
+      "hash": "sha256:abc123...",
+      "download_url": "https://ledare.bkgt.se/wp-json/bkgt/v1/updates/download/1.2.3/win32-x64"
+    }
+  },
+  "minimum_version": "1.0.0"
+}
+```
+
+#### Download Update Package
+```http
+GET /wp-json/bkgt/v1/updates/download/{version}/{platform}
+Headers:
+  X-API-Key: your_api_key_here
+```
+
+**Response:** Binary update package with appropriate headers.
+
+#### Check Version Compatibility
+```http
+GET /wp-json/bkgt/v1/updates/compatibility/{current_version}
+Headers:
+  X-API-Key: your_api_key_here
+```
+
+**Response (200):**
+```json
+{
+  "compatible": true,
+  "latest_compatible_version": "1.2.3",
+  "requires_update": true,
+  "reason": "Version 1.1.0 can update to 1.2.3"
+}
+```
+
+#### Report Update Status
+```http
+POST /wp-json/bkgt/v1/updates/status
+Headers:
+  X-API-Key: your_api_key_here
+  Content-Type: application/json
+
+Body:
+{
+  "current_version": "1.1.0",
+  "target_version": "1.2.3",
+  "platform": "win32-x64",
+  "status": "completed",
+  "error_message": null,
+  "install_time_seconds": 45
+}
+```
+
+### Admin Update Management
+
+#### Upload Update Package (Admin Only)
+```http
+POST /wp-json/bkgt/v1/updates/upload
+Headers:
+  X-API-Key: your_admin_api_key_here
+  Content-Type: multipart/form-data
+
+Form Data:
+  version: "1.2.3"
+  platform: "win32-x64"
+  changelog: "Fixed equipment update issues..."
+  critical: false
+  minimum_version: "1.0.0"
+  file: [binary file data]
+```
+
+#### List Updates (Admin Only)
+```http
+GET /wp-json/bkgt/v1/updates/admin/list?page=1&per_page=20
+Headers:
+  X-API-Key: your_admin_api_key_here
+```
+
+#### Deactivate Update (Admin Only)
+```http
+DELETE /wp-json/bkgt/v1/updates/{version}
+Headers:
+  X-API-Key: your_admin_api_key_here
+```
+
+### Update API Features
+
+- **Secure Downloads:** SHA256 hash verification for all packages
+- **Platform Support:** Windows, macOS (Intel/Apple Silicon), Linux
+- **Version Management:** Semantic versioning with compatibility checking
+- **Analytics:** Update adoption and failure tracking
+- **Admin Interface:** Complete update management through WordPress admin
 
 ## License
 

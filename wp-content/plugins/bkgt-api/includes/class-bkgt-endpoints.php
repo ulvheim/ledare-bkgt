@@ -38,6 +38,7 @@ class BKGT_API_Endpoints {
         $this->register_user_routes();
         $this->register_admin_routes();
         $this->register_docs_routes();
+        $this->register_update_routes();
     }
 
     /**
@@ -768,31 +769,61 @@ class BKGT_API_Endpoints {
             ),
         ));
 
-        // Bulk operations routes - REMOVED (handled by bkgt-inventory plugin)
-        // register_rest_route($this->namespace, '/equipment/bulk', array(
-        //     array(
-        //         'methods' => 'POST',
-        //         'callback' => array($this, 'bulk_equipment_operation'),
-        //         'permission_callback' => array($this, 'validate_token'),
-        //         'args' => array(
-        //             'operation' => array(
-        //                 'type' => 'string',
-        //                 'required' => true,
-        //                 'enum' => array('delete', 'export'),
-        //                 'validate_callback' => array($this, 'validate_required'),
-        //             ),
-        //             'item_ids' => array(
-        //                 'type' => 'array',
-        //                 'required' => true,
-        //                 'items' => array(
-        //                     'type' => 'integer',
-        //                     'validate_callback' => array($this, 'validate_numeric'),
-        //                 ),
-        //                 'validate_callback' => array($this, 'validate_required'),
-        //             ),
-        //         ),
-        //     ),
-        // ));
+        // Bulk operations routes
+        register_rest_route($this->namespace, '/equipment/bulk', array(
+            array(
+                'methods' => 'POST',
+                'callback' => array($this, 'bulk_equipment_operation'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'operation' => array(
+                        'type' => 'string',
+                        'required' => true,
+                        'enum' => array('delete', 'export'),
+                        'validate_callback' => array($this, 'validate_required'),
+                    ),
+                    'item_ids' => array(
+                        'type' => 'array',
+                        'required' => true,
+                        'items' => array(
+                            'type' => 'integer',
+                            'validate_callback' => array($this, 'validate_numeric'),
+                        ),
+                        'validate_callback' => array($this, 'validate_required'),
+                    ),
+                ),
+            ),
+        ));
+
+        // Search equipment route
+        register_rest_route($this->namespace, '/equipment/search', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'search_equipment'),
+            'permission_callback' => array($this, 'validate_token'),
+            'args' => array(
+                'q' => array(
+                    'type' => 'string',
+                    'required' => true,
+                    'sanitize_callback' => 'sanitize_text_field',
+                    'validate_callback' => array($this, 'validate_required'),
+                ),
+                'limit' => array(
+                    'type' => 'integer',
+                    'default' => 20,
+                    'minimum' => 1,
+                    'maximum' => 100,
+                    'validate_callback' => array($this, 'validate_numeric'),
+                ),
+                'fields' => array(
+                    'type' => 'array',
+                    'default' => array('id', 'unique_identifier', 'title'),
+                    'items' => array(
+                        'type' => 'string',
+                        'enum' => array('id', 'unique_identifier', 'title', 'manufacturer_name', 'item_type_name', 'condition_status', 'assignee_name'),
+                    ),
+                ),
+            ),
+        ));
     }
 
     /**
@@ -4320,6 +4351,11 @@ class BKGT_API_Endpoints {
             return new WP_Error('assignee_required', __('Assignee ID is required for individual and team assignments.', 'bkgt-api'), array('status' => 400));
         }
 
+        // Check if BKGT Assignment class is available
+        if (!class_exists('BKGT_Assignment')) {
+            return new WP_Error('inventory_plugin_required', __('BKGT Inventory plugin is required for equipment assignments.', 'bkgt-api'), array('status' => 500));
+        }
+
         // Use BKGT Assignment class for the actual assignment
         $result = false;
 
@@ -4445,6 +4481,11 @@ class BKGT_API_Endpoints {
             return new WP_Error('item_not_found', __('Equipment item not found.', 'bkgt-api'), array('status' => 404));
         }
 
+        // Check if BKGT Assignment class is available
+        if (!class_exists('BKGT_Assignment')) {
+            return new WP_Error('inventory_plugin_required', __('BKGT Inventory plugin is required for equipment assignments.', 'bkgt-api'), array('status' => 500));
+        }
+
         // Get assignment using BKGT Assignment class
         $assignment = BKGT_Assignment::get_assignment($id);
 
@@ -4535,6 +4576,11 @@ class BKGT_API_Endpoints {
             return new WP_Error('no_items', __('No items specified for bulk operation.', 'bkgt-api'), array('status' => 400));
         }
 
+        // Check if BKGT classes are available
+        if (!class_exists('BKGT_History')) {
+            return new WP_Error('inventory_plugin_required', __('BKGT Inventory plugin is required for bulk operations.', 'bkgt-api'), array('status' => 500));
+        }
+
         switch ($operation) {
             case 'delete':
                 return $this->bulk_delete_equipment($item_ids);
@@ -4552,6 +4598,11 @@ class BKGT_API_Endpoints {
         global $wpdb;
         $deleted_count = 0;
         $errors = array();
+
+        // Check if BKGT History class is available
+        if (!class_exists('BKGT_History')) {
+            return new WP_Error('inventory_plugin_required', __('BKGT Inventory plugin is required for bulk operations.', 'bkgt-api'), array('status' => 500));
+        }
 
         foreach ($item_ids as $item_id) {
             // Check if item exists
@@ -4655,6 +4706,92 @@ class BKGT_API_Endpoints {
             'message' => __('Bulk export completed.', 'bkgt-api'),
             'item_count' => count($items),
             'csv_data' => $csv_data,
+        ), 200);
+    }
+
+    /**
+     * Search equipment
+     */
+    public function search_equipment($request) {
+        global $wpdb;
+
+        $query = $request->get_param('q');
+        $limit = min($request->get_param('limit') ?: 20, 100);
+        $fields = $request->get_param('fields') ?: array('id', 'unique_identifier', 'title');
+
+        if (empty($query)) {
+            return new WP_Error('empty_query', __('Search query cannot be empty.', 'bkgt-api'), array('status' => 400));
+        }
+
+        // Check if BKGT classes are available
+        if (!class_exists('BKGT_History')) {
+            return new WP_Error('inventory_plugin_required', __('BKGT Inventory plugin is required for search functionality.', 'bkgt-api'), array('status' => 500));
+        }
+
+        // Build SELECT clause based on requested fields
+        $select_fields = array();
+        $field_map = array(
+            'id' => 'i.id',
+            'unique_identifier' => 'i.unique_identifier',
+            'title' => 'i.title',
+            'manufacturer_name' => 'm.name as manufacturer_name',
+            'item_type_name' => 'it.name as item_type_name',
+            'condition_status' => 'i.condition_status',
+            'assignee_name' => 'a.assignee_name'
+        );
+
+        foreach ($fields as $field) {
+            if (isset($field_map[$field])) {
+                $select_fields[] = $field_map[$field];
+            }
+        }
+
+        if (empty($select_fields)) {
+            $select_fields = array('i.id', 'i.unique_identifier', 'i.title');
+        }
+
+        $select_clause = implode(', ', $select_fields);
+
+        // Build search query
+        $search_query = "SELECT {$select_clause}
+        FROM {$wpdb->prefix}bkgt_inventory_items i
+        LEFT JOIN {$wpdb->prefix}bkgt_manufacturers m ON i.manufacturer_id = m.id
+        LEFT JOIN {$wpdb->prefix}bkgt_item_types it ON i.item_type_id = it.id
+        LEFT JOIN {$wpdb->prefix}bkgt_inventory_assignments a ON i.id = a.item_id AND a.return_date IS NULL
+        WHERE (i.title LIKE %s
+               OR i.unique_identifier LIKE %s
+               OR i.sticker_code LIKE %s
+               OR i.serial_number LIKE %s
+               OR m.name LIKE %s
+               OR it.name LIKE %s
+               OR a.assignee_name LIKE %s)
+        ORDER BY i.title ASC
+        LIMIT %d";
+
+        $search_term = '%' . $wpdb->esc_like($query) . '%';
+        $params = array_fill(0, 7, $search_term);
+        $params[] = $limit;
+
+        $results = $wpdb->get_results($wpdb->prepare($search_query, $params));
+
+        // Format results
+        $formatted_results = array();
+        foreach ($results as $result) {
+            $formatted_result = array();
+            foreach ($fields as $field) {
+                if (property_exists($result, $field)) {
+                    $formatted_result[$field] = $result->$field;
+                }
+            }
+            $formatted_results[] = $formatted_result;
+        }
+
+        return new WP_REST_Response(array(
+            'query' => $query,
+            'results' => $formatted_results,
+            'total' => count($formatted_results),
+            'limit' => $limit,
+            'fields' => $fields,
         ), 200);
     }
 
@@ -6094,5 +6231,388 @@ class BKGT_API_Endpoints {
         $html = '<!DOCTYPE html><html><head><title>BKGT API Documentation</title><style>body{font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:20px;}pre{background:#f4f4f4;padding:10px;border-radius:4px;}code{background:#f4f4f4;padding:2px 4px;border-radius:2px;}</style></head><body>' . $html . '</body></html>';
 
         return $html;
+    }
+
+    /**
+     * Register update routes
+     */
+    private function register_update_routes() {
+        // Get latest version
+        register_rest_route($this->namespace, '/updates/latest', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_latest_version'),
+            'permission_callback' => array($this, 'validate_api_key'),
+            'args' => array(
+                'platform' => array(
+                    'type' => 'string',
+                    'enum' => array('win32-x64', 'darwin-x64', 'darwin-arm64', 'linux-x64'),
+                    'required' => false,
+                ),
+            ),
+        ));
+
+        // Download update package
+        register_rest_route($this->namespace, '/updates/download/(?P<version>[^/]+)/(?P<platform>[^/]+)', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'download_update'),
+            'permission_callback' => array($this, 'validate_api_key'),
+            'args' => array(
+                'version' => array(
+                    'type' => 'string',
+                    'pattern' => '^\d+\.\d+\.\d+$',
+                ),
+                'platform' => array(
+                    'type' => 'string',
+                    'enum' => array('win32-x64', 'darwin-x64', 'darwin-arm64', 'linux-x64'),
+                ),
+            ),
+        ));
+
+        // Check compatibility
+        register_rest_route($this->namespace, '/updates/compatibility/(?P<current_version>[^/]+)', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'check_compatibility'),
+            'permission_callback' => array($this, 'validate_api_key'),
+            'args' => array(
+                'current_version' => array(
+                    'type' => 'string',
+                    'pattern' => '^\d+\.\d+\.\d+$',
+                ),
+            ),
+        ));
+
+        // Report update status
+        register_rest_route($this->namespace, '/updates/status', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'report_update_status'),
+            'permission_callback' => array($this, 'validate_api_key'),
+            'args' => array(
+                'current_version' => array(
+                    'required' => true,
+                    'type' => 'string',
+                    'pattern' => '^\d+\.\d+\.\d+$',
+                ),
+                'target_version' => array(
+                    'required' => true,
+                    'type' => 'string',
+                    'pattern' => '^\d+\.\d+\.\d+$',
+                ),
+                'platform' => array(
+                    'required' => true,
+                    'type' => 'string',
+                    'enum' => array('win32-x64', 'darwin-x64', 'darwin-arm64', 'linux-x64'),
+                ),
+                'status' => array(
+                    'required' => true,
+                    'type' => 'string',
+                    'enum' => array('completed', 'failed', 'cancelled'),
+                ),
+                'error_message' => array(
+                    'type' => 'string',
+                    'required' => false,
+                ),
+                'install_time_seconds' => array(
+                    'type' => 'integer',
+                    'minimum' => 0,
+                    'required' => false,
+                ),
+            ),
+        ));
+
+        // Upload update package (admin only)
+        register_rest_route($this->namespace, '/updates/upload', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'upload_update_package'),
+            'permission_callback' => array($this, 'validate_admin_api_key'),
+        ));
+
+        // Admin list updates
+        register_rest_route($this->namespace, '/updates/admin/list', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_admin_updates'),
+            'permission_callback' => array($this, 'validate_admin_api_key'),
+            'args' => array(
+                'page' => array(
+                    'type' => 'integer',
+                    'minimum' => 1,
+                    'default' => 1,
+                ),
+                'per_page' => array(
+                    'type' => 'integer',
+                    'minimum' => 1,
+                    'maximum' => 100,
+                    'default' => 20,
+                ),
+            ),
+        ));
+
+        // Deactivate update (admin only)
+        register_rest_route($this->namespace, '/updates/(?P<version>[^/]+)', array(
+            'methods' => 'DELETE',
+            'callback' => array($this, 'deactivate_update'),
+            'permission_callback' => array($this, 'validate_admin_api_key'),
+            'args' => array(
+                'version' => array(
+                    'type' => 'string',
+                    'pattern' => '^\d+\.\d+\.\d+$',
+                ),
+            ),
+        ));
+    }
+
+    /**
+     * Get latest version
+     */
+    public function get_latest_version($request) {
+        $updates = bkgt_api()->updates;
+
+        if (!$updates) {
+            return new WP_Error('updates_unavailable', 'Updates service unavailable', array('status' => 503));
+        }
+
+        $platform = $request->get_param('platform');
+        $latest = $updates->get_latest_version($platform);
+
+        if (!$latest) {
+            return new WP_Error('no_updates', 'No updates available', array('status' => 404));
+        }
+
+        // Add download URLs
+        foreach ($latest['platforms'] as $platform_key => &$platform_data) {
+            $platform_data['download_url'] = rest_url("bkgt/v1/updates/download/{$latest['version']}/$platform_key");
+        }
+
+        return new WP_REST_Response($latest, 200);
+    }
+
+    /**
+     * Download update package
+     */
+    public function download_update($request) {
+        $updates = bkgt_api()->updates;
+
+        if (!$updates) {
+            return new WP_Error('updates_unavailable', 'Updates service unavailable', array('status' => 503));
+        }
+
+        $version = $request->get_param('version');
+        $platform = $request->get_param('platform');
+
+        $file = $updates->get_update_file($version, $platform);
+
+        if (!$file) {
+            return new WP_Error('update_not_found', 'Update package not found', array('status' => 404));
+        }
+
+        // Check if file exists
+        if (!file_exists($file['path'])) {
+            return new WP_Error('file_missing', 'Update file is missing', array('status' => 404));
+        }
+
+        // Set headers for file download
+        header('Content-Type: application/octet-stream');
+        header('Content-Disposition: attachment; filename="' . $file['filename'] . '"');
+        header('Content-Length: ' . $file['size']);
+        header('X-File-Hash: sha256:' . $file['hash']);
+        header('Cache-Control: no-cache, no-store, must-revalidate');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+
+        // Output file
+        readfile($file['path']);
+        exit;
+    }
+
+    /**
+     * Check version compatibility
+     */
+    public function check_compatibility($request) {
+        $updates = bkgt_api()->updates;
+
+        if (!$updates) {
+            return new WP_Error('updates_unavailable', 'Updates service unavailable', array('status' => 503));
+        }
+
+        $current_version = $request->get_param('current_version');
+        $compatibility = $updates->check_compatibility($current_version);
+
+        return new WP_REST_Response($compatibility, 200);
+    }
+
+    /**
+     * Report update status
+     */
+    public function report_update_status($request) {
+        $updates = bkgt_api()->updates;
+
+        if (!$updates) {
+            return new WP_Error('updates_unavailable', 'Updates service unavailable', array('status' => 503));
+        }
+
+        $data = array(
+            'api_key' => $this->get_api_key_from_request($request),
+            'current_version' => $request->get_param('current_version'),
+            'target_version' => $request->get_param('target_version'),
+            'platform' => $request->get_param('platform'),
+            'status' => $request->get_param('status'),
+            'error_message' => $request->get_param('error_message'),
+            'install_time_seconds' => $request->get_param('install_time_seconds'),
+        );
+
+        $recorded = $updates->record_update_status($data);
+
+        if (!$recorded) {
+            return new WP_Error('status_record_failed', 'Failed to record update status', array('status' => 500));
+        }
+
+        return new WP_REST_Response(array(
+            'recorded' => true,
+            'message' => 'Update status recorded successfully'
+        ), 200);
+    }
+
+    /**
+     * Upload update package (admin)
+     */
+    public function upload_update_package($request) {
+        $updates = bkgt_api()->updates;
+
+        if (!$updates) {
+            return new WP_Error('updates_unavailable', 'Updates service unavailable', array('status' => 503));
+        }
+
+        // Check if file was uploaded
+        if (empty($_FILES['file'])) {
+            return new WP_Error('no_file', 'No file uploaded', array('status' => 400));
+        }
+
+        $file = $_FILES['file'];
+        $version = $request->get_param('version');
+        $platform = $request->get_param('platform');
+        $changelog = $request->get_param('changelog') ?: '';
+        $critical = $request->get_param('critical') ? true : false;
+        $minimum_version = $request->get_param('minimum_version');
+
+        $result = $updates->upload_update_package($version, $platform, $file, $changelog, $critical, $minimum_version);
+
+        if (is_wp_error($result)) {
+            return $result;
+        }
+
+        return new WP_REST_Response(array_merge($result, array(
+            'message' => 'Update package uploaded successfully'
+        )), 201);
+    }
+
+    /**
+     * Get admin updates list
+     */
+    public function get_admin_updates($request) {
+        $updates = bkgt_api()->updates;
+
+        if (!$updates) {
+            return new WP_Error('updates_unavailable', 'Updates service unavailable', array('status' => 503));
+        }
+
+        $page = $request->get_param('page') ?: 1;
+        $per_page = $request->get_param('per_page') ?: 20;
+
+        $result = $updates->get_admin_updates($page, $per_page);
+
+        return new WP_REST_Response($result, 200);
+    }
+
+    /**
+     * Deactivate update version (admin)
+     */
+    public function deactivate_update($request) {
+        $updates = bkgt_api()->updates;
+
+        if (!$updates) {
+            return new WP_Error('updates_unavailable', 'Updates service unavailable', array('status' => 503));
+        }
+
+        $version = $request->get_param('version');
+        $deactivated = $updates->deactivate_update($version);
+
+        if (!$deactivated) {
+            return new WP_Error('deactivation_failed', 'Failed to deactivate update', array('status' => 500));
+        }
+
+        return new WP_REST_Response(array(
+            'message' => "Update version $version deactivated successfully"
+        ), 200);
+    }
+
+    /**
+     * Validate API key from request headers
+     */
+    public function validate_api_key($request) {
+        $api_key = $this->get_api_key_from_request($request);
+
+        if (empty($api_key)) {
+            return new WP_Error('missing_api_key', 'API key is required', array('status' => 401));
+        }
+
+        // Validate API key against stored keys
+        global $wpdb;
+        $table = $wpdb->prefix . 'bkgt_api_keys';
+
+        $key_data = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $table WHERE api_key = %s AND status = 'active'",
+            $api_key
+        ));
+
+        if (!$key_data) {
+            return new WP_Error('invalid_api_key', 'Invalid or inactive API key', array('status' => 401));
+        }
+
+        // Check if key has expired
+        if (!empty($key_data->expires_at) && strtotime($key_data->expires_at) < time()) {
+            return new WP_Error('expired_api_key', 'API key has expired', array('status' => 401));
+        }
+
+        // Store key data for later use
+        $request->bkgt_api_key_data = $key_data;
+
+        return true;
+    }
+
+    /**
+     * Validate admin API key (for update management)
+     */
+    public function validate_admin_api_key($request) {
+        $validation = $this->validate_api_key($request);
+
+        if (is_wp_error($validation)) {
+            return $validation;
+        }
+
+        $key_data = $request->bkgt_api_key_data;
+
+        // Check if key has admin permissions
+        if (empty($key_data->permissions) || !in_array('admin', json_decode($key_data->permissions, true))) {
+            return new WP_Error('insufficient_permissions', 'Admin permissions required', array('status' => 403));
+        }
+
+        return true;
+    }
+
+    /**
+     * Get API key from request headers
+     */
+    private function get_api_key_from_request($request) {
+        // Check X-API-Key header first
+        $api_key = $request->get_header('x_api_key');
+
+        if (empty($api_key)) {
+            // Check Authorization header for Bearer token format
+            $auth_header = $request->get_header('authorization');
+            if (!empty($auth_header) && strpos($auth_header, 'Bearer ') === 0) {
+                $api_key = substr($auth_header, 7);
+            }
+        }
+
+        return $api_key;
     }
 }
