@@ -421,6 +421,21 @@ curl -X GET "https://ledare.bkgt.se/wp-json/bkgt/v1/routes?detailed=true"
 
 ## Changelog
 
+### v2.5.0 - Identifier Resolution for Equipment Endpoints (2025-11-10)
+- 🆔 **Implemented identifier resolution system**
+  - Equipment endpoints now accept both numeric IDs and unique identifiers
+  - URL pattern updated from `/equipment/{id}` to `/equipment/{identifier}`
+  - Supports unique identifier format: `####-####-#####` (manufacturer-itemtype-sequential)
+  - Maintains full backward compatibility with existing numeric ID usage
+- 🔄 **Enhanced API stability for integrations**
+  - Eliminates downstream integration issues caused by volatile database IDs
+  - Provides stable, meaningful identifiers for external system integration
+  - Automatic resolution between identifiers and internal database IDs
+- 📚 **Updated endpoint documentation**
+  - All equipment CRUD endpoints now document identifier support
+  - Added examples showing both ID types in API calls
+  - Clarified parameter naming from `{id}` to `{identifier}` for clarity
+
 ### v2.4.0 - Advanced Equipment Features (2025-11-10)
 - 🔍 **Implemented equipment search functionality**
   - `GET /wp-json/bkgt/v1/equipment/search` endpoint
@@ -580,12 +595,18 @@ Get all equipment items with optional filtering.
 }
 ```
 
-#### GET `/wp-json/bkgt/v1/equipment/{id}`
+#### GET `/wp-json/bkgt/v1/equipment/{identifier}`
 Get specific equipment item details.
 
 **Authentication:** JWT Bearer token or API Key
 **URL Parameters:**
-- `id` (integer): Equipment item ID
+- `identifier` (string/integer): Equipment item ID (numeric) or unique identifier (format: ####-####-#####)
+
+**Examples:**
+- `GET /wp-json/bkgt/v1/equipment/123` - Get equipment by numeric ID
+- `GET /wp-json/bkgt/v1/equipment/0001-0001-00001` - Get equipment by unique identifier
+
+**Response (200):**
 
 **Response (200):**
 ```json
@@ -698,7 +719,7 @@ Invalid data will result in a `400 Bad Request` response with validation error d
 
 #### Updating Equipment
 
-**Endpoint:** `PUT /wp-json/bkgt/v1/equipment/{id}`  
+**Endpoint:** `PUT /wp-json/bkgt/v1/equipment/{identifier}`  
 **Plugin:** bkgt-inventory  
 **Authentication:** JWT Bearer token or API Key
 
@@ -712,7 +733,22 @@ const updateData = {
     "notes": "Crack in helmet shell - needs repair"
 };
 
+// Update by numeric ID
 fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment/123', {
+    method: 'PUT',
+    headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': 'your_api_key_here'
+    },
+    body: JSON.stringify(updateData)
+})
+.then(response => response.json())
+.then(data => {
+    console.log('Equipment updated:', data);
+});
+
+// Update by unique identifier
+fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment/0001-0001-00001', {
     method: 'PUT',
     headers: {
         'Content-Type': 'application/json',
@@ -728,12 +764,28 @@ fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment/123', {
 
 #### Deleting Equipment
 
-**Endpoint:** `DELETE /wp-json/bkgt/v1/equipment/{id}`  
+**Endpoint:** `DELETE /wp-json/bkgt/v1/equipment/{identifier}`  
 **Plugin:** bkgt-inventory  
 **Authentication:** JWT Bearer token
 
 ```javascript
+// Delete by numeric ID
 fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment/123', {
+    method: 'DELETE',
+    headers: {
+        'X-API-Key': 'your_api_key_here'
+    }
+})
+.then(response => {
+    if (response.status === 204) {
+        console.log('Equipment deleted successfully');
+    } else {
+        return response.json();
+    }
+});
+
+// Delete by unique identifier
+fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment/0001-0001-00001', {
     method: 'DELETE',
     headers: {
         'X-API-Key': 'your_api_key_here'
@@ -861,7 +913,7 @@ fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment/search?q=football&limit=
 
 #### Equipment Assignment Management
 
-**Assign Equipment:** `POST /wp-json/bkgt/v1/equipment/{id}/assignment`  
+**Assign Equipment:** `POST /wp-json/bkgt/v1/equipment/{identifier}/assignment`  
 **Plugin:** bkgt-inventory
 
 ```javascript
@@ -872,7 +924,18 @@ const assignmentData = {
     "notes": "Assigned for spring training"
 };
 
+// Assign by numeric ID
 fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment/123/assignment', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': 'your_api_key_here'
+    },
+    body: JSON.stringify(assignmentData)
+});
+
+// Assign by unique identifier
+fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment/0001-0001-00001/assignment', {
     method: 'POST',
     headers: {
         'Content-Type': 'application/json',
@@ -882,7 +945,7 @@ fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment/123/assignment', {
 });
 ```
 
-**Unassign Equipment:** `DELETE /wp-json/bkgt/v1/equipment/{id}/assignment`  
+**Unassign Equipment:** `DELETE /wp-json/bkgt/v1/equipment/{identifier}/assignment`  
 **Plugin:** bkgt-inventory
 
 ```javascript
@@ -892,7 +955,18 @@ const returnData = {
     "notes": "Returned in good condition"
 };
 
+// Unassign by numeric ID
 fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment/123/assignment', {
+    method: 'DELETE',
+    headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': 'your_api_key_here'
+    },
+    body: JSON.stringify(returnData)
+});
+
+// Unassign by unique identifier
+fetch('https://ledare.bkgt.se/wp-json/bkgt/v1/equipment/0001-0001-00001/assignment', {
     method: 'DELETE',
     headers: {
         'Content-Type': 'application/json',
@@ -1130,13 +1204,17 @@ Delete an equipment type.
 
 > **Important:** Equipment assignment endpoints are implemented in the `bkgt-inventory` plugin, not this `bkgt-api` plugin. The endpoints documented below are handled by the bkgt-inventory plugin.
 
-#### GET `/wp-json/bkgt/v1/equipment/{id}/assignment`
+#### GET `/wp-json/bkgt/v1/equipment/{identifier}/assignment`
 Get current assignment details for equipment item.
 
 **Plugin:** bkgt-inventory
 **Authentication:** JWT Bearer token or API Key
 **URL Parameters:**
-- `id` (integer): Equipment item ID
+- `identifier` (string/integer): Equipment item ID (numeric) or unique identifier (format: ####-####-#####)
+
+**Examples:**
+- `GET /wp-json/bkgt/v1/equipment/123/assignment` - Get assignment by numeric ID
+- `GET /wp-json/bkgt/v1/equipment/0001-0001-00001/assignment` - Get assignment by unique identifier
 
 **Response (200):**
 ```json
@@ -1151,13 +1229,17 @@ Get current assignment details for equipment item.
 }
 ```
 
-#### POST `/wp-json/bkgt/v1/equipment/{id}/assignment`
+#### POST `/wp-json/bkgt/v1/equipment/{identifier}/assignment`
 Assign equipment to a user, team, or club.
 
 **Plugin:** bkgt-inventory
 **Authentication:** JWT Bearer token
 **URL Parameters:**
-- `id` (integer): Equipment item ID
+- `identifier` (string/integer): Equipment item ID (numeric) or unique identifier (format: ####-####-#####)
+
+**Examples:**
+- `POST /wp-json/bkgt/v1/equipment/123/assignment` - Assign by numeric ID
+- `POST /wp-json/bkgt/v1/equipment/0001-0001-00001/assignment` - Assign by unique identifier
 
 **Request Body:**
 ```json
@@ -1181,13 +1263,17 @@ Assign equipment to a user, team, or club.
 }
 ```
 
-#### DELETE `/wp-json/bkgt/v1/equipment/{id}/assignment`
+#### DELETE `/wp-json/bkgt/v1/equipment/{identifier}/assignment`
 Unassign equipment from current assignment.
 
 **Plugin:** bkgt-inventory
 **Authentication:** JWT Bearer token
 **URL Parameters:**
-- `id` (integer): Equipment item ID
+- `identifier` (string/integer): Equipment item ID (numeric) or unique identifier (format: ####-####-#####)
+
+**Examples:**
+- `DELETE /wp-json/bkgt/v1/equipment/123/assignment` - Unassign by numeric ID
+- `DELETE /wp-json/bkgt/v1/equipment/0001-0001-00001/assignment` - Unassign by unique identifier
 
 **Request Body (optional):**
 ```json
