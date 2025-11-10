@@ -1697,6 +1697,29 @@ class BKGT_Inventory_Admin {
         $weight = get_post_meta($post->ID, '_bkgt_weight', true);
         $dimensions = get_post_meta($post->ID, '_bkgt_dimensions', true);
 
+        // If we don't have data from post meta, try to get it from the database table
+        // This handles items created via API that may not have complete post meta
+        if (empty($unique_id)) {
+            // Try to find the item in the database by post title (which should be the unique identifier)
+            if (!empty($post->post_title)) {
+                $item_id = BKGT_Inventory_Item::resolve_item_identifier($post->post_title);
+                if ($item_id) {
+                    $db_item = BKGT_Inventory_Item::get_item($item_id);
+                    if ($db_item) {
+                        // Populate missing fields from database
+                        if (empty($manufacturer_id)) $manufacturer_id = $db_item['manufacturer_id'];
+                        if (empty($item_type_id)) $item_type_id = $db_item['item_type_id'];
+                        if (empty($unique_id)) $unique_id = $db_item['unique_identifier'];
+                        if (empty($size)) $size = $db_item['size'];
+                        if (empty($purchase_date)) $purchase_date = $db_item['purchase_date'];
+                        if (empty($purchase_price)) $purchase_price = $db_item['purchase_price'];
+                        if (empty($warranty_expiry)) $warranty_expiry = $db_item['warranty_expiry'];
+                        if (empty($notes)) $notes = $db_item['notes'];
+                    }
+                }
+            }
+        }
+
         // Get data for dropdowns
         $manufacturers = BKGT_Manufacturer::get_all();
         $item_types = BKGT_Item_Type::get_all();
@@ -2294,6 +2317,47 @@ class BKGT_Inventory_Admin {
         // Handle condition taxonomy
         if (isset($_POST['bkgt_condition'])) {
             wp_set_post_terms($post_id, array(intval($_POST['bkgt_condition'])), 'bkgt_condition');
+        }
+        
+        // Also save to database table for API compatibility
+        // Find the database item by unique identifier
+        $unique_identifier = get_post_meta($post_id, '_bkgt_unique_id', true);
+        if (!empty($unique_identifier)) {
+            $item_id = BKGT_Inventory_Item::resolve_item_identifier($unique_identifier);
+            if ($item_id) {
+                // Prepare update data for database
+                $db_update_data = array();
+                
+                if (isset($sanitized_data['manufacturer_id'])) {
+                    $db_update_data['manufacturer_id'] = intval($sanitized_data['manufacturer_id']);
+                }
+                if (isset($sanitized_data['item_type_id'])) {
+                    $db_update_data['item_type_id'] = intval($sanitized_data['item_type_id']);
+                }
+                if (isset($sanitized_data['unique_id'])) {
+                    $db_update_data['unique_identifier'] = sanitize_text_field($sanitized_data['unique_id']);
+                }
+                if (isset($sanitized_data['size'])) {
+                    $db_update_data['size'] = sanitize_text_field($sanitized_data['size']);
+                }
+                if (isset($sanitized_data['purchase_date'])) {
+                    $db_update_data['purchase_date'] = sanitize_text_field($sanitized_data['purchase_date']);
+                }
+                if (isset($sanitized_data['purchase_price'])) {
+                    $db_update_data['purchase_price'] = floatval($sanitized_data['purchase_price']);
+                }
+                if (isset($sanitized_data['warranty_expiry'])) {
+                    $db_update_data['warranty_expiry'] = sanitize_text_field($sanitized_data['warranty_expiry']);
+                }
+                if (isset($sanitized_data['notes'])) {
+                    $db_update_data['notes'] = sanitize_textarea_field($sanitized_data['notes']);
+                }
+                
+                // Update database if we have data to update
+                if (!empty($db_update_data)) {
+                    BKGT_Inventory_Item::update_item($item_id, $db_update_data);
+                }
+            }
         }
         
         // Generate unique identifier if not set
