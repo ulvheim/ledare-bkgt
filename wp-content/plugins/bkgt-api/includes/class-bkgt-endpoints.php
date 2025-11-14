@@ -4005,6 +4005,11 @@ class BKGT_API_Endpoints {
             return new WP_Error('invalid_manufacturer_or_type', __('Invalid manufacturer or item type.', 'bkgt-api'), array('status' => 400));
         }
 
+        // Auto-generate sticker code if not provided
+        if (empty($sticker_code)) {
+            $sticker_code = BKGT_Inventory_Item::generate_sticker_code($unique_identifier);
+        }
+
         // Generate meaningful title from manufacturer + item type + size
         $manufacturer = $wpdb->get_row($wpdb->prepare(
             "SELECT name FROM {$wpdb->prefix}bkgt_manufacturers WHERE id = %d",
@@ -5484,7 +5489,7 @@ class BKGT_API_Endpoints {
             'condition_status' => $item->condition_status,
             'condition_date' => $item->condition_date,
             'condition_reason' => $item->condition_reason,
-            'sticker_code' => $item->sticker_code,
+            'sticker_code' => $item->sticker_code ?: null,
             'size' => $item->size ?? null,
             'purchase_date' => $item->purchase_date ?? null,
             'purchase_price' => $item->purchase_price ? (float) $item->purchase_price : null,
@@ -5495,8 +5500,8 @@ class BKGT_API_Endpoints {
             'due_date' => $item->due_date,
             'location_id' => $item->location_id ? (int) $item->location_id : null,
             'location_name' => $item->location_name,
-            'created_date' => $item->created_at,
-            'updated_date' => $item->updated_at,
+            'created_date' => $item->created_at ?: null,
+            'updated_date' => $item->updated_at ?: null,
         );
     }
 
