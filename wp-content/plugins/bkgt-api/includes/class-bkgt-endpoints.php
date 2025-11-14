@@ -570,7 +570,7 @@ class BKGT_API_Endpoints {
                     ),
                     'orderby' => array(
                         'type' => 'string',
-                        'enum' => array('id', 'unique_identifier', 'created_date', 'updated_date'),
+                        'enum' => array('id', 'unique_identifier', 'created_at', 'updated_at'),
                         'default' => 'id',
                     ),
                     'order' => array(
@@ -5500,8 +5500,8 @@ class BKGT_API_Endpoints {
             'due_date' => $item->due_date,
             'location_id' => $item->location_id ? (int) $item->location_id : null,
             'location_name' => $item->location_name,
-            'created_date' => $item->created_at ?: null,
-            'updated_date' => $item->updated_at ?: null,
+            'created_at' => $item->created_at ?: null,
+            'updated_at' => $item->updated_at ?: null,
         );
     }
 
