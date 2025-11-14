@@ -35,11 +35,17 @@ define( 'BKGT_CORE_URL', plugin_dir_url( BKGT_CORE_FILE ) );
 class BKGT_Core {
     
     /**
+     * REST API instance
+     */
+    public $rest_api;
+    
+    /**
      * Constructor
      */
     public function __construct() {
         $this->load_dependencies();
         $this->init_hooks();
+        $this->init_rest_api();
     }
     
     /**
@@ -58,6 +64,7 @@ class BKGT_Core {
         require_once BKGT_CORE_DIR . 'includes/class-sanitizer.php';
         require_once BKGT_CORE_DIR . 'includes/class-permission.php';
         require_once BKGT_CORE_DIR . 'includes/class-database.php';
+        require_once BKGT_CORE_DIR . 'includes/class-rest-api.php';
         
         // Form system
         require_once BKGT_CORE_DIR . 'includes/class-form-handler.php';
@@ -92,6 +99,13 @@ class BKGT_Core {
         
         // Deactivation cleanup
         register_deactivation_hook( BKGT_CORE_FILE, array( $this, 'deactivate' ) );
+    }
+    
+    /**
+     * Initialize REST API
+     */
+    private function init_rest_api() {
+        $this->rest_api = new BKGT_REST_API();
     }
     
     /**

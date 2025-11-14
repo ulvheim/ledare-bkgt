@@ -655,6 +655,16 @@ class BKGT_API_Core {
      * Validate JWT token
      */
     public function validate_token($request) {
+        // Check X-API-Key header first
+        $api_key = $request->get_header('x-api-key');
+        if ($api_key) {
+            // Validate API key against stored keys
+            $stored_key = get_option('bkgt_api_key');
+            if ($api_key === $stored_key) {
+                return true;
+            }
+        }
+
         $auth_header = $request->get_header('authorization');
 
         if (!$auth_header || !preg_match('/Bearer\s+(.*)$/i', $auth_header, $matches)) {

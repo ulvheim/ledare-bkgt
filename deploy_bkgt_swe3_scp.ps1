@@ -51,11 +51,11 @@ Write-Host "  Key: $sshKey"
 Write-Host "  Remote Path: $RemotePath"
 Write-Host ""
 
-$confirmation = Read-Host "Do you want to proceed with deployment? (y/N)"
-if ($confirmation -ne 'y') {
-    Write-Host "Deployment cancelled." -ForegroundColor Yellow
-    exit 0
-}
+#$confirmation = Read-Host "Do you want to proceed with deployment? (y/N)"
+#if ($confirmation -ne 'y') {
+#    Write-Host "Deployment cancelled." -ForegroundColor Yellow
+#    exit 0
+#}
 
 Write-Host ""
 Write-Host "Starting SCP upload..." -ForegroundColor Green
@@ -104,5 +104,4 @@ if ($successCount -eq $files.Count) {
     Write-Host "DEPLOYMENT FAILED!" -ForegroundColor Red
     Write-Host "Only $successCount of $($files.Count) files uploaded successfully." -ForegroundColor Red
     exit 1
-}
 }

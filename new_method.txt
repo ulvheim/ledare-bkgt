@@ -1,0 +1,103 @@
+    public function get_documents($request) {
+        $page = $request->get_param('page');
+        $per_page = $request->get_param('per_page');
+        $type = $request->get_param('type');
+        $search = $request->get_param('search');
+        $year = $request->get_param('year');
+
+        // Build WP_Query arguments
+        $query_args = array(
+            'post_type' => 'bkgt_document',
+            'post_status' => 'publish',
+            'posts_per_page' => $per_page,
+            'paged' => $page,
+            'orderby' => 'date',
+            'order' => 'DESC',
+        );
+
+        // Add meta query for type if specified
+        if ($type) {
+            $query_args['meta_query'] = array(
+                array(
+                    'key' => '_bkgt_doc_type',
+                    'value' => $type,
+                    'compare' => '='
+                )
+            );
+        }
+
+        // Add search if specified
+        if ($search) {
+            $query_args['s'] = $search;
+        }
+
+        // Add year filter if specified
+        if ($year) {
+            $query_args['year'] = $year;
+        }
+
+        $query = new WP_Query($query_args);
+        $documents = array();
+
+        if ($query->have_posts()) {
+            while ($query->have_posts()) {
+                $query->the_post();
+                $post = get_post();
+
+                // Get document metadata
+                $doc_type = get_post_meta($post->ID, '_bkgt_doc_type', true);
+                $file_size = get_post_meta($post->ID, '_bkgt_file_size', true);
+                $file_url = get_post_meta($post->ID, '_bkgt_file_url', true);
+
+                // Get attached file info
+                $attachments = get_attached_media('', $post->ID);
+                $attachment_info = null;
+                $actual_file_size = 0;
+                
+                if (!empty($attachments)) {
+                    $attachment = reset($attachments);
+                    $actual_file_size = filesize(get_attached_file($attachment->ID));
+                    $attachment_info = array(
+                        'id' => $attachment->ID,
+                        'url' => wp_get_attachment_url($attachment->ID),
+                        'size' => $actual_file_size,
+                        'mime_type' => $attachment->post_mime_type,
+                    );
+                } else {
+                    // Fallback: check for _bkgt_file_id meta
+                    $attachment_id = get_post_meta($post->ID, '_bkgt_file_id', true);
+                    if ($attachment_id && get_post_type($attachment_id) === 'attachment') {
+                        $actual_file_size = filesize(get_attached_file($attachment_id));
+                        $attachment_info = array(
+                            'id' => $attachment_id,
+                            'url' => wp_get_attachment_url($attachment_id),
+                            'size' => $actual_file_size,
+                            'mime_type' => get_post_mime_type($attachment_id),
+                        );
+                    }
+                }
+                
+                // Use actual file size if available, otherwise fall back to post meta
+                $final_file_size = $actual_file_size ?: $file_size;                $documents[] = array(
+                    'id' => $post->ID,
+                    'title' => $post->post_title,
+                    'content' => $post->post_content,
+                    'excerpt' => $post->post_excerpt,
+                    'type' => $doc_type ?: 'other',
+                    'upload_date' => $post->post_date,
+                    'file_size' => $final_file_size,
+                    'file_url' => $file_url,
+                    'attachment' => $attachment_info,
+                );
+            }
+            wp_reset_postdata();
+        }
+
+        return new WP_REST_Response(array(
+            'success' => true,
+            'data' => array(
+                'documents' => $documents,
+                'pagination' => $this->prepare_pagination_data($page, $per_page, $query->found_posts),
+            ),
+        ), 200);
+    }

@@ -99,8 +99,9 @@ class BKGT_SWE3_Scraper {
         $this->log('info', 'Successfully fetched HTML content, parsing for documents');
 
         // Parse HTML content to extract documents
+        // Pass URL to enable browser rendering if available
         $parser = bkgt_swe3_scraper()->parser;
-        $documents = $parser->parse_documents($html_content);
+        $documents = $parser->parse_documents($html_content, self::SWE3_RULES_URL);
 
         $this->log('info', sprintf('Parsed %d documents from SWE3 rules page', count($documents)));
 
@@ -293,24 +294,6 @@ class BKGT_SWE3_Scraper {
         }
 
         return 'general';
-    }
-
-    /**
-     * Extract document metadata
-     */
-    private function extract_document_metadata($file_path, $document) {
-        // Basic metadata extraction
-        $metadata = array(
-            'title' => $document['title'],
-            'type' => $document['type'],
-            'version' => $this->extract_version_from_title($document['title']),
-            'publication_date' => $this->extract_date_from_title($document['title']),
-        );
-
-        // TODO: Add PDF parsing for more detailed metadata extraction
-        // This would require a PDF parsing library
-
-        return $metadata;
     }
 
     /**

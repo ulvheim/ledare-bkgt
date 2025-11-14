@@ -101,6 +101,19 @@
                 </ul>
             </div>
             <?php endif; ?>
+            
+            <!-- Logout Section -->
+            <?php if (is_user_logged_in()): ?>
+            <div class="nav-section nav-section-logout">
+                <ul class="nav-menu">
+                    <li class="logout-link">
+                        <a href="<?php echo esc_url(wp_logout_url(home_url())); ?>" class="btn btn-logout">
+                            <?php esc_html_e('Logga ut', 'bkgt-ledare'); ?>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <?php endif; ?>
         </nav>
     </aside>
     
@@ -149,9 +162,6 @@
                     <?php if (is_user_logged_in()): ?>
                         <span class="user-role"><?php echo esc_html(bkgt_get_user_role_label()); ?></span>
                         <span class="user-name"><?php echo esc_html(wp_get_current_user()->display_name); ?></span>
-                        <a href="<?php echo esc_url(wp_logout_url(home_url())); ?>" class="btn btn-outline">
-                            <?php esc_html_e('Logga ut', 'bkgt-ledare'); ?>
-                        </a>
                     <?php endif; ?>
                 </div>
             </div>

@@ -10,6 +10,8 @@
  * Requires Plugins: bkgt-core
  */
 
+error_log('BKGT Document Management plugin file loaded');
+
 // Prevent direct access
 if (!defined('ABSPATH')) {
     exit;
@@ -71,6 +73,9 @@ class BKGT_Document_Management {
         add_action('wp_ajax_bkgt_upload_document', array($this, 'ajax_upload_document'));
         add_action('wp_ajax_bkgt_search_documents', array($this, 'ajax_search_documents'));
         add_action('wp_ajax_bkgt_download_document', array($this, 'ajax_download_document'));
+
+        // Initialize document viewer
+        $this->init_document_viewer();
     }
 
     /**
@@ -158,12 +163,22 @@ class BKGT_Document_Management {
         $frontend = BKGT_Document_Frontend::get_instance();
         $frontend->ajax_download_document();
     }
+
+    /**
+     * Initialize document viewer
+     */
+    public function init_document_viewer() {
+        require_once BKGT_DM_PLUGIN_DIR . 'includes/class-document-viewer.php';
+        BKGT_Document_Viewer::get_instance();
+    }
 }
 
 /**
  * Initialize the plugin
  */
 function bkgt_document_management_init() {
+    error_log('bkgt_document_management_init called - is_admin=' . (is_admin() ? 'true' : 'false'));
+    
     // Load core classes
     require_once BKGT_DM_PLUGIN_DIR . 'includes/class-access.php';
     require_once BKGT_DM_PLUGIN_DIR . 'includes/class-category.php';
@@ -185,8 +200,13 @@ function bkgt_document_management_init() {
     // Load admin classes - Note: BKGT_Document_Admin handles all menu registration
     // Do NOT register admin_menu in BKGT_Document_Management to avoid duplicate menus
     if (is_admin()) {
+        error_log('is_admin is TRUE - about to load admin class');
         require_once BKGT_DM_PLUGIN_DIR . 'admin/class-admin.php';
+        error_log('BKGT_Document_Admin class loaded - about to instantiate');
         new BKGT_Document_Admin();
+        error_log('BKGT_Document_Admin instantiated');
+    } else {
+        error_log('is_admin is FALSE - skipping admin class load');
     }
 
     BKGT_Document_Management::get_instance();

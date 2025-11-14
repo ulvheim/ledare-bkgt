@@ -48,6 +48,7 @@ class BKGT_Document_Frontend {
         add_action('wp_ajax_bkgt_compare_versions', array($this, 'ajax_compare_versions'));
         add_action('wp_ajax_bkgt_export_document_format', array($this, 'ajax_export_document_format'));
         add_action('wp_ajax_bkgt_get_document_sharing', array($this, 'ajax_get_document_sharing'));
+        add_action('wp_ajax_bkgt_get_document_viewer_html', array($this, 'ajax_get_document_viewer_html'));
         add_action('wp_ajax_bkgt_update_document_sharing', array($this, 'ajax_update_document_sharing'));
         add_action('wp_ajax_bkgt_search_documents_advanced', array($this, 'ajax_search_documents_advanced'));
     }
@@ -65,18 +66,28 @@ class BKGT_Document_Frontend {
         // Enqueue WordPress built-in dependencies
         wp_enqueue_style('dashicons');
         wp_enqueue_style('wp-jquery-ui-dialog');
-        
+
         // Enqueue main plugin styles with dependencies
-        wp_enqueue_style('bkgt-document-frontend', BKGT_DM_PLUGIN_URL . 'assets/css/frontend.css', 
+        wp_enqueue_style('bkgt-document-frontend', BKGT_DM_PLUGIN_URL . 'assets/css/frontend.css',
             array('dashicons', 'wp-jquery-ui-dialog'), BKGT_DM_VERSION);
-        
+
+        // Enqueue document viewer styles
+        wp_enqueue_style('bkgt-document-viewer', BKGT_DM_PLUGIN_URL . 'assets/css/document-viewer.css', array(), BKGT_DM_VERSION);
+
         // Enqueue WordPress script dependencies
         wp_enqueue_script('jquery-ui-dialog');
         wp_enqueue_script('wp-util');
-        
+
+        // Enqueue PDF.js for document viewing
+        wp_enqueue_script('pdfjs', 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js', array(), '3.11.174', true);
+
         // Enqueue main plugin scripts with dependencies
-        wp_enqueue_script('bkgt-document-frontend', BKGT_DM_PLUGIN_URL . 'assets/js/frontend.js', 
+        wp_enqueue_script('bkgt-document-frontend', BKGT_DM_PLUGIN_URL . 'assets/js/frontend.js',
             array('jquery', 'jquery-ui-dialog', 'wp-util'), BKGT_DM_VERSION, true);
+
+        // Enqueue document viewer script
+        wp_enqueue_script('bkgt-document-viewer', BKGT_DM_PLUGIN_URL . 'assets/js/document-viewer.js',
+            array('jquery', 'pdfjs'), BKGT_DM_VERSION, true);
 
         wp_localize_script('bkgt-document-frontend', 'bkgtDocFrontend', array(
             'ajax_url' => admin_url('admin-ajax.php'),
@@ -90,6 +101,22 @@ class BKGT_Document_Frontend {
                 'error' => __('Något gick fel', 'bkgt-document-management'),
                 'delete_confirm' => __('Är du säker på att du vill ta bort detta dokument?', 'bkgt-document-management'),
                 'create_new' => __('Skapa nytt', 'bkgt-document-management'),
+            )
+        ));
+
+        wp_localize_script('bkgt-document-viewer', 'bkgtDocViewer', array(
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('bkgt_document_viewer'),
+            'strings' => array(
+                'loading' => __('Laddar dokument...', 'bkgt-document-management'),
+                'error' => __('Kunde inte ladda dokumentet', 'bkgt-document-management'),
+                'download' => __('Ladda ner', 'bkgt-document-management'),
+                'zoom_in' => __('Zooma in', 'bkgt-document-management'),
+                'zoom_out' => __('Zooma ut', 'bkgt-document-management'),
+                'previous' => __('Föregående', 'bkgt-document-management'),
+                'next' => __('Nästa', 'bkgt-document-management'),
+                'page' => __('Sida', 'bkgt-document-management'),
+                'of' => __('av', 'bkgt-document-management'),
             )
         ));
     }
@@ -265,12 +292,14 @@ class BKGT_Document_Frontend {
                     <div class="bkgt-doc-modal-body bkgt-detail-tabs">
                         <div class="bkgt-detail-tab-nav">
                             <button class="bkgt-detail-tab-btn active" data-tab="content"><?php _e('Innehål', 'bkgt-document-management'); ?></button>
+                            <button class="bkgt-detail-tab-btn" data-tab="viewer"><?php _e('Visa dokument', 'bkgt-document-management'); ?></button>
                             <button class="bkgt-detail-tab-btn" data-tab="versions"><?php _e('Versioner', 'bkgt-document-management'); ?></button>
                             <button class="bkgt-detail-tab-btn" data-tab="sharing"><?php _e('Delning', 'bkgt-document-management'); ?></button>
                             <button class="bkgt-detail-tab-btn" data-tab="export"><?php _e('Exportera', 'bkgt-document-management'); ?></button>
                         </div>
                         <div class="bkgt-detail-content">
                             <div class="bkgt-detail-pane active" data-pane="content" id="detail-content"></div>
+                            <div class="bkgt-detail-pane" data-pane="viewer" id="detail-viewer"></div>
                             <div class="bkgt-detail-pane" data-pane="versions" id="detail-versions"></div>
                             <div class="bkgt-detail-pane" data-pane="sharing" id="detail-sharing"></div>
                             <div class="bkgt-detail-pane" data-pane="export" id="detail-export"></div>
@@ -351,18 +380,91 @@ class BKGT_Document_Frontend {
             wp_send_json_error(__('Du måste vara inloggad', 'bkgt-document-management'), 403);
         }
 
-        // Get saved templates from options
-        $templates = get_option('bkgt_document_templates', array());
+        // Use the proper template system
+        $template_system = new BKGT_DM_Template_System();
+        $templates = $template_system->get_templates();
 
+        // If no templates in database, return default templates
         if (empty($templates)) {
-            // Return default templates for common document types
             $templates = $this->get_default_templates();
+        } else {
+            // Format database templates to match frontend expectations
+            $formatted_templates = array();
+            foreach ($templates as $template) {
+                $formatted_templates[] = array(
+                    'id' => $template['template_slug'],
+                    'name' => $template['template_name'],
+                    'description' => $template['description'],
+                    'content' => $template['template_content'],
+                    'variables' => $this->format_template_variables($template['variables_used']),
+                    'category' => $template['category'],
+                    'created_by' => $template['created_by'],
+                    'created_date' => $template['created_date']
+                );
+            }
+            $templates = $formatted_templates;
         }
 
         wp_send_json_success(array(
             'templates' => $templates,
             'count' => count($templates),
         ));
+    }
+
+    /**
+     * Format template variables for frontend
+     */
+    private function format_template_variables($variables_used) {
+        if (!is_array($variables_used)) {
+            return array();
+        }
+
+        $formatted = array();
+        $template_system = new BKGT_DM_Template_System();
+        $available_vars = $template_system->get_available_variables();
+
+        foreach ($variables_used as $var_key) {
+            if (isset($available_vars[$var_key])) {
+                $formatted[] = array(
+                    'name' => $var_key,
+                    'label' => $this->get_variable_label($var_key)
+                );
+            }
+        }
+
+        return $formatted;
+    }
+
+    /**
+     * Get human-readable label for variable
+     */
+    private function get_variable_label($variable) {
+        $labels = array(
+            '{{SPELARE_NAMN}}' => __('Spelarens namn', 'bkgt-document-management'),
+            '{{SPELARE_EFTERNAMN}}' => __('Spelarens efternamn', 'bkgt-document-management'),
+            '{{SPELARE_FODELSEDATUM}}' => __('Spelarens födelsedatum', 'bkgt-document-management'),
+            '{{SPELARE_LAG}}' => __('Spelarens lag', 'bkgt-document-management'),
+            '{{SPELARE_POSITION}}' => __('Spelarens position', 'bkgt-document-management'),
+            '{{TRÄNARE_NAMN}}' => __('Tränarens namn', 'bkgt-document-management'),
+            '{{TRÄNARE_EFTERNAMN}}' => __('Tränarens efternamn', 'bkgt-document-management'),
+            '{{TRÄNARE_LAG}}' => __('Tränarens lag', 'bkgt-document-management'),
+            '{{UTFÄRDANDE_DATUM}}' => __('Utfärdandedatum', 'bkgt-document-management'),
+            '{{UTFÄRDANDE_ÅR}}' => __('Utfärdandeår', 'bkgt-document-management'),
+            '{{DOKUMENT_TITEL}}' => __('Dokumenttitel', 'bkgt-document-management'),
+            '{{DOKUMENT_NUMMER}}' => __('Dokumentnummer', 'bkgt-document-management'),
+            '{{KLUBB_NAMN}}' => __('Klubbnamn', 'bkgt-document-management'),
+            '{{KLUBB_ADRESS}}' => __('Klubbadress', 'bkgt-document-management'),
+            '{{KLUBB_TELEFON}}' => __('Klubbtelefon', 'bkgt-document-management'),
+            '{{KLUBB_EPOST}}' => __('Klubbens e-post', 'bkgt-document-management'),
+            '{{UTRUSTNING_LISTA}}' => __('Utrustningslista', 'bkgt-document-management'),
+            '{{UTRUSTNING_ÅTERLÄMNINGSDATUM}}' => __('Återlämningsdatum för utrustning', 'bkgt-document-management'),
+            '{{PERSON_NAMN}}' => __('Personens namn', 'bkgt-document-management'),
+            '{{PERSON_EFTERNAMN}}' => __('Personens efternamn', 'bkgt-document-management'),
+            '{{SLUTDATUM}}' => __('Slutdatum', 'bkgt-document-management'),
+            '{{AVSLUTANDE_ANSTÄLLNING}}' => __('Anledning till avslutande av anställning', 'bkgt-document-management'),
+        );
+
+        return $labels[$variable] ?? $variable;
     }
 
     /**
@@ -1048,5 +1150,53 @@ class BKGT_Document_Frontend {
             'documents' => $formatted_docs,
             'count' => count($formatted_docs),
         ));
+    }
+
+    /**
+     * AJAX handler for getting document viewer HTML
+     */
+    public function ajax_get_document_viewer_html() {
+        check_ajax_referer('bkgt_document_frontend', 'nonce');
+
+        if (!is_user_logged_in()) {
+            wp_send_json_error(__('Du måste vara inloggad', 'bkgt-document-management'), 403);
+        }
+
+        $document_id = intval($_POST['document_id']);
+
+        if (!$document_id) {
+            wp_send_json_error(__('Ogiltigt dokument-ID', 'bkgt-document-management'));
+        }
+
+        // Check if user can view this document
+        if (!$this->user_can_view_document($document_id)) {
+            wp_send_json_error(__('Du har inte behörighet att visa detta dokument', 'bkgt-document-management'), 403);
+        }
+
+        // Get the document viewer HTML
+        $viewer_html = do_shortcode('[bkgt_document_viewer id="' . $document_id . '" width="100%" height="500px"]');
+
+        wp_send_json_success(array(
+            'html' => $viewer_html,
+        ));
+    }
+
+    /**
+     * Check if user can view a document
+     */
+    private function user_can_view_document($document_id) {
+        $document = get_post($document_id);
+
+        if (!$document || $document->post_type !== 'bkgt_document') {
+            return false;
+        }
+
+        // Allow if user is the author
+        if (get_current_user_id() === $document->post_author) {
+            return true;
+        }
+
+        // Add additional permission checks here (sharing, roles, etc.)
+        return false;
     }
 }

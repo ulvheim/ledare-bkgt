@@ -17,6 +17,7 @@ Write-Host ""
 $files = @(
     @{ local = "$localPath\bkgt-inventory.php"; remote = "bkgt-inventory.php" },
     @{ local = "$localPath\includes\class-analytics.php"; remote = "includes/class-analytics.php" },
+    @{ local = "$localPath\includes\class-api-endpoints.php"; remote = "includes/class-api-endpoints.php" },
     @{ local = "$localPath\includes\class-assignment.php"; remote = "includes/class-assignment.php" },
     @{ local = "$localPath\includes\class-database.php"; remote = "includes/class-database.php" },
     @{ local = "$localPath\includes\class-history.php"; remote = "includes/class-history.php" },
@@ -61,11 +62,11 @@ Write-Host "  Remote Path: $RemotePath"
 Write-Host ""
 
 # Confirm deployment
-$confirmation = Read-Host "Do you want to proceed with deployment? (y/N)"
-if ($confirmation -ne 'y' -and $confirmation -ne 'Y') {
-    Write-Host "Deployment cancelled." -ForegroundColor Yellow
-    exit 0
-}
+#$confirmation = Read-Host "Do you want to proceed with deployment? (y/N)"
+#if ($confirmation -ne 'y' -and $confirmation -ne 'Y') {
+#    Write-Host "Deployment cancelled." -ForegroundColor Yellow
+#    exit 0
+#}
 
 Write-Host "Starting SCP upload..." -ForegroundColor Yellow
 

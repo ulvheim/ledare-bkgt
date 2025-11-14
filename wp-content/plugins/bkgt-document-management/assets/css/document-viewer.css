@@ -1,0 +1,239 @@
+/**
+ * Document Viewer Styles
+ *
+ * @package BKGT_Document_Management
+ * @since 1.0.1
+ */
+
+.bkgt-document-viewer-container {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.bkgt-document-viewer-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid #ddd;
+    background: #f8f9fa;
+}
+
+.bkgt-viewer-info h4 {
+    margin: 0 0 4px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+}
+
+.bkgt-document-meta {
+    font-size: 12px;
+    color: #666;
+}
+
+.bkgt-viewer-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.bkgt-viewer-controls button {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 6px 8px;
+    cursor: pointer;
+    color: #333;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.bkgt-viewer-controls button:hover {
+    background: #f0f0f0;
+    border-color: #bbb;
+}
+
+.bkgt-zoom-level {
+    font-size: 12px;
+    color: #666;
+    min-width: 40px;
+    text-align: center;
+}
+
+.bkgt-document-viewer-content {
+    flex: 1;
+    position: relative;
+    overflow: auto;
+    background: #f5f5f5;
+}
+
+.bkgt-loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.9);
+    z-index: 10;
+}
+
+.bkgt-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #007cba;
+    border-radius: 50%;
+    animation: bkgt-spin 1s linear infinite;
+}
+
+@keyframes bkgt-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.bkgt-loading-overlay p {
+    margin: 16px 0 0 0;
+    color: #666;
+    font-size: 14px;
+}
+
+.bkgt-document-canvas {
+    display: flex;
+    justify-content: center;
+    min-height: 100%;
+    padding: 20px;
+}
+
+.bkgt-document-canvas canvas {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    background: #fff;
+    max-width: 100%;
+    height: auto !important;
+}
+
+.bkgt-pdf-navigation {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.bkgt-pdf-navigation button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    color: #333;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.bkgt-pdf-navigation button:hover {
+    background: #f0f0f0;
+}
+
+.bkgt-pdf-navigation button:disabled {
+    color: #ccc;
+    cursor: not-allowed;
+}
+
+.bkgt-pdf-navigation button:disabled:hover {
+    background: none;
+}
+
+.bkgt-page-info {
+    font-size: 14px;
+    color: #333;
+    white-space: nowrap;
+}
+
+/* Office document viewer styles (for Phase 2) */
+.bkgt-office-viewer {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.bkgt-office-viewer iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: #f8f9fa;
+}
+
+.bkgt-office-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 40px;
+    text-align: center;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.bkgt-office-placeholder .dashicons {
+    font-size: 64px;
+    width: 64px;
+    height: 64px;
+    color: #666;
+    margin-bottom: 20px;
+}
+
+.bkgt-office-placeholder h3 {
+    margin: 0 0 12px 0;
+    color: #333;
+    font-size: 18px;
+}
+
+.bkgt-office-placeholder p {
+    margin: 0 0 20px 0;
+    color: #666;
+    max-width: 300px;
+}
+
+/* Error states */
+.bkgt-viewer-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #d63638;
+    text-align: center;
+    padding: 40px;
+}
+
+.bkgt-viewer-error .dashicons {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 16px;
+}
+
+.bkgt-viewer-error h3 {
+    margin: 0 0 8px 0;
+    color: #d63638;
+}
+
+.bkgt-viewer-error p {
+    margin: 0;
+    color: #666;
+}

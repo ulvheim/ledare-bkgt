@@ -49,6 +49,9 @@ Available search fields:
 - `sticker_code` - Physical labels/codes
 - `manufacturer_name` - Manufacturer name
 - `item_type_name` - Equipment type name
+- `purchase_date` - Purchase date (YYYY-MM-DD)
+- `purchase_price` - Purchase price (numeric)
+- `warranty_expiry` - Warranty expiration date (YYYY-MM-DD)
 
 #### Examples
 
@@ -99,8 +102,13 @@ Find equipment with exactly "TDJ" in the size field.
       "condition_status": "normal",
       "condition_reason": "New equipment",
       "size": "TDJ",
-      "notes": "Additional notes",
       "sticker_code": "ABC123",
+      "location_id": 1,
+      "purchase_date": "2024-01-15",
+      "purchase_price": 299.99,
+      "warranty_expiry": "2026-01-15",
+      "notes": "Additional notes",
+      "metadata": null,
       "created_at": "2025-01-01 12:00:00",
       "updated_at": "2025-01-01 12:00:00",
       "assignee_type": null,
@@ -192,16 +200,27 @@ GET /equipment/search-analytics?limit=10&days=7
 
 ## Field Updates
 
-As of version 1.3.0, the following fields have been added to equipment responses:
+As of version 1.4.0, the following fields have been added to equipment responses:
 - `size` - Size designation
 - `condition_reason` - Detailed condition notes
 - `sticker_code` - Physical labels/codes
+- `location_id` - Storage location reference
+- `purchase_date` - Equipment purchase date
+- `purchase_price` - Equipment purchase cost
+- `warranty_expiry` - Warranty expiration date
+- `metadata` - Additional metadata (JSON)
 
-These fields are now included in all equipment list and detail responses.
+These fields are now included in all equipment list and detail responses and are searchable.
 
 ## Changelog
 
-### v1.3.0 (November 2025)
+### v1.4.0 (November 2025)
+- **Database-Only Storage**: Converted from WordPress posts to pure database storage
+- Added `location_id`, `purchase_date`, `purchase_price`, `warranty_expiry`, and `metadata` fields
+- All metadata now available via API from database
+- Improved search performance with direct database queries
+
+### v1.3.0 (October 2025)
 - Added comprehensive search across all equipment fields
 - Added `size`, `condition_reason`, and `sticker_code` fields to responses
 - Added advanced search parameters (`search_fields`, `search_operator`, `fuzzy`, `search_mode`)

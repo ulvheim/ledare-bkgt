@@ -31,15 +31,16 @@ class BKGT_API_Endpoints {
         $this->register_equipment_routes();
         $this->register_auth_routes();
         $this->register_health_routes();
-        // $this->register_team_routes();
-        // $this->register_player_routes();
-        // $this->register_event_routes();
-        // $this->register_document_routes();
-        // $this->register_stats_routes();
-        // $this->register_user_routes();
-        // $this->register_admin_routes();
-        // $this->register_docs_routes();
-        // $this->register_update_routes();
+        $this->register_team_routes();
+        $this->register_player_routes();
+        $this->register_event_routes();
+        $this->register_document_routes();
+        $this->register_stats_routes();
+        $this->register_user_routes();
+        $this->register_admin_routes();
+        $this->register_diagnostic_routes();
+        $this->register_docs_routes();
+        $this->register_update_routes();
     }
 
     /**
@@ -402,207 +403,12 @@ class BKGT_API_Endpoints {
             ),
         ));
 
-        // Manufacturers routes
-        register_rest_route($this->namespace, '/equipment/manufacturers', array(
-            array(
-                'methods' => 'GET',
-                'callback' => array($this, 'get_manufacturers'),
-                'permission_callback' => array($this, 'validate_token'),
-            ),
-            array(
-                'methods' => 'POST',
-                'callback' => array($this, 'create_manufacturer'),
-                'permission_callback' => array($this, 'validate_token'),
-                'args' => array(
-                    'name' => array(
-                        'required' => true,
-                        'type' => 'string',
-                        'sanitize_callback' => 'sanitize_text_field',
-                        'validate_callback' => array($this, 'validate_required'),
-                    ),
-                    'description' => array(
-                        'type' => 'string',
-                        'sanitize_callback' => 'sanitize_textarea_field',
-                    ),
-                    'website' => array(
-                        'type' => 'string',
-                        'validate_callback' => 'wp_http_validate_url',
-                    ),
-                    'contact_email' => array(
-                        'type' => 'string',
-                        'validate_callback' => 'is_email',
-                    ),
-                ),
-            ),
-        ));
-
-        register_rest_route($this->namespace, '/equipment/manufacturers/(?P<id>\d+)', array(
-            array(
-                'methods' => 'GET',
-                'callback' => array($this, 'get_manufacturer'),
-                'permission_callback' => array($this, 'validate_token'),
-                'args' => array(
-                    'id' => array(
-                        'type' => 'integer',
-                        'required' => true,
-                        'validate_callback' => array($this, 'validate_numeric'),
-                    ),
-                ),
-            ),
-            array(
-                'methods' => 'PUT',
-                'callback' => array($this, 'update_manufacturer'),
-                'permission_callback' => array($this, 'validate_token'),
-                'args' => array(
-                    'id' => array(
-                        'type' => 'integer',
-                        'required' => true,
-                        'validate_callback' => array($this, 'validate_numeric'),
-                    ),
-                    'name' => array(
-                        'type' => 'string',
-                        'sanitize_callback' => 'sanitize_text_field',
-                    ),
-                    'description' => array(
-                        'type' => 'string',
-                        'sanitize_callback' => 'sanitize_textarea_field',
-                    ),
-                    'website' => array(
-                        'type' => 'string',
-                        'validate_callback' => 'wp_http_validate_url',
-                    ),
-                    'contact_email' => array(
-                        'type' => 'string',
-                        'validate_callback' => 'is_email',
-                    ),
-                ),
-            ),
-            array(
-                'methods' => 'DELETE',
-                'callback' => array($this, 'delete_manufacturer'),
-                'permission_callback' => array($this, 'validate_token'),
-                'args' => array(
-                    'id' => array(
-                        'type' => 'integer',
-                        'required' => true,
-                        'validate_callback' => array($this, 'validate_numeric'),
-                    ),
-                ),
-            ),
-        ));
-
-        // Equipment item types - Full CRUD
-        register_rest_route($this->namespace, '/equipment/types', array(
-            array(
-                'methods' => 'GET',
-                'callback' => array($this, 'get_item_types'),
-                'permission_callback' => array($this, 'validate_token'),
-            ),
-            array(
-                'methods' => 'POST',
-                'callback' => array($this, 'create_item_type'),
-                'permission_callback' => array($this, 'validate_token'),
-                'args' => array(
-                    'name' => array(
-                        'required' => true,
-                        'type' => 'string',
-                        'sanitize_callback' => 'sanitize_text_field',
-                        'validate_callback' => array($this, 'validate_required'),
-                    ),
-                    'description' => array(
-                        'type' => 'string',
-                        'sanitize_callback' => 'sanitize_textarea_field',
-                    ),
-                    'category' => array(
-                        'type' => 'string',
-                        'sanitize_callback' => 'sanitize_text_field',
-                    ),
-                ),
-            ),
-        ));
-
-        register_rest_route($this->namespace, '/equipment/types/(?P<id>\d+)', array(
-            array(
-                'methods' => 'GET',
-                'callback' => array($this, 'get_item_type'),
-                'permission_callback' => array($this, 'validate_token'),
-                'args' => array(
-                    'id' => array(
-                        'type' => 'integer',
-                        'required' => true,
-                        'validate_callback' => array($this, 'validate_numeric'),
-                    ),
-                ),
-            ),
-            array(
-                'methods' => 'PUT',
-                'callback' => array($this, 'update_item_type'),
-                'permission_callback' => array($this, 'validate_token'),
-                'args' => array(
-                    'id' => array(
-                        'type' => 'integer',
-                        'required' => true,
-                        'validate_callback' => array($this, 'validate_numeric'),
-                    ),
-                    'name' => array(
-                        'type' => 'string',
-                        'sanitize_callback' => 'sanitize_text_field',
-                    ),
-                    'description' => array(
-                        'type' => 'string',
-                        'sanitize_callback' => 'sanitize_textarea_field',
-                    ),
-                    'category' => array(
-                        'type' => 'string',
-                        'sanitize_callback' => 'sanitize_text_field',
-                    ),
-                ),
-            ),
-            array(
-                'methods' => 'DELETE',
-                'callback' => array($this, 'delete_item_type'),
-                'permission_callback' => array($this, 'validate_token'),
-                'args' => array(
-                    'id' => array(
-                        'type' => 'integer',
-                        'required' => true,
-                        'validate_callback' => array($this, 'validate_numeric'),
-                    ),
-                ),
-            ),
-        ));
-
         // Equipment locations - Full CRUD
         register_rest_route($this->namespace, '/equipment/locations', array(
             array(
                 'methods' => 'GET',
                 'callback' => array($this, 'get_locations'),
                 'permission_callback' => array($this, 'validate_token'),
-            ),
-            array(
-                'methods' => 'POST',
-                'callback' => array($this, 'create_location'),
-                'permission_callback' => array($this, 'validate_token'),
-                'args' => array(
-                    'name' => array(
-                        'required' => true,
-                        'type' => 'string',
-                        'sanitize_callback' => 'sanitize_text_field',
-                        'validate_callback' => array($this, 'validate_required'),
-                    ),
-                    'description' => array(
-                        'type' => 'string',
-                        'sanitize_callback' => 'sanitize_textarea_field',
-                    ),
-                    'address' => array(
-                        'type' => 'string',
-                        'sanitize_callback' => 'sanitize_textarea_field',
-                    ),
-                    'capacity' => array(
-                        'type' => 'integer',
-                        'validate_callback' => array($this, 'validate_numeric'),
-                    ),
-                ),
             ),
         ));
 
@@ -678,6 +484,20 @@ class BKGT_API_Endpoints {
                     'validate_callback' => array($this, 'validate_numeric'),
                 ),
             ),
+        ));
+
+        // Manufacturers endpoint
+        register_rest_route($this->namespace, '/equipment/manufacturers', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_manufacturers'),
+            'permission_callback' => array($this, 'validate_token'),
+        ));
+
+        // Item types endpoint
+        register_rest_route($this->namespace, '/equipment/types', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_item_types'),
+            'permission_callback' => array($this, 'validate_token'),
         ));
 
         register_rest_route($this->namespace, '/equipment/analytics/usage', array(
@@ -760,6 +580,70 @@ class BKGT_API_Endpoints {
                     ),
                 ),
             ),
+            array(
+                'methods' => 'POST',
+                'callback' => array($this, 'create_equipment_item'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'manufacturer_id' => array(
+                        'type' => 'integer',
+                        'required' => true,
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                    'item_type_id' => array(
+                        'type' => 'integer',
+                        'required' => true,
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                    'storage_location' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'size' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'location_id' => array(
+                        'type' => 'integer',
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                    'purchase_date' => array(
+                        'type' => 'string',
+                        'format' => 'date',
+                        'validate_callback' => array($this, 'validate_date'),
+                    ),
+                    'purchase_price' => array(
+                        'type' => 'number',
+                    ),
+                    'warranty_expiry' => array(
+                        'type' => 'string',
+                        'format' => 'date',
+                        'validate_callback' => array($this, 'validate_date'),
+                    ),
+                    'condition_status' => array(
+                        'type' => 'string',
+                        'enum' => array('normal', 'needs_repair', 'repaired', 'reported_lost', 'scrapped'),
+                        'default' => 'normal',
+                    ),
+                    'condition_date' => array(
+                        'type' => 'string',
+                        'format' => 'date',
+                        'validate_callback' => array($this, 'validate_date'),
+                    ),
+                    'condition_reason' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'sticker_code' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'notes' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_textarea_field',
+                    ),
+                ),
+            ),
         ));
 
         // Individual equipment item - READ ONLY (UPDATE/DELETE handled by bkgt-inventory plugin)
@@ -767,6 +651,90 @@ class BKGT_API_Endpoints {
             array(
                 'methods' => 'GET',
                 'callback' => array($this, 'get_equipment_item'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'id' => array(
+                        'type' => 'integer',
+                        'required' => true,
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                ),
+            ),
+            array(
+                'methods' => 'PUT',
+                'callback' => array($this, 'update_equipment_item'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'id' => array(
+                        'type' => 'integer',
+                        'required' => true,
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                    // Immutable fields - allowed in request but ignored (for frontend compatibility)
+                    'manufacturer_id' => array(
+                        'type' => 'integer',
+                    ),
+                    'item_type_id' => array(
+                        'type' => 'integer',
+                    ),
+                    'unique_identifier' => array(
+                        'type' => 'string',
+                    ),
+                    'sticker_code' => array(
+                        'type' => 'string',
+                    ),
+                    // Mutable fields
+                    'title' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'storage_location' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'size' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'location_id' => array(
+                        'type' => 'integer',
+                        'validate_callback' => array($this, 'validate_numeric'),
+                    ),
+                    'purchase_date' => array(
+                        'type' => 'string',
+                        'format' => 'date',
+                        'validate_callback' => array($this, 'validate_date'),
+                    ),
+                    'purchase_price' => array(
+                        'type' => 'number',
+                    ),
+                    'warranty_expiry' => array(
+                        'type' => 'string',
+                        'format' => 'date',
+                        'validate_callback' => array($this, 'validate_date'),
+                    ),
+                    'condition_status' => array(
+                        'type' => 'string',
+                        'enum' => array('normal', 'needs_repair', 'repaired', 'reported_lost', 'scrapped'),
+                    ),
+                    'condition_date' => array(
+                        'type' => 'string',
+                        'format' => 'date',
+                        'validate_callback' => array($this, 'validate_date'),
+                    ),
+                    'condition_reason' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'notes' => array(
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_textarea_field',
+                    ),
+                ),
+            ),
+            array(
+                'methods' => 'DELETE',
+                'callback' => array($this, 'delete_equipment_item'),
                 'permission_callback' => array($this, 'validate_token'),
                 'args' => array(
                     'id' => array(
@@ -1466,6 +1434,17 @@ class BKGT_API_Endpoints {
         'permission_callback' => array($this, 'validate_admin_token'),
     ));
 }
+
+    /**
+     * Register diagnostic routes
+     */
+    private function register_diagnostic_routes() {
+        register_rest_route($this->namespace, '/diagnostic', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_diagnostic_info'),
+            'permission_callback' => array($this, 'validate_token'),
+        ));
+    }
 
     /**
      * Register documentation routes
@@ -3343,6 +3322,121 @@ class BKGT_API_Endpoints {
     }
 
     /**
+     * Get diagnostic information (equivalent to admin diagnostic page)
+     */
+    public function get_diagnostic_info($request) {
+        global $wpdb;
+
+        $diagnostic = array(
+            'plugin_status' => array(),
+            'database_tables' => array(),
+            'api_endpoints' => array(),
+            'inventory_items' => array(),
+            'class_availability' => array(),
+            'generated_at' => current_time('mysql'),
+        );
+
+        // Plugin Status
+        $plugins = array(
+            'bkgt-core/bkgt-core.php' => 'BKGT Core',
+            'bkgt-data-scraping/bkgt-data-scraping.php' => 'BKGT Data Scraping',
+            'bkgt-inventory/bkgt-inventory.php' => 'BKGT Inventory',
+            'bkgt-api/bkgt-api.php' => 'BKGT API'
+        );
+
+        foreach ($plugins as $file => $name) {
+            $active = is_plugin_active($file);
+            $diagnostic['plugin_status'][] = array(
+                'plugin' => $name,
+                'status' => $active ? 'ACTIVE' : 'INACTIVE',
+                'active' => $active,
+            );
+        }
+
+        // Database Tables
+        $tables = array(
+            'bkgt_inventory_items',
+            'bkgt_manufacturers',
+            'bkgt_item_types',
+            'bkgt_inventory_assignments',
+            'bkgt_locations'
+        );
+
+        foreach ($tables as $table) {
+            $table_name = $wpdb->prefix . $table;
+            $exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'") === $table_name;
+            $diagnostic['database_tables'][] = array(
+                'table' => $table,
+                'status' => $exists ? 'EXISTS' : 'MISSING',
+                'exists' => $exists,
+            );
+        }
+
+        // API Endpoints
+        $endpoints = array(
+            'wp-json/bkgt/v1/equipment' => 'Requires authentication',
+            'wp-json/bkgt/v1/equipment/preview-identifier' => 'Requires authentication',
+            'wp-json/bkgt/v1/equipment/manufacturers' => 'Requires authentication',
+            'wp-json/bkgt/v1/equipment/types' => 'Requires authentication'
+        );
+
+        foreach ($endpoints as $endpoint => $description) {
+            $url = home_url($endpoint);
+            $response = wp_remote_head($url);
+            $status = wp_remote_retrieve_response_code($response);
+            $is_expected = ($status == 401);
+            $diagnostic['api_endpoints'][] = array(
+                'endpoint' => $endpoint,
+                'description' => $description,
+                'status_code' => $status,
+                'expected' => $is_expected,
+            );
+        }
+
+        // Recent Inventory Items
+        $items = $wpdb->get_results(
+            "SELECT i.id, i.unique_identifier, i.title, m.name as manufacturer_name, it.name as item_type_name, i.condition_status
+             FROM {$wpdb->prefix}bkgt_inventory_items i
+             LEFT JOIN {$wpdb->prefix}bkgt_manufacturers m ON i.manufacturer_id = m.id
+             LEFT JOIN {$wpdb->prefix}bkgt_item_types it ON i.item_type_id = it.id
+             ORDER BY i.id DESC LIMIT 10"
+        );
+
+        foreach ($items as $item) {
+            $diagnostic['inventory_items'][] = array(
+                'id' => $item->id,
+                'identifier' => $item->unique_identifier,
+                'title' => $item->title,
+                'manufacturer' => $item->manufacturer_name ?: 'Unknown',
+                'type' => $item->item_type_name ?: 'Unknown',
+                'status' => $item->condition_status,
+            );
+        }
+
+        // Class Availability
+        $classes = array(
+            'BKGT_Inventory_Item',
+            'BKGT_Manufacturer',
+            'BKGT_Item_Type',
+            'BKGT_Assignment'
+        );
+
+        foreach ($classes as $class) {
+            $exists = class_exists($class);
+            $diagnostic['class_availability'][] = array(
+                'class' => $class,
+                'status' => $exists ? 'EXISTS' : 'MISSING',
+                'available' => $exists,
+            );
+        }
+
+        return new WP_REST_Response(array(
+            'success' => true,
+            'data' => $diagnostic,
+        ), 200);
+    }
+
+    /**
      * Dashboard and Error Log Helper Methods
      */
     private function get_database_version() {
@@ -3574,6 +3668,11 @@ class BKGT_API_Endpoints {
     }
 
     public function validate_numeric($value, $request, $param) {
+        // Allow empty/null values for optional numeric fields
+        if (empty($value) || $value === null) {
+            return true;
+        }
+        
         if (!is_numeric($value) || $value <= 0) {
             return new WP_Error(
                 'invalid_numeric_param',
@@ -3585,6 +3684,11 @@ class BKGT_API_Endpoints {
     }
 
     public function validate_date($value, $request, $param) {
+        // Allow empty/null values for optional date fields
+        if (empty($value)) {
+            return true;
+        }
+        
         $date = date_create($value);
         if (!$date) {
             return new WP_Error(
@@ -3774,18 +3878,20 @@ class BKGT_API_Endpoints {
 
         $offset = ($page - 1) * $per_page;
 
-        // Base query
+        // Base query - UPDATED to include size, location_id, location_name
         $query = "SELECT SQL_CALC_FOUND_ROWS
             i.id, i.unique_identifier, i.title, i.manufacturer_id, i.item_type_id,
             i.storage_location, i.condition_status, i.condition_date, i.condition_reason,
-            i.sticker_code, i.created_at, i.updated_at,
+            i.sticker_code, i.created_at, i.updated_at, i.size,
             m.name as manufacturer_name,
             it.name as item_type_name,
-            a.assignee_id, a.assignee_name, a.assignment_date, a.due_date
+            a.assignee_id, a.assignee_name, a.assignment_date, a.due_date, a.location_id,
+            l.name as location_name
         FROM {$wpdb->prefix}bkgt_inventory_items i
         LEFT JOIN {$wpdb->prefix}bkgt_manufacturers m ON i.manufacturer_id = m.id
         LEFT JOIN {$wpdb->prefix}bkgt_item_types it ON i.item_type_id = it.id
-        LEFT JOIN {$wpdb->prefix}bkgt_inventory_assignments a ON i.id = a.item_id AND a.return_date IS NULL";
+        LEFT JOIN {$wpdb->prefix}bkgt_inventory_assignments a ON i.id = a.item_id AND a.return_date IS NULL
+        LEFT JOIN {$wpdb->prefix}bkgt_locations l ON a.location_id = l.id";
 
         $where = " WHERE 1=1";
         $params = array();
@@ -3852,14 +3958,16 @@ class BKGT_API_Endpoints {
         $query = "SELECT
             i.id, i.unique_identifier, i.title, i.manufacturer_id, i.item_type_id,
             i.storage_location, i.condition_status, i.condition_date, i.condition_reason,
-            i.sticker_code, i.created_at, i.updated_at,
+            i.sticker_code, i.purchase_date, i.purchase_price, i.warranty_expiry, i.created_at, i.updated_at, i.size, i.location_id,
             m.name as manufacturer_name,
             it.name as item_type_name,
-            a.assignee_id, a.assignee_name, a.assignment_date, a.due_date
+            a.assignee_id, a.assignee_name, a.assignment_date, a.due_date,
+            l.name as location_name
         FROM {$wpdb->prefix}bkgt_inventory_items i
         LEFT JOIN {$wpdb->prefix}bkgt_manufacturers m ON i.manufacturer_id = m.id
         LEFT JOIN {$wpdb->prefix}bkgt_item_types it ON i.item_type_id = it.id
         LEFT JOIN {$wpdb->prefix}bkgt_inventory_assignments a ON i.id = a.item_id AND a.return_date IS NULL
+        LEFT JOIN {$wpdb->prefix}bkgt_locations l ON i.location_id = l.id
         WHERE i.id = %d";
 
         $item = $wpdb->get_row($wpdb->prepare($query, $id));
@@ -3878,15 +3986,45 @@ class BKGT_API_Endpoints {
 
         $manufacturer_id = $request->get_param('manufacturer_id');
         $item_type_id = $request->get_param('item_type_id');
-        $title = $request->get_param('title');
         $storage_location = $request->get_param('storage_location');
         $sticker_code = $request->get_param('sticker_code');
+        $size = $request->get_param('size');
+        $location_id = $request->get_param('location_id');
+        $purchase_date = $request->get_param('purchase_date');
+        $purchase_price = $request->get_param('purchase_price');
+        $warranty_expiry = $request->get_param('warranty_expiry');
+        $condition_status = $request->get_param('condition_status') ?: 'normal';
+        $condition_date = $request->get_param('condition_date');
+        $condition_reason = $request->get_param('condition_reason');
+        $notes = $request->get_param('notes');
 
         // Generate unique identifier
         $unique_identifier = BKGT_Inventory_Item::generate_unique_identifier($manufacturer_id, $item_type_id);
 
         if (!$unique_identifier) {
             return new WP_Error('invalid_manufacturer_or_type', __('Invalid manufacturer or item type.', 'bkgt-api'), array('status' => 400));
+        }
+
+        // Generate meaningful title from manufacturer + item type + size
+        $manufacturer = $wpdb->get_row($wpdb->prepare(
+            "SELECT name FROM {$wpdb->prefix}bkgt_manufacturers WHERE id = %d",
+            $manufacturer_id
+        ));
+        $item_type = $wpdb->get_row($wpdb->prepare(
+            "SELECT name FROM {$wpdb->prefix}bkgt_item_types WHERE id = %d",
+            $item_type_id
+        ));
+
+        $title = $manufacturer ? $manufacturer->name : '';
+        if ($item_type && $item_type->name) {
+            $title .= ' ' . $item_type->name;
+        }
+        if ($size) {
+            $title .= ' - ' . $size;
+        }
+        // Fallback to unique identifier if no meaningful title could be generated
+        if (empty(trim($title))) {
+            $title = $unique_identifier;
         }
 
         $result = $wpdb->insert(
@@ -3898,8 +4036,17 @@ class BKGT_API_Endpoints {
                 'title' => $title,
                 'storage_location' => $storage_location,
                 'sticker_code' => $sticker_code,
+                'size' => $size,
+                'location_id' => $location_id,
+                'purchase_date' => $purchase_date,
+                'purchase_price' => $purchase_price,
+                'warranty_expiry' => $warranty_expiry,
+                'condition_status' => $condition_status,
+                'condition_date' => $condition_date,
+                'condition_reason' => $condition_reason,
+                'notes' => $notes,
             ),
-            array('%s', '%d', '%d', '%s', '%s', '%s')
+            array('%s', '%d', '%d', '%s', '%s', '%s', '%s', '%d', '%s', '%f', '%s', '%s', '%s', '%s', '%s')
         );
 
         if ($result === false) {
@@ -3917,11 +4064,21 @@ class BKGT_API_Endpoints {
         global $wpdb;
 
         $id = $request->get_param('id');
+        
+        // Note: manufacturer_id, item_type_id, unique_identifier, sticker_code are allowed in request
+        // but will be silently ignored. They cannot actually be modified.
+
         $title = $request->get_param('title');
         $condition_status = $request->get_param('condition_status');
         $condition_reason = $request->get_param('condition_reason');
+        $condition_date = $request->get_param('condition_date');
         $storage_location = $request->get_param('storage_location');
-        $sticker_code = $request->get_param('sticker_code');
+        $size = $request->get_param('size');
+        $location_id = $request->get_param('location_id');
+        $purchase_date = $request->get_param('purchase_date');
+        $purchase_price = $request->get_param('purchase_price');
+        $warranty_expiry = $request->get_param('warranty_expiry');
+        $notes = $request->get_param('notes');
 
         $update_data = array();
         $update_format = array();
@@ -3934,7 +4091,14 @@ class BKGT_API_Endpoints {
         if ($condition_status !== null) {
             $update_data['condition_status'] = $condition_status;
             $update_format[] = '%s';
-            $update_data['condition_date'] = current_time('mysql');
+            if (!$condition_date) {
+                $update_data['condition_date'] = current_time('mysql');
+                $update_format[] = '%s';
+            }
+        }
+
+        if ($condition_date !== null) {
+            $update_data['condition_date'] = $condition_date;
             $update_format[] = '%s';
         }
 
@@ -3948,8 +4112,33 @@ class BKGT_API_Endpoints {
             $update_format[] = '%s';
         }
 
-        if ($sticker_code !== null) {
-            $update_data['sticker_code'] = $sticker_code;
+        if ($size !== null) {
+            $update_data['size'] = $size;
+            $update_format[] = '%s';
+        }
+
+        if ($location_id !== null) {
+            $update_data['location_id'] = $location_id;
+            $update_format[] = '%d';
+        }
+
+        if ($purchase_date !== null) {
+            $update_data['purchase_date'] = $purchase_date;
+            $update_format[] = '%s';
+        }
+
+        if ($purchase_price !== null) {
+            $update_data['purchase_price'] = $purchase_price;
+            $update_format[] = '%f';
+        }
+
+        if ($warranty_expiry !== null) {
+            $update_data['warranty_expiry'] = $warranty_expiry;
+            $update_format[] = '%s';
+        }
+
+        if ($notes !== null) {
+            $update_data['notes'] = $notes;
             $update_format[] = '%s';
         }
 
@@ -4664,6 +4853,16 @@ class BKGT_API_Endpoints {
             return new WP_Error('no_items', __('No items specified for bulk operation.', 'bkgt-api'), array('status' => 400));
         }
 
+        // Enforce maximum bulk operation limit to prevent DOS attacks
+        $max_bulk_operations = apply_filters('bkgt_api_max_bulk_operations', 500);
+        if (count($item_ids) > $max_bulk_operations) {
+            return new WP_Error(
+                'too_many_items',
+                sprintf(__('Maximum %d items allowed per bulk operation. You requested %d items.', 'bkgt-api'), $max_bulk_operations, count($item_ids)),
+                array('status' => 413)
+            );
+        }
+
         // Temporarily remove BKGT class check for testing
         // if (!class_exists('BKGT_History')) {
         //     return new WP_Error('inventory_plugin_required', __('BKGT Inventory plugin is required for bulk operations.', 'bkgt-api'), array('status' => 500));
@@ -5286,10 +5485,16 @@ class BKGT_API_Endpoints {
             'condition_date' => $item->condition_date,
             'condition_reason' => $item->condition_reason,
             'sticker_code' => $item->sticker_code,
+            'size' => $item->size ?? null,
+            'purchase_date' => $item->purchase_date ?? null,
+            'purchase_price' => $item->purchase_price ? (float) $item->purchase_price : null,
+            'warranty_expiry' => $item->warranty_expiry ?? null,
             'assigned_to_id' => $item->assignee_id ? (int) $item->assignee_id : null,
             'assigned_to_name' => $item->assignee_name,
             'assignment_date' => $item->assignment_date,
             'due_date' => $item->due_date,
+            'location_id' => $item->location_id ? (int) $item->location_id : null,
+            'location_name' => $item->location_name,
             'created_date' => $item->created_at,
             'updated_date' => $item->updated_at,
         );

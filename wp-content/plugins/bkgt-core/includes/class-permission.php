@@ -42,6 +42,9 @@ class BKGT_Permission {
      * These are used by all plugins for permission checking
      */
     public static function register_capabilities() {
+        // First, ensure BKGT roles exist
+        self::create_bkgt_roles();
+        
         $capabilities = array(
             // Inventory
             'bkgt_view_inventory'        => 'View inventory items',
@@ -83,6 +86,38 @@ class BKGT_Permission {
         
         // Add capabilities to roles
         self::setup_roles( $capabilities );
+    }
+    
+    /**
+     * Create BKGT roles if they don't exist
+     */
+    private static function create_bkgt_roles() {
+        // Admin role (Styrelsemedlem)
+        if ( ! get_role( self::ROLE_ADMIN ) ) {
+            add_role(
+                self::ROLE_ADMIN,
+                __( 'Styrelsemedlem', 'bkgt-core' ),
+                array()
+            );
+        }
+        
+        // Coach role (Tränare)
+        if ( ! get_role( self::ROLE_COACH ) ) {
+            add_role(
+                self::ROLE_COACH,
+                __( 'Tränare', 'bkgt-core' ),
+                array()
+            );
+        }
+        
+        // Team Manager role (Lagledare)
+        if ( ! get_role( self::ROLE_TEAM_MANAGER ) ) {
+            add_role(
+                self::ROLE_TEAM_MANAGER,
+                __( 'Lagledare', 'bkgt-core' ),
+                array()
+            );
+        }
     }
     
     /**
@@ -362,6 +397,163 @@ class BKGT_Permission {
      */
     public static function require_admin() {
         self::require_capability( 'bkgt_manage_settings' );
+    }
+    
+    /**
+     * Get all BKGT capabilities
+     * 
+     * @return array Array of capability => description pairs
+     */
+    public static function get_all_capabilities() {
+        return array(
+            // Inventory
+            'bkgt_view_inventory'        => 'View inventory items',
+            'bkgt_edit_inventory'        => 'Edit inventory items',
+            'bkgt_delete_inventory'      => 'Delete inventory items',
+            'bkgt_view_inventory_history' => 'View inventory history',
+            
+            // Documents
+            'bkgt_view_documents'        => 'View documents',
+            'bkgt_upload_documents'      => 'Upload documents',
+            'bkgt_edit_documents'        => 'Edit documents',
+            'bkgt_delete_documents'      => 'Delete documents',
+            'bkgt_view_document_history' => 'View document history',
+            
+            // Teams & Players
+            'bkgt_view_teams'            => 'View teams',
+            'bkgt_edit_teams'            => 'Edit teams',
+            'bkgt_view_players'          => 'View players',
+            'bkgt_edit_players'          => 'Edit players',
+            'bkgt_view_performance'      => 'View performance data (coaches only)',
+            
+            // Events
+            'bkgt_view_events'           => 'View events',
+            'bkgt_create_events'         => 'Create events',
+            'bkgt_edit_events'           => 'Edit events',
+            'bkgt_delete_events'         => 'Delete events',
+            
+            // Communication
+            'bkgt_send_messages'         => 'Send messages',
+            'bkgt_view_messages'         => 'View messages',
+            
+            // Offboarding
+            'bkgt_manage_offboarding'    => 'Manage offboarding processes',
+            
+            // Admin
+            'bkgt_manage_settings'       => 'Manage BKGT settings',
+            'bkgt_view_logs'             => 'View system logs',
+        );
+    }
+    
+    /**
+     * Get permission audit log
+     * 
+     * @param int $limit Number of log entries to return
+     * @return array Array of log entries
+     */
+    public static function get_audit_log( $limit = 50 ) {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'bkgt_logs';
+        
+        // Check if logs table exists
+        if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'" ) != $table_name ) {
+            return array();
+        }
+        
+        $logs = $wpdb->get_results( $wpdb->prepare(
+            "SELECT timestamp, level, message, context 
+             FROM $table_name 
+             WHERE message LIKE %s 
+             ORDER BY timestamp DESC 
+             LIMIT %d",
+            '%permission%',
+            $limit
+        ), ARRAY_A );
+        
+        $audit_logs = array();
+        foreach ( $logs as $log ) {
+            $context = json_decode( $log['context'], true );
+            $audit_logs[] = array(
+                'timestamp' => $log['timestamp'],
+                'user' => $context['user'] ?? 'Unknown',
+                'action' => $log['message'],
+                'details' => isset( $context ) ? json_encode( $context ) : ''
+            );
+        }
+        
+        return $audit_logs;
+    }
+    
+    /**
+     * Get all BKGT roles
+     *
+     * @return array Array of role keys and names
+     */
+    public static function get_all_roles() {
+        return array(
+            self::ROLE_ADMIN        => __( 'Styrelsemedlem', 'bkgt-core' ),
+            self::ROLE_COACH        => __( 'Tränare', 'bkgt-core' ),
+            self::ROLE_TEAM_MANAGER => __( 'Lagledare', 'bkgt-core' ),
+        );
+    }
+    
+    /**
+     * Log permission changes for audit trail
+     *
+     * @param int $user_id User making the change
+     * @param int $target_user_id User being affected
+     * @param string $action Action performed
+     * @param array $context Additional context data
+     */
+    public static function log_permission_change( $user_id, $target_user_id, $action, $context = array() ) {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'bkgt_permission_audit';
+        
+        // Ensure table exists
+        self::create_audit_table();
+        
+        $wpdb->insert(
+            $table_name,
+            array(
+                'user_id'        => $user_id,
+                'target_user_id' => $target_user_id,
+                'action'         => $action,
+                'context'        => json_encode( $context ),
+                'timestamp'      => current_time( 'mysql' ),
+                'ip_address'     => $_SERVER['REMOTE_ADDR'] ?? '',
+            ),
+            array( '%d', '%d', '%s', '%s', '%s', '%s' )
+        );
+    }
+    
+    /**
+     * Create audit table if it doesn't exist
+     */
+    private static function create_audit_table() {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'bkgt_permission_audit';
+        $charset_collate = $wpdb->get_charset_collate();
+        
+        $sql = "CREATE TABLE $table_name (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            user_id bigint(20) unsigned NOT NULL,
+            target_user_id bigint(20) unsigned NOT NULL,
+            action varchar(100) NOT NULL,
+            context longtext NOT NULL,
+            timestamp datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
+            ip_address varchar(45) NOT NULL,
+            PRIMARY KEY (id),
+            KEY user_id (user_id),
+            KEY target_user_id (target_user_id),
+            KEY action (action),
+            KEY timestamp (timestamp)
+        ) $charset_collate;";
+        
+        require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+        dbDelta( $sql );
     }
 }
 

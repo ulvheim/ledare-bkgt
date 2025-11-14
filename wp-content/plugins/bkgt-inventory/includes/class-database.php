@@ -232,6 +232,93 @@ class BKGT_Inventory_Database {
     }
     
     /**
+     * Upgrade database for assignment schema fix
+     * 
+     * This migration adds critical missing columns to the assignments table
+     * that are required by the BKGT_Assignment class:
+     * - assignee_type: enum to distinguish between location/team/user assignments
+     * - assigned_by: user ID who created the assignment
+     * - unassigned_date: when the assignment was removed
+     * - unassigned_by: user ID who removed the assignment
+     * 
+     * @since 1.5.0
+     */
+    public function migrate_assignment_schema() {
+        global $wpdb;
+        
+        $current_version = get_option('bkgt_inventory_db_version', '1.0.0');
+        
+        // Only run if not already migrated
+        if (version_compare($current_version, '1.5.0', '<')) {
+            $table = $this->assignments_table;
+            
+            // Get current columns
+            $columns = $wpdb->get_col("DESCRIBE {$table}");
+            
+            // Add assignee_type enum column if it doesn't exist
+            if (!in_array('assignee_type', $columns)) {
+                $wpdb->query("ALTER TABLE {$table} 
+                    ADD COLUMN assignee_type enum('location','team','user') NOT NULL DEFAULT 'location' 
+                    AFTER assignee_id");
+            }
+            
+            // Add assigned_by int column if it doesn't exist
+            if (!in_array('assigned_by', $columns)) {
+                $wpdb->query("ALTER TABLE {$table} 
+                    ADD COLUMN assigned_by int(11) NOT NULL DEFAULT 0 
+                    AFTER assignment_date");
+            }
+            
+            // Add unassigned_date datetime column if it doesn't exist
+            if (!in_array('unassigned_date', $columns)) {
+                $wpdb->query("ALTER TABLE {$table} 
+                    ADD COLUMN unassigned_date datetime NULL 
+                    AFTER return_date");
+            }
+            
+            // Add unassigned_by int column if it doesn't exist
+            if (!in_array('unassigned_by', $columns)) {
+                $wpdb->query("ALTER TABLE {$table} 
+                    ADD COLUMN unassigned_by int(11) NULL 
+                    AFTER unassigned_date");
+            }
+            
+            // Add indexes for better query performance
+            // Index for filtering by assignee type
+            if (!$wpdb->query("SHOW INDEX FROM {$table} WHERE Key_name = 'idx_assignee_type'")) {
+                $wpdb->query("ALTER TABLE {$table} ADD INDEX idx_assignee_type (assignee_type)");
+            }
+            
+            // Index for filtering active assignments
+            if (!$wpdb->query("SHOW INDEX FROM {$table} WHERE Key_name = 'idx_unassigned_date'")) {
+                $wpdb->query("ALTER TABLE {$table} ADD INDEX idx_unassigned_date (unassigned_date)");
+            }
+            
+            // Composite index for common query pattern
+            if (!$wpdb->query("SHOW INDEX FROM {$table} WHERE Key_name = 'idx_active_assignments'")) {
+                $wpdb->query("ALTER TABLE {$table} ADD INDEX idx_active_assignments (item_id, unassigned_date)");
+            }
+            
+            // Update database version
+            update_option('bkgt_inventory_db_version', '1.5.0');
+            
+            // Log the migration
+            if (function_exists('bkgt_log')) {
+                bkgt_log('info', 'BKGT Inventory database migrated: Assignment schema fixed', array(
+                    'old_version' => $current_version,
+                    'new_version' => '1.5.0',
+                    'columns_added' => ['assignee_type', 'assigned_by', 'unassigned_date', 'unassigned_by'],
+                    'indexes_added' => ['idx_assignee_type', 'idx_unassigned_date', 'idx_active_assignments']
+                ));
+            }
+            
+            return true;
+        }
+        
+        return false;
+    }
+    
+    /**
      * Drop database tables
      */
     public function drop_tables() {

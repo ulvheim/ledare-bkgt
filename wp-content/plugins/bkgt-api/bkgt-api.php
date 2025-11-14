@@ -26,6 +26,10 @@ define('BKGT_API_NAMESPACE', 'bkgt/v1');
 
 // Include required files with error handling
 $required_files = array(
+    'includes/class-bkgt-permissions-database.php',
+    'includes/class-bkgt-permissions.php',
+    'includes/class-bkgt-permissions-endpoints.php',
+    'includes/class-bkgt-permissions-helper.php',
     'includes/class-bkgt-api.php',
     'includes/class-bkgt-auth.php',
     'includes/class-bkgt-endpoints.php',
@@ -573,6 +577,11 @@ register_deactivation_hook(__FILE__, 'bkgt_api_deactivate');
  * Plugin activation callback
  */
 function bkgt_api_activate() {
+    // Create permission tables
+    if (class_exists('BKGT_Permissions_Database')) {
+        BKGT_Permissions_Database::create_tables();
+    }
+
     $plugin = bkgt_api();
     if (method_exists($plugin, 'activate')) {
         $plugin->activate();

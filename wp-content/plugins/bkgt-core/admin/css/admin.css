@@ -210,3 +210,157 @@
         max-width: 100%;
     }
 }
+
+/* Permission Matrix Styles */
+.bkgt-permission-matrix {
+    margin: 20px 0;
+    overflow-x: auto;
+}
+
+.bkgt-permission-matrix table {
+    min-width: 800px;
+}
+
+.bkgt-permission-cell {
+    text-align: center;
+    vertical-align: middle;
+    padding: 10px;
+}
+
+.bkgt-permission-toggle {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+    cursor: pointer;
+}
+
+.bkgt-permission-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.bkgt-toggle-slider {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 24px;
+}
+
+.bkgt-toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .bkgt-toggle-slider {
+    background-color: #007cba;
+}
+
+input:checked + .bkgt-toggle-slider:before {
+    transform: translateX(26px);
+}
+
+/* User Roles Styles */
+.bkgt-user-roles {
+    margin: 20px 0;
+}
+
+.bkgt-role-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.bkgt-role-bkgt_admin {
+    background-color: #d63638;
+    color: #fff;
+}
+
+.bkgt-role-bkgt_coach {
+    background-color: #00a32a;
+    color: #fff;
+}
+
+.bkgt-role-bkgt_team_manager {
+    background-color: #dba617;
+    color: #000;
+}
+
+.bkgt-role-core {
+    background-color: #007cba;
+    color: #fff;
+}
+
+.bkgt-role-select {
+    min-width: 150px;
+}
+
+/* Audit Log Styles */
+.bkgt-audit-log {
+    margin: 20px 0;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.bkgt-audit-log table {
+    margin: 0;
+}
+
+.bkgt-audit-log th,
+.bkgt-audit-log td {
+    padding: 8px 12px;
+    font-size: 13px;
+}
+
+/* Notice Styles */
+.bkgt-notice {
+    margin: 15px 0;
+}
+
+.bkgt-notice p {
+    margin: 0.5em 0;
+    padding: 2px;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 782px) {
+    .bkgt-permission-matrix table {
+        font-size: 12px;
+    }
+    
+    .bkgt-permission-matrix th,
+    .bkgt-permission-matrix td {
+        padding: 5px;
+    }
+    
+    .bkgt-permission-toggle {
+        width: 40px;
+        height: 20px;
+    }
+    
+    .bkgt-toggle-slider:before {
+        height: 14px;
+        width: 14px;
+        left: 3px;
+        bottom: 3px;
+    }
+    
+    input:checked + .bkgt-toggle-slider:before {
+        transform: translateX(20px);
+    }
+}

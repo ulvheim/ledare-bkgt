@@ -104,9 +104,7 @@ class BKGT_Inventory_API_Endpoints {
                         'required' => true,
                         'sanitize_callback' => 'absint',
                     ),
-                    'unique_identifier' => array(
-                        'sanitize_callback' => 'sanitize_text_field',
-                    ),
+                    // Note: unique_identifier and sticker_code are auto-generated
                     'storage_location' => array(
                         'sanitize_callback' => 'sanitize_text_field',
                     ),
@@ -143,15 +141,7 @@ class BKGT_Inventory_API_Endpoints {
                         'required' => true,
                         'sanitize_callback' => 'absint',
                     ),
-                    'manufacturer_id' => array(
-                        'sanitize_callback' => 'absint',
-                    ),
-                    'item_type_id' => array(
-                        'sanitize_callback' => 'absint',
-                    ),
-                    'unique_identifier' => array(
-                        'sanitize_callback' => 'sanitize_text_field',
-                    ),
+                    // Note: manufacturer_id, item_type_id, unique_identifier, and sticker_code are immutable
                     'storage_location' => array(
                         'sanitize_callback' => 'sanitize_text_field',
                     ),
@@ -191,6 +181,61 @@ class BKGT_Inventory_API_Endpoints {
                     'id' => array(
                         'required' => true,
                         'sanitize_callback' => 'absint',
+                    ),
+                ),
+            ),
+        ));
+
+        // Manufacturers endpoints
+        register_rest_route('bkgt/v1', '/equipment/manufacturers', array(
+            array(
+                'methods' => 'GET',
+                'callback' => array($this, 'get_manufacturers'),
+                'permission_callback' => array($this, 'validate_token'),
+            ),
+            array(
+                'methods' => 'POST',
+                'callback' => array($this, 'create_manufacturer'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'name' => array(
+                        'required' => true,
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'code' => array(
+                        'required' => true,
+                    ),
+                    'contact_info' => array(
+                        'sanitize_callback' => 'sanitize_textarea_field',
+                    ),
+                ),
+            ),
+        ));
+
+        // Item types endpoints
+        register_rest_route('bkgt/v1', '/equipment/types', array(
+            array(
+                'methods' => 'GET',
+                'callback' => array($this, 'get_item_types'),
+                'permission_callback' => array($this, 'validate_token'),
+            ),
+            array(
+                'methods' => 'POST',
+                'callback' => array($this, 'create_item_type'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'name' => array(
+                        'required' => true,
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'code' => array(
+                        'required' => true,
+                    ),
+                    'description' => array(
+                        'sanitize_callback' => 'sanitize_textarea_field',
+                    ),
+                    'custom_fields' => array(
+                        'sanitize_callback' => 'wp_json_encode',
                     ),
                 ),
             ),
@@ -369,15 +414,6 @@ class BKGT_Inventory_API_Endpoints {
             ),
         ));
 
-        // Locations endpoint
-        register_rest_route('bkgt/v1', '/locations', array(
-            array(
-                'methods' => 'GET',
-                'callback' => array($this, 'get_locations'),
-                'permission_callback' => array($this, 'validate_token'),
-            ),
-        ));
-
         // Assignments endpoint
         register_rest_route('bkgt/v1', '/assignments', array(
             array(
@@ -428,6 +464,54 @@ class BKGT_Inventory_API_Endpoints {
                         'validate_callback' => function($value) {
                             return $value > 0 && $value <= 365;
                         }
+                    ),
+                ),
+            ),
+        ));
+
+        // Locations endpoints
+        register_rest_route('bkgt/v1', '/locations', array(
+            array(
+                'methods' => 'GET',
+                'callback' => array($this, 'get_locations'),
+                'permission_callback' => array($this, 'validate_token'),
+            ),
+            array(
+                'methods' => 'POST',
+                'callback' => array($this, 'create_location'),
+                'permission_callback' => array($this, 'validate_token'),
+                'args' => array(
+                    'name' => array(
+                        'required' => true,
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'location_type' => array(
+                        'default' => 'storage',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'address' => array(
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'contact_person' => array(
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'contact_phone' => array(
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ),
+                    'contact_email' => array(
+                        'sanitize_callback' => 'sanitize_email',
+                    ),
+                    'capacity' => array(
+                        'sanitize_callback' => 'absint',
+                    ),
+                    'access_restrictions' => array(
+                        'sanitize_callback' => 'sanitize_textarea_field',
+                    ),
+                    'notes' => array(
+                        'sanitize_callback' => 'sanitize_textarea_field',
+                    ),
+                    'parent_id' => array(
+                        'sanitize_callback' => 'absint',
                     ),
                 ),
             ),
@@ -926,7 +1010,7 @@ class BKGT_Inventory_API_Endpoints {
                     $wpdb->update(
                         $table,
                         $update_data,
-                        array('item_id' => $id, 'return_date' => null),
+                        array('item_id' => $item_id, 'return_date' => null),
                         $update_format,
                         array('%d')
                     );
@@ -1121,6 +1205,115 @@ class BKGT_Inventory_API_Endpoints {
 
         } catch (Exception $e) {
             return new WP_Error('analytics_error', $e->getMessage(), array('status' => 500));
+        }
+    }
+
+    /**
+     * Get manufacturers
+     */
+    public function get_manufacturers($request) {
+        try {
+            $manufacturers = BKGT_Manufacturer::get_all();
+            return new WP_REST_Response(array('manufacturers' => $manufacturers), 200);
+        } catch (Exception $e) {
+            return new WP_Error('manufacturers_error', $e->getMessage(), array('status' => 500));
+        }
+    }
+
+    /**
+     * Create manufacturer
+     */
+    public function create_manufacturer($request) {
+        try {
+            $data = array(
+                'name' => $request->get_param('name'),
+                'code' => $request->get_param('code'),
+                'contact_info' => $request->get_param('contact_info'),
+                'website' => $request->get_param('website'),
+                'notes' => $request->get_param('notes')
+            );
+
+            $manufacturer_id = BKGT_Manufacturer::create($data);
+
+            if (is_wp_error($manufacturer_id)) {
+                return $manufacturer_id;
+            }
+
+            $manufacturer = BKGT_Manufacturer::get($manufacturer_id);
+            return new WP_REST_Response($manufacturer, 201);
+
+        } catch (Exception $e) {
+            return new WP_Error('create_manufacturer_error', $e->getMessage(), array('status' => 500));
+        }
+    }
+
+    /**
+     * Get item types
+     */
+    public function get_item_types($request) {
+        try {
+            $item_types = BKGT_Item_Type::get_all();
+            return new WP_REST_Response(array('types' => $item_types), 200);
+        } catch (Exception $e) {
+            return new WP_Error('item_types_error', $e->getMessage(), array('status' => 500));
+        }
+    }
+
+    /**
+     * Create item type
+     */
+    public function create_item_type($request) {
+        try {
+            $data = array(
+                'name' => $request->get_param('name'),
+                'code' => $request->get_param('code'),
+                'description' => $request->get_param('description'),
+                'custom_fields' => $request->get_param('custom_fields')
+            );
+
+            $item_type_id = BKGT_Item_Type::create($data);
+
+            if (is_wp_error($item_type_id)) {
+                return $item_type_id;
+            }
+
+            $item_type = BKGT_Item_Type::get($item_type_id);
+            return new WP_REST_Response($item_type, 201);
+
+        } catch (Exception $e) {
+            return new WP_Error('create_item_type_error', $e->getMessage(), array('status' => 500));
+        }
+    }
+
+    /**
+     * Create location
+     */
+    public function create_location($request) {
+        try {
+            $data = array(
+                'name' => $request->get_param('name'),
+                'location_type' => $request->get_param('location_type'),
+                'address' => $request->get_param('address'),
+                'contact_person' => $request->get_param('contact_person'),
+                'contact_phone' => $request->get_param('contact_phone'),
+                'contact_email' => $request->get_param('contact_email'),
+                'capacity' => $request->get_param('capacity'),
+                'access_restrictions' => $request->get_param('access_restrictions'),
+                'notes' => $request->get_param('notes'),
+                'parent_id' => $request->get_param('parent_id')
+            );
+
+            $location_id = BKGT_Location::create_location($data);
+
+            if (!$location_id) {
+                return new WP_Error('create_failed', 'Failed to create location', array('status' => 500));
+            }
+
+            $location = BKGT_Location::get_location($location_id);
+            return new WP_REST_Response($location, 201);
+
+        } catch (Exception $e) {
+            return new WP_Error('create_location_error', $e->getMessage(), array('status' => 500));
         }
     }
 }

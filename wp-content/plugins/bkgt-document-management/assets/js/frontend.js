@@ -138,13 +138,51 @@
         $('.bkgt-detail-tab-btn[data-tab="' + tabName + '"]').addClass('active');
         $('.bkgt-detail-pane[data-pane="' + tabName + '"]').addClass('active');
 
-        if (tabName === 'versions') {
+        if (tabName === 'viewer') {
+            loadDocumentViewer(currentDocumentId);
+        } else if (tabName === 'versions') {
             loadDocumentVersions(currentDocumentId);
         } else if (tabName === 'sharing') {
             loadDocumentSharing(currentDocumentId);
         } else if (tabName === 'export') {
             displayExportOptions(currentDocumentId);
         }
+    }
+
+    /**
+     * Load document viewer
+     */
+    function loadDocumentViewer(docId) {
+        var $viewerPane = $('#detail-viewer');
+        $viewerPane.html('<div class="bkgt-loading"><span class="dashicons dashicons-update spin"></span> Laddar dokumentvisare...</div>');
+
+        $.ajax({
+            url: ajaxurl,
+            type: 'POST',
+            data: {
+                action: 'bkgt_get_document_viewer_html',
+                nonce: nonce,
+                document_id: docId
+            },
+            success: function(response) {
+                if (response.success) {
+                    $viewerPane.html(response.data.html);
+                    // Initialize the viewer
+                    setTimeout(function() {
+                        $viewerPane.find('.bkgt-document-viewer-container').each(function() {
+                            if (typeof BKGTDocumentViewer !== 'undefined') {
+                                new BKGTDocumentViewer(this);
+                            }
+                        });
+                    }, 100);
+                } else {
+                    $viewerPane.html('<div class="bkgt-error">Kunde inte ladda dokumentvisare: ' + (response.data || 'Okänt fel') + '</div>');
+                }
+            },
+            error: function() {
+                $viewerPane.html('<div class="bkgt-error">Kunde inte ladda dokumentvisare.</div>');
+            }
+        });
     }
 
     /**

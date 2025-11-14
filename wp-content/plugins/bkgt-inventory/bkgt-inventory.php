@@ -46,6 +46,11 @@ require_once plugin_dir_path(__FILE__) . 'includes/class-inventory-item.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-assignment.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-api-endpoints.php';
 
+// Include permissions from bkgt-api if available
+if (function_exists('bkgt_api')) {
+    // Permissions will be loaded via bkgt-api plugin
+}
+
 // Include admin files if in admin area
 if (is_admin()) {
     require_once plugin_dir_path(__FILE__) . 'admin/class-admin.php';
@@ -85,6 +90,9 @@ function bkgt_inventory_activate() {
     
     // Upgrade database for equipment update fields
     $bkgt_inventory_db->upgrade_for_equipment_updates();
+    
+    // Migrate assignment schema (add missing columns)
+    $bkgt_inventory_db->migrate_assignment_schema();
     
     // Create history table
     BKGT_History::create_history_table();

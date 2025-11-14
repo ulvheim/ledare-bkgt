@@ -1020,11 +1020,129 @@ class BKGT_API_Admin {
         ?>
         <div class="wrap">
             <h1><?php _e('BKGT API Diagnostic', 'bkgt-api'); ?></h1>
-
-            <div class="bkgt-api-diagnostic">
-                <?php $this->render_diagnostic_section(); ?>
+            
+            <div class="bkgt-diagnostic-controls" style="margin: 20px 0; background: #f1f1f1; padding: 15px; border-radius: 4px;">
+                <button id="bkgt-test-all-endpoints" class="button button-primary" style="font-size: 14px; padding: 8px 20px;">
+                    <?php _e('Testa alla slutpunkter', 'bkgt-api'); ?>
+                </button>
+                <span id="bkgt-test-status" style="margin-left: 20px; display: none;">
+                    <span class="spinner" style="float: none; visibility: visible; margin: 0 5px 0 0;"></span>
+                    <span id="bkgt-test-message"></span>
+                </span>
             </div>
+            
+            <div id="bkgt-test-results" style="margin: 20px 0;"></div>
+            
+            <?php $this->render_diagnostic_section(); ?>
         </div>
+        
+        <style>
+            .bkgt-endpoint-result {
+                margin: 10px 0;
+                padding: 12px;
+                border-left: 4px solid #ddd;
+                background: #fafafa;
+            }
+            .bkgt-endpoint-result.success {
+                border-left-color: #46b450;
+                background: #f0f9f0;
+            }
+            .bkgt-endpoint-result.error {
+                border-left-color: #dc3545;
+                background: #fef5f5;
+            }
+            .bkgt-endpoint-result.pending {
+                border-left-color: #0073aa;
+                background: #f0f6ff;
+            }
+            .bkgt-endpoint-name {
+                font-weight: bold;
+                margin-bottom: 5px;
+            }
+            .bkgt-endpoint-details {
+                font-size: 12px;
+                color: #666;
+            }
+        </style>
+        
+        <script>
+        jQuery(document).ready(function($) {
+            var endpoints = [
+                {
+                    name: 'Teams List',
+                    method: 'GET',
+                    endpoint: '/wp-json/bkgt/v1/teams'
+                },
+                {
+                    name: 'Inventory Items',
+                    method: 'GET',
+                    endpoint: '/wp-json/bkgt/v1/inventory/items'
+                },
+                {
+                    name: 'API Status',
+                    method: 'GET',
+                    endpoint: '/wp-json/bkgt/v1/status'
+                },
+                {
+                    name: 'Documents',
+                    method: 'GET',
+                    endpoint: '/wp-json/bkgt/v1/documents'
+                }
+            ];
+            
+            $('#bkgt-test-all-endpoints').on('click', function() {
+                var $button = $(this);
+                var $status = $('#bkgt-test-status');
+                var $results = $('#bkgt-test-results');
+                
+                $button.prop('disabled', true);
+                $status.show();
+                $results.html('');
+                
+                var completed = 0;
+                var total = endpoints.length;
+                
+                endpoints.forEach(function(endpoint, index) {
+                    var $result = $('<div class="bkgt-endpoint-result pending"></div>')
+                        .append('<div class="bkgt-endpoint-name">' + endpoint.name + ' (' + endpoint.method + ')</div>')
+                        .append('<div class="bkgt-endpoint-details">Testing...</div>');
+                    
+                    $results.append($result);
+                    
+                    var url = window.location.origin + endpoint.endpoint;
+                    
+                    $.ajax({
+                        url: url,
+                        method: endpoint.method,
+                        timeout: 5000,
+                        headers: {
+                            'X-API-Key': '<?php echo esc_js(get_option('bkgt_api_key', '')); ?>'
+                        }
+                    }).done(function(data) {
+                        $result.removeClass('pending').addClass('success');
+                        $result.find('.bkgt-endpoint-details').html(
+                            'Status: 200 OK<br>' +
+                            'Response: ' + (typeof data === 'string' ? data.substring(0, 100) : JSON.stringify(data).substring(0, 100)) + '...'
+                        );
+                    }).fail(function(xhr) {
+                        $result.removeClass('pending').addClass('error');
+                        var errorMsg = 'Status: ' + xhr.status + ' ' + xhr.statusText;
+                        if (xhr.responseJSON && xhr.responseJSON.message) {
+                            errorMsg += '<br>Message: ' + xhr.responseJSON.message;
+                        }
+                        $result.find('.bkgt-endpoint-details').html(errorMsg);
+                    }).always(function() {
+                        completed++;
+                        if (completed === total) {
+                            $button.prop('disabled', false);
+                            $status.hide();
+                            $('#bkgt-test-message').text('Testing complete');
+                        }
+                    });
+                });
+            });
+        });
+        </script>
         <?php
     }
 

@@ -41,7 +41,7 @@ class BKGT_Manufacturer {
         }
         
         // Validate manufacturer ID format (numerical only)
-        if (!preg_match('/^\d+$/', $data['code']) || intval($data['code']) <= 0) {
+        if (!is_numeric($data['code']) || intval($data['code']) <= 0) {
             return new WP_Error('invalid_code', __('Kod måste vara ett positivt heltal.', 'bkgt-inventory'));
         }
         

@@ -247,7 +247,7 @@ class BKGT_Document_Version {
         $table = $wpdb->prefix . 'bkgt_document_versions';
 
         $query = $wpdb->prepare(
-            "SELECT * FROM $table WHERE document_id = %d ORDER BY upload_date DESC",
+            "SELECT * FROM $table WHERE document_id = %d ORDER BY uploaded_at DESC",
             $document_id
         );
 
@@ -353,10 +353,10 @@ class BKGT_Document_Version {
         $stats['total_size'] = $wpdb->get_var("SELECT SUM(file_size) FROM $table $where_clause");
 
         // Oldest version
-        $stats['oldest_version'] = $wpdb->get_var("SELECT MIN(upload_date) FROM $table $where_clause");
+        $stats['oldest_version'] = $wpdb->get_var("SELECT MIN(uploaded_at) FROM $table $where_clause");
 
         // Newest version
-        $stats['newest_version'] = $wpdb->get_var("SELECT MAX(upload_date) FROM $table $where_clause");
+        $stats['newest_version'] = $wpdb->get_var("SELECT MAX(uploaded_at) FROM $table $where_clause");
 
         return $stats;
     }

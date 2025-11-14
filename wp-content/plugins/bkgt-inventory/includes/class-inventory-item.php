@@ -68,16 +68,43 @@ class BKGT_Inventory_Item {
     }
     
     /**
+     * Generate sticker code from unique identifier
+     * Removes leading zeros from each part of the unique identifier
+     * Format: #-#-# (Manufacturer-ID + ItemType-ID + Sequential Number without leading zeros)
+     */
+    public static function generate_sticker_code($unique_identifier) {
+        if (empty($unique_identifier)) {
+            return '';
+        }
+        
+        // Split the unique identifier into parts
+        $parts = explode('-', $unique_identifier);
+        
+        if (count($parts) !== 3) {
+            return $unique_identifier; // Return as-is if not in expected format
+        }
+        
+        // Remove leading zeros from each part
+        $manufacturer = intval($parts[0]);
+        $item_type = intval($parts[1]);
+        $sequential = intval($parts[2]);
+        
+        return sprintf('%d-%d-%d', $manufacturer, $item_type, $sequential);
+    }
+    
+    /**
      * Get next sequential number for manufacturer + item type combination
      */
     private static function get_next_sequential_number($manufacturer_id, $item_type_id) {
         global $wpdb;
 
-        // Find the highest sequential number for this combination in the custom database table
+        // Start transaction to ensure atomic operation
+        // Lock rows to prevent concurrent access to the same combination
         $max_identifier = $wpdb->get_var($wpdb->prepare(
             "SELECT MAX(CAST(SUBSTRING_INDEX(unique_identifier, '-', -1) AS UNSIGNED)) as max_seq
              FROM {$wpdb->prefix}bkgt_inventory_items
-             WHERE manufacturer_id = %d AND item_type_id = %d",
+             WHERE manufacturer_id = %d AND item_type_id = %d
+             FOR UPDATE",
             $manufacturer_id, $item_type_id
         ));
 
@@ -681,6 +708,9 @@ class BKGT_Inventory_Item {
         // Title is always the unique identifier (the unique identifier IS the title)
         $data['title'] = $data['unique_identifier'];
         
+        // Auto-generate sticker code from unique identifier
+        $data['sticker_code'] = self::generate_sticker_code($data['unique_identifier']);
+        
         $table = $bkgt_inventory_db->get_inventory_items_table();
         
         // Prepare database insert data
@@ -692,6 +722,7 @@ class BKGT_Inventory_Item {
             'storage_location' => sanitize_text_field($data['storage_location'] ?? ''),
             'condition_status' => $data['condition_status'] ?? 'normal',
             'notes' => sanitize_textarea_field($data['notes'] ?? ''),
+            'sticker_code' => sanitize_text_field($data['sticker_code']),
             'created_at' => current_time('mysql'),
             'updated_at' => current_time('mysql'),
         );
@@ -699,9 +730,6 @@ class BKGT_Inventory_Item {
         // Add optional fields if provided
         if (isset($data['size'])) {
             $db_data['size'] = sanitize_text_field($data['size']);
-        }
-        if (isset($data['sticker_code'])) {
-            $db_data['sticker_code'] = sanitize_text_field($data['sticker_code']);
         }
         if (isset($data['purchase_date'])) {
             $db_data['purchase_date'] = sanitize_text_field($data['purchase_date']);
@@ -748,22 +776,7 @@ class BKGT_Inventory_Item {
         
         $update_format = array('%s');
         
-        if (isset($data['manufacturer_id'])) {
-            $update_data['manufacturer_id'] = intval($data['manufacturer_id']);
-            $update_format[] = '%d';
-        }
-        
-        if (isset($data['item_type_id'])) {
-            $update_data['item_type_id'] = intval($data['item_type_id']);
-            $update_format[] = '%d';
-        }
-        
-        if (isset($data['unique_identifier'])) {
-            $update_data['unique_identifier'] = sanitize_text_field($data['unique_identifier']);
-            $update_data['title'] = sanitize_text_field($data['unique_identifier']); // Title is always the unique identifier
-            $update_format[] = '%s';
-            $update_format[] = '%s';
-        }
+        // Note: manufacturer_id, item_type_id, unique_identifier, and sticker_code are immutable after creation
         
         if (isset($data['storage_location'])) {
             $update_data['storage_location'] = sanitize_text_field($data['storage_location']);

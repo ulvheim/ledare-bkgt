@@ -64,14 +64,12 @@ class BKGT_Assignment {
     private static function update_assignment($item_id, $assignment_type, $assignment_id = null) {
         global $wpdb;
         
-        // Get database instance
-        $db = BKGT_Database::get_instance();
-        $assignments_table = $db->get_assignments_table();
+        // Get inventory database instance
+        global $bkgt_inventory_db;
         
         // Verify item exists in inventory_items table
-        $inventory_items_table = $db->get_inventory_items_table();
         $item_exists = $wpdb->get_var($wpdb->prepare(
-            "SELECT id FROM {$inventory_items_table} WHERE id = %d",
+            "SELECT id FROM {$bkgt_inventory_db->inventory_items_table} WHERE id = %d",
             $item_id
         ));
         
@@ -100,7 +98,7 @@ class BKGT_Assignment {
             // First, unassign any current active assignment for this item
             $current_user_id = get_current_user_id();
             $wpdb->update(
-                $assignments_table,
+                $bkgt_inventory_db->assignments_table,
                 array(
                     'unassigned_date' => current_time('mysql'),
                     'unassigned_by' => $current_user_id
@@ -115,7 +113,7 @@ class BKGT_Assignment {
             
             // Create new assignment
             $result = $wpdb->insert(
-                $assignments_table,
+                $bkgt_inventory_db->assignments_table,
                 array(
                     'item_id' => $item_id,
                     'assignee_type' => $assignee_type,
@@ -172,13 +170,12 @@ class BKGT_Assignment {
     public static function get_assignment($item_id) {
         global $wpdb;
         
-        // Get database instance
-        $db = BKGT_Database::get_instance();
-        $assignments_table = $db->get_assignments_table();
+        // Get inventory database instance
+        global $bkgt_inventory_db;
         
         // Get the most recent active assignment
         $assignment_row = $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM {$assignments_table} 
+            "SELECT * FROM {$bkgt_inventory_db->assignments_table} 
              WHERE item_id = %d AND unassigned_date IS NULL 
              ORDER BY assigned_date DESC LIMIT 1",
             $item_id
@@ -276,10 +273,8 @@ class BKGT_Assignment {
     public static function get_user_items($user_id, $args = array()) {
         global $wpdb;
         
-        // Get database instance
-        $db = BKGT_Database::get_instance();
-        $assignments_table = $db->get_assignments_table();
-        $inventory_items_table = $db->get_inventory_items_table();
+        // Get inventory database instance
+        global $bkgt_inventory_db;
         
         // Build WHERE conditions for different assignment types
         $where_conditions = array();
@@ -309,8 +304,8 @@ class BKGT_Assignment {
         
         // Build the query
         $query = $wpdb->prepare(
-            "SELECT DISTINCT i.* FROM {$inventory_items_table} i
-             INNER JOIN {$assignments_table} a ON i.id = a.item_id
+            "SELECT DISTINCT i.* FROM {$bkgt_inventory_db->inventory_items_table} i
+             INNER JOIN {$bkgt_inventory_db->assignments_table} a ON i.id = a.item_id
              WHERE a.unassigned_date IS NULL AND ($where_clause)
              ORDER BY i.created_date DESC",
             $where_values
@@ -372,13 +367,12 @@ class BKGT_Assignment {
     public static function get_assignment_history($item_id) {
         global $wpdb;
         
-        // Get database instance
-        $db = BKGT_Database::get_instance();
-        $assignments_table = $db->get_assignments_table();
+        // Get inventory database instance
+        global $bkgt_inventory_db;
         
         // Get all assignments for this item, ordered by assignment date
         $history = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM {$assignments_table} 
+            "SELECT * FROM {$bkgt_inventory_db->assignments_table} 
              WHERE item_id = %d 
              ORDER BY assigned_date DESC",
             $item_id
@@ -512,18 +506,17 @@ class BKGT_Assignment {
     public static function check_assignment_conflicts($assignee_type, $assignee_id, $exclude_item_ids = array()) {
         global $wpdb;
         
-        $db = BKGT_Database::get_instance();
-        $assignments_table = $db->get_assignments_table();
+        global $bkgt_inventory_db;
         
         $conflicts = array();
         
         // Check for existing assignments to the same assignee
         $existing_assignments = $wpdb->get_results($wpdb->prepare(
             "SELECT a.item_id, i.unique_id, m.name as manufacturer, t.name as item_type
-             FROM {$assignments_table} a
-             LEFT JOIN {$db->get_inventory_items_table()} i ON a.item_id = i.id
-             LEFT JOIN {$db->get_manufacturers_table()} m ON i.manufacturer_id = m.id
-             LEFT JOIN {$db->get_item_types_table()} t ON i.item_type_id = t.id
+             FROM {$bkgt_inventory_db->assignments_table} a
+             LEFT JOIN {$bkgt_inventory_db->inventory_items_table} i ON a.item_id = i.id
+             LEFT JOIN {$bkgt_inventory_db->manufacturers_table} m ON i.manufacturer_id = m.id
+             LEFT JOIN {$bkgt_inventory_db->item_types_table} t ON i.item_type_id = t.id
              WHERE a.assignee_type = %s AND a.assignee_id = %d AND a.unassigned_date IS NULL",
             $assignee_type, $assignee_id
         ));
@@ -628,7 +621,7 @@ class BKGT_Assignment {
     public static function get_system_alerts() {
         global $wpdb;
         
-        $db = BKGT_Database::get_instance();
+        global $bkgt_inventory_db;
         $alerts = array();
         
         // Overdue assignments (assignments older than 6 months)
@@ -641,8 +634,8 @@ class BKGT_Assignment {
                         WHEN a.assignee_type = 'user' THEN COALESCE(um.display_name, 'Användare')
                         ELSE 'Okänd'
                     END as assignee_name
-             FROM {$db->get_assignments_table()} a
-             LEFT JOIN {$db->get_inventory_items_table()} i ON a.item_id = i.id
+             FROM {$bkgt_inventory_db->assignments_table} a
+             LEFT JOIN {$bkgt_inventory_db->inventory_items_table} i ON a.item_id = i.id
              LEFT JOIN {$wpdb->posts} tm ON a.assignee_type = 'team' AND a.assignee_id = tm.ID
              LEFT JOIN {$wpdb->users} um ON a.assignee_type = 'user' AND a.assignee_id = um.ID
              WHERE a.unassigned_date IS NULL AND a.assigned_date < %s
@@ -711,9 +704,9 @@ class BKGT_Assignment {
         // Low stock alerts (less than 2 items of each type available)
         $low_stock = $wpdb->get_results(
             "SELECT t.name as item_type, COUNT(i.id) as available_count
-             FROM {$db->get_item_types_table()} t
-             LEFT JOIN {$db->get_inventory_items_table()} i ON t.id = i.item_type_id
-             LEFT JOIN {$db->get_assignments_table()} a ON i.id = a.item_id AND a.unassigned_date IS NULL
+             FROM {$bkgt_inventory_db->item_types_table} t
+             LEFT JOIN {$bkgt_inventory_db->inventory_items_table} i ON t.id = i.item_type_id
+             LEFT JOIN {$bkgt_inventory_db->assignments_table} a ON i.id = a.item_id AND a.unassigned_date IS NULL
              WHERE a.id IS NULL OR a.unassigned_date IS NOT NULL
              GROUP BY t.id, t.name
              HAVING COUNT(i.id) < 2
