@@ -3882,7 +3882,7 @@ class BKGT_API_Endpoints {
         $query = "SELECT SQL_CALC_FOUND_ROWS
             i.id, i.unique_identifier, i.title, i.manufacturer_id, i.item_type_id,
             i.storage_location, i.condition_status, i.condition_date, i.condition_reason,
-            i.sticker_code, i.created_at, i.updated_at, i.size,
+            i.sticker_code, i.notes, i.created_at, i.updated_at, i.size,
             m.name as manufacturer_name,
             it.name as item_type_name,
             a.assignee_id, a.assignee_name, a.assignment_date, a.due_date, a.location_id,
@@ -3958,7 +3958,7 @@ class BKGT_API_Endpoints {
         $query = "SELECT
             i.id, i.unique_identifier, i.title, i.manufacturer_id, i.item_type_id,
             i.storage_location, i.condition_status, i.condition_date, i.condition_reason,
-            i.sticker_code, i.purchase_date, i.purchase_price, i.warranty_expiry, i.created_at, i.updated_at, i.size, i.location_id,
+            i.sticker_code, i.notes, i.purchase_date, i.purchase_price, i.warranty_expiry, i.created_at, i.updated_at, i.size, i.location_id,
             m.name as manufacturer_name,
             it.name as item_type_name,
             a.assignee_id, a.assignee_name, a.assignment_date, a.due_date,
@@ -3999,7 +3999,12 @@ class BKGT_API_Endpoints {
         $notes = $request->get_param('notes');
 
         // Generate unique identifier
-        $unique_identifier = BKGT_Inventory_Item::generate_unique_identifier($manufacturer_id, $item_type_id);
+        if (class_exists('BKGT_Inventory_Item') && method_exists('BKGT_Inventory_Item', 'generate_unique_identifier')) {
+            $unique_identifier = BKGT_Inventory_Item::generate_unique_identifier($manufacturer_id, $item_type_id);
+        } else {
+            // Fallback: generate a simple unique identifier
+            $unique_identifier = sprintf('%04d-%04d-%05d', $manufacturer_id, $item_type_id, time() % 100000);
+        }
 
         if (!$unique_identifier) {
             return new WP_Error('invalid_manufacturer_or_type', __('Invalid manufacturer or item type.', 'bkgt-api'), array('status' => 400));
@@ -4007,7 +4012,20 @@ class BKGT_API_Endpoints {
 
         // Auto-generate sticker code if not provided
         if (empty($sticker_code)) {
-            $sticker_code = BKGT_Inventory_Item::generate_sticker_code($unique_identifier);
+            if (class_exists('BKGT_Inventory_Item') && method_exists('BKGT_Inventory_Item', 'generate_sticker_code')) {
+                $sticker_code = BKGT_Inventory_Item::generate_sticker_code($unique_identifier);
+            } else {
+                // Fallback: generate sticker code by removing leading zeros from unique identifier
+                $parts = explode('-', $unique_identifier);
+                if (count($parts) === 3) {
+                    $manufacturer = intval($parts[0]);
+                    $item_type = intval($parts[1]);
+                    $sequential = intval($parts[2]);
+                    $sticker_code = sprintf('%d-%d-%d', $manufacturer, $item_type, $sequential);
+                } else {
+                    $sticker_code = $unique_identifier;
+                }
+            }
         }
 
         // Generate meaningful title from manufacturer + item type + size
@@ -5494,6 +5512,7 @@ class BKGT_API_Endpoints {
             'purchase_date' => $item->purchase_date ?? null,
             'purchase_price' => $item->purchase_price ? (float) $item->purchase_price : null,
             'warranty_expiry' => $item->warranty_expiry ?? null,
+            'notes' => $item->notes ?? null,
             'assigned_to_id' => $item->assignee_id ? (int) $item->assignee_id : null,
             'assigned_to_name' => $item->assignee_name,
             'assignment_date' => $item->assignment_date,
