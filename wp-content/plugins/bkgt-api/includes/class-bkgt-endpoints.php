@@ -3922,8 +3922,11 @@ class BKGT_API_Endpoints {
         }
 
         if ($search) {
-            $where .= " AND (i.title LIKE %s OR i.unique_identifier LIKE %s OR i.sticker_code LIKE %s OR i.notes LIKE %s)";
+            $where .= " AND (i.title LIKE %s OR i.unique_identifier LIKE %s OR i.sticker_code LIKE %s OR i.notes LIKE %s OR m.name LIKE %s OR it.name LIKE %s OR a.assignee_name LIKE %s)";
             $search_term = '%' . $wpdb->esc_like($search) . '%';
+            $params[] = $search_term;
+            $params[] = $search_term;
+            $params[] = $search_term;
             $params[] = $search_term;
             $params[] = $search_term;
             $params[] = $search_term;
