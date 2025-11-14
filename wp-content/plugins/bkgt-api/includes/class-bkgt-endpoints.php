@@ -3922,8 +3922,11 @@ class BKGT_API_Endpoints {
         }
 
         if ($search) {
-            $where .= " AND (i.title LIKE %s OR i.unique_identifier LIKE %s OR i.sticker_code LIKE %s OR i.notes LIKE %s OR m.name LIKE %s OR it.name LIKE %s OR a.assignee_name LIKE %s)";
+            $where .= " AND (i.title LIKE %s OR i.unique_identifier LIKE %s OR i.sticker_code LIKE %s OR i.notes LIKE %s OR i.size LIKE %s OR i.condition_status LIKE %s OR m.name LIKE %s OR it.name LIKE %s OR a.assignee_name LIKE %s OR l.name LIKE %s)";
             $search_term = '%' . $wpdb->esc_like($search) . '%';
+            $params[] = $search_term;
+            $params[] = $search_term;
+            $params[] = $search_term;
             $params[] = $search_term;
             $params[] = $search_term;
             $params[] = $search_term;
@@ -5073,18 +5076,22 @@ class BKGT_API_Endpoints {
         LEFT JOIN {$wpdb->prefix}bkgt_manufacturers m ON i.manufacturer_id = m.id
         LEFT JOIN {$wpdb->prefix}bkgt_item_types it ON i.item_type_id = it.id
         LEFT JOIN {$wpdb->prefix}bkgt_inventory_assignments a ON i.id = a.item_id AND a.return_date IS NULL
+        LEFT JOIN {$wpdb->prefix}bkgt_locations l ON a.location_id = l.id
         WHERE (i.title LIKE %s
                OR i.unique_identifier LIKE %s
                OR i.sticker_code LIKE %s
                OR i.notes LIKE %s
+               OR i.size LIKE %s
+               OR i.condition_status LIKE %s
                OR m.name LIKE %s
                OR it.name LIKE %s
-               OR a.assignee_name LIKE %s)
+               OR a.assignee_name LIKE %s
+               OR l.name LIKE %s)
         ORDER BY i.title ASC
         LIMIT %d";
 
         $search_term = '%' . $wpdb->esc_like($query) . '%';
-        $params = array_fill(0, 7, $search_term);
+        $params = array_fill(0, 10, $search_term);
         $params[] = $limit;
 
         $results = $wpdb->get_results($wpdb->prepare($search_query, $params));
