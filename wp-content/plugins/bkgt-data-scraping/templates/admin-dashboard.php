@@ -916,10 +916,4 @@ if (!defined('ABSPATH')) {
     <div class="bkgt-sr-only" id="bkgt-events-search-help"><?php _e('Skriv för att söka efter matcher eller träningar', 'bkgt-data-scraping'); ?></div>
     <div class="bkgt-sr-only" id="bkgt-events-type-help"><?php _e('Välj typ för att filtrera evenemang', 'bkgt-data-scraping'); ?></div>
 
-    <!-- Load JavaScript directly -->
-    <script>
-    alert('BKGT admin.js loaded from template');
-    console.log('BKGT admin.js is working from template');
-    </script>
-
 </div>
