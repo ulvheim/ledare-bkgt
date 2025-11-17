@@ -483,6 +483,10 @@ if (!defined('ABSPATH')) {
                             <span class="dashicons dashicons-calendar"></span>
                             <?php _e('Skrapa Matcher', 'bkgt-data-scraping'); ?>
                         </button>
+                        <button type="button" class="button button-info bkgt-scrape-btn" id="bkgt-scrape-swe3" data-type="swe3">
+                            <span class="dashicons dashicons-media-document"></span>
+                            <?php _e('Skrapa SWE3 Dokument', 'bkgt-data-scraping'); ?>
+                        </button>
                     </div>
                     <div id="bkgt-scraper-progress" class="bkgt-scraper-progress" style="display: none;">
                         <div class="bkgt-progress-bar">

@@ -63,6 +63,7 @@ class BKGT_Admin {
         add_action('wp_ajax_bkgt_get_scraper_status', array($this, 'get_scraper_status'));
         add_action('wp_ajax_bkgt_save_schedule', array($this, 'save_schedule'));
         add_action('wp_ajax_bkgt_cleanup_teams', array($this, 'cleanup_teams'));
+        add_action('wp_ajax_bkgt_swe3_manual_scrape', array($this, 'handle_swe3_scrape'));
         add_action('bkgt_auto_scrape', array($this, 'run_auto_scrape'));
     }
 
@@ -1196,6 +1197,43 @@ class BKGT_Admin {
 
         } catch (Exception $e) {
             wp_send_json_error($e->getMessage());
+        }
+    }
+
+    /**
+     * Handle SWE3 manual scrape via AJAX
+     */
+    public function handle_swe3_scrape() {
+        check_ajax_referer('bkgt_admin_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Otillräckliga behörigheter', 'bkgt-data-scraping'));
+        }
+
+        try {
+            // Check if SWE3 scraper plugin is active
+            if (!function_exists('bkgt_swe3_scraper')) {
+                throw new Exception(__('SWE3 scraper plugin är inte aktiv', 'bkgt-data-scraping'));
+            }
+
+            $swe3_scraper = bkgt_swe3_scraper();
+
+            if (!$swe3_scraper || !$swe3_scraper->scraper) {
+                throw new Exception(__('SWE3 scraper kunde inte initieras', 'bkgt-data-scraping'));
+            }
+
+            // Run the SWE3 scrape
+            $result = $swe3_scraper->scraper->run_complete_scrape();
+
+            wp_send_json_success(array(
+                'message' => __('SWE3 dokument skrapning slutförd', 'bkgt-data-scraping'),
+                'result' => $result
+            ));
+
+        } catch (Exception $e) {
+            wp_send_json_error(array(
+                'message' => $e->getMessage()
+            ));
         }
     }
 
