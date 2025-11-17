@@ -1461,4 +1461,88 @@ class BKGT_Admin {
             ));
         }
     }
+
+    /**
+     * Handle SWE3 manual scrape AJAX request
+     */
+    public function handle_swe3_scrape() {
+        try {
+            // Verify nonce
+            if (!wp_verify_nonce($_POST['nonce'], 'bkgt_scraper_nonce')) {
+                wp_send_json_error(array(
+                    'message' => __('Security check failed', 'bkgt-data-scraping'),
+                    'error_code' => 'invalid_nonce'
+                ));
+                return;
+            }
+
+            // Check permissions
+            if (!current_user_can('manage_options')) {
+                wp_send_json_error(array(
+                    'message' => __('Insufficient permissions', 'bkgt-data-scraping'),
+                    'error_code' => 'insufficient_permissions'
+                ));
+                return;
+            }
+
+            // Check if SWE3 scraper plugin is active
+            if (!is_plugin_active('bkgt-swe3-scraper/bkgt-swe3-scraper.php')) {
+                wp_send_json_error(array(
+                    'message' => __('SWE3 scraper plugin is not active', 'bkgt-data-scraping'),
+                    'error_code' => 'plugin_not_active'
+                ));
+                return;
+            }
+
+            // Check if bkgt_swe3_scraper function exists
+            if (!function_exists('bkgt_swe3_scraper')) {
+                wp_send_json_error(array(
+                    'message' => __('SWE3 scraper function not available', 'bkgt-data-scraping'),
+                    'error_code' => 'function_not_available'
+                ));
+                return;
+            }
+
+            $scraper_instance = bkgt_swe3_scraper();
+            if (!$scraper_instance || !isset($scraper_instance->scheduler)) {
+                wp_send_json_error(array(
+                    'message' => __('SWE3 scraper not properly initialized', 'bkgt-data-scraping'),
+                    'error_code' => 'scraper_not_initialized'
+                ));
+                return;
+            }
+
+            $scheduler = $scraper_instance->scheduler;
+            if (!method_exists($scheduler, 'trigger_manual_scrape')) {
+                wp_send_json_error(array(
+                    'message' => __('SWE3 scheduler method not available', 'bkgt-data-scraping'),
+                    'error_code' => 'scheduler_method_missing'
+                ));
+                return;
+            }
+
+            // Trigger the manual scrape
+            $result = $scheduler->trigger_manual_scrape();
+
+            if (is_array($result) && isset($result['success'])) {
+                wp_send_json($result);
+            } else {
+                wp_send_json_error(array(
+                    'message' => __('Invalid response from SWE3 scheduler', 'bkgt-data-scraping'),
+                    'error_code' => 'invalid_scheduler_response',
+                    'response_type' => gettype($result),
+                    'response_data' => $result
+                ));
+            }
+
+        } catch (Exception $e) {
+            error_log('BKGT SWE3 scrape error: ' . $e->getMessage());
+            wp_send_json_error(array(
+                'message' => __('An unexpected error occurred during SWE3 scraping: ', 'bkgt-data-scraping') . $e->getMessage(),
+                'error_code' => 'unexpected_exception',
+                'exception_type' => get_class($e),
+                'exception_message' => $e->getMessage()
+            ));
+        }
+    }
 }

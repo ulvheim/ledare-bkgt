@@ -64,7 +64,7 @@
                 type: 'POST',
                 data: {
                     action: 'bkgt_swe3_manual_scrape',
-                    nonce: bkgt_ajax.nonce
+                    nonce: bkgt_ajax.scraper_nonce
                 },
                 success: function(response) {
                     BKGT_SWE3_Admin.handleScrapeResponse(response, $button, $status);
