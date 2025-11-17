@@ -45,7 +45,7 @@
         handleManualScrape: function(e) {
             e.preventDefault();
 
-            if (!confirm(bkgt_swe3_ajax.strings.confirm_scrape)) {
+            if (!confirm(bkgt_ajax.strings.confirm_scrape)) {
                 return;
             }
 
@@ -55,16 +55,16 @@
             // Disable button and show loading
             $button.prop('disabled', true);
             $status.removeClass('success error').addClass('loading').html(
-                '<span class="bkgt-swe3-spinner"></span>' + bkgt_swe3_ajax.strings.scraping
+                '<span class="bkgt-swe3-spinner"></span>' + bkgt_ajax.strings.scraping
             );
 
             // Make AJAX request
             $.ajax({
-                url: bkgt_swe3_ajax.ajax_url,
+                url: bkgt_ajax.ajax_url,
                 type: 'POST',
                 data: {
                     action: 'bkgt_swe3_manual_scrape',
-                    nonce: bkgt_swe3_ajax.nonce
+                    nonce: bkgt_ajax.nonce
                 },
                 success: function(response) {
                     BKGT_SWE3_Admin.handleScrapeResponse(response, $button, $status);

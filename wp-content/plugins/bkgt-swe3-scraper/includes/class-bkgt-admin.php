@@ -123,7 +123,9 @@ class BKGT_Admin {
                 'preparing_scrape' => __('Förbereder skrapning...', 'bkgt-data-scraping'),
                 'scrape_completed' => __('Skrapning slutförd!', 'bkgt-data-scraping'),
                 'scrape_success' => __('Skrapning slutförd framgångsrikt!', 'bkgt-data-scraping'),
-                'schedule_saved' => __('Schemaläggning sparad!', 'bkgt-data-scraping')
+                'schedule_saved' => __('Schemaläggning sparad!', 'bkgt-data-scraping'),
+                'confirm_scrape' => __('Är du säker på att du vill köra en manuell SWE3-dokument skrapning? Detta kan ta några minuter.', 'bkgt-data-scraping'),
+                'scraping' => __('Skrapar SWE3 dokument...', 'bkgt-data-scraping')
             )
         ));
     }
