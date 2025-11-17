@@ -417,39 +417,6 @@ class BKGT_SWE3_Scraper {
     }
 
     /**
-     * Log message
-     */
-    private function log($level, $message) {
-        $log_levels = array('debug', 'info', 'warning', 'error');
-
-        if (!in_array($level, $log_levels)) {
-            $level = 'info';
-        }
-
-        $current_level = get_option('bkgt_swe3_log_level', 'info');
-        $current_level_index = array_search($current_level, $log_levels);
-        $message_level_index = array_search($level, $log_levels);
-
-        if ($message_level_index < $current_level_index) {
-            return; // Don't log messages below current level
-        }
-
-        $log_message = sprintf(
-            '[%s] [%s] %s',
-            current_time('Y-m-d H:i:s'),
-            strtoupper($level),
-            $message
-        );
-
-        // Write to WordPress debug log if enabled
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log($log_message);
-        }
-
-        // TODO: Implement custom log file writing
-    }
-
-    /**
      * Extract metadata from document data
      */
     private function extract_document_metadata($document) {
@@ -459,5 +426,12 @@ class BKGT_SWE3_Scraper {
             'version' => isset($document['version']) ? $document['version'] : '1.0',
             'publication_date' => isset($document['publication_date']) ? $document['publication_date'] : null,
         );
+    }
+
+    /**
+     * Log a message
+     */
+    private function log($level, $message) {
+        error_log(sprintf('[BKGT SWE3 Scraper] [%s] %s', strtoupper($level), $message));
     }
 }

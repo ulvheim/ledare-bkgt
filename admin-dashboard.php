@@ -483,6 +483,10 @@ if (!defined('ABSPATH')) {
                             <span class="dashicons dashicons-calendar"></span>
                             <?php _e('Skrapa Matcher', 'bkgt-data-scraping'); ?>
                         </button>
+                        <button type="button" class="button button-secondary bkgt-scrape-btn" id="bkgt-scrape-swe3" data-type="swe3">
+                            <span class="dashicons dashicons-media-document"></span>
+                            <?php _e('Skrapa SWE3 Dokument', 'bkgt-data-scraping'); ?>
+                        </button>
                     </div>
                     <div id="bkgt-scraper-progress" class="bkgt-scraper-progress" style="display: none;">
                         <div class="bkgt-progress-bar">
@@ -915,11 +919,5 @@ if (!defined('ABSPATH')) {
     <div class="bkgt-sr-only" id="bkgt-players-position-help"><?php _e('Välj position för att filtrera spelare', 'bkgt-data-scraping'); ?></div>
     <div class="bkgt-sr-only" id="bkgt-events-search-help"><?php _e('Skriv för att söka efter matcher eller träningar', 'bkgt-data-scraping'); ?></div>
     <div class="bkgt-sr-only" id="bkgt-events-type-help"><?php _e('Välj typ för att filtrera evenemang', 'bkgt-data-scraping'); ?></div>
-
-    <!-- Load JavaScript directly -->
-    <script>
-    alert('BKGT admin.js loaded from template');
-    console.log('BKGT admin.js is working from template');
-    </script>
 
 </div>

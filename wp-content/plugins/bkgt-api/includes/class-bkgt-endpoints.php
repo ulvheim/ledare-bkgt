@@ -325,14 +325,808 @@ class BKGT_API_Endpoints {
             ),
         ));
 
-        register_rest_route($this->namespace, '/documents/types', array(
-            'methods' => 'GET',
-            'callback' => array($this, 'get_document_types'),
-            'permission_callback' => array($this, 'validate_token'),
-        ));
-    }
+          register_rest_route($this->namespace, '/documents/types', array(
+              'methods' => 'GET',
+              'callback' => array($this, 'get_document_types'),
+              'permission_callback' => array($this, 'validate_token'),
+          ));
 
-    /**
+          // ===== ADVANCED DMS FUNCTIONALITY =====
+
+          // Document CRUD operations
+          register_rest_route($this->namespace, '/documents', array(
+              array(
+                  'methods' => 'POST',
+                  'callback' => array($this, 'create_document'),
+                  'permission_callback' => array($this, 'validate_token'),
+                  'args' => array(
+                      'title' => array(
+                          'required' => true,
+                          'type' => 'string',
+                          'sanitize_callback' => 'sanitize_text_field',
+                          'validate_callback' => array($this, 'validate_required'),
+                      ),
+                      'content' => array(
+                          'type' => 'string',
+                          'sanitize_callback' => 'wp_kses_post',
+                      ),
+                      'document_type' => array(
+                          'type' => 'string',
+                          'sanitize_callback' => 'sanitize_text_field',
+                      ),
+                      'category' => array(
+                          'type' => 'string',
+                          'sanitize_callback' => 'sanitize_text_field',
+                      ),
+                      'status' => array(
+                          'type' => 'string',
+                          'enum' => array('draft', 'published', 'archived'),
+                          'default' => 'draft',
+                      ),
+                      'template_id' => array(
+                          'type' => 'integer',
+                          'validate_callback' => array($this, 'validate_numeric'),
+                      ),
+                  ),
+              ),
+          ));
+
+          register_rest_route($this->namespace, '/documents/(?P<id>\d+)', array(
+              array(
+                  'methods' => 'PUT',
+                  'callback' => array($this, 'update_document'),
+                  'permission_callback' => array($this, 'validate_token'),
+                  'args' => array(
+                      'id' => array(
+                          'type' => 'integer',
+                          'required' => true,
+                          'validate_callback' => array($this, 'validate_numeric'),
+                      ),
+                      'title' => array(
+                          'type' => 'string',
+                          'sanitize_callback' => 'sanitize_text_field',
+                      ),
+                      'content' => array(
+                          'type' => 'string',
+                          'sanitize_callback' => 'wp_kses_post',
+                      ),
+                      'document_type' => array(
+                          'type' => 'string',
+                          'sanitize_callback' => 'sanitize_text_field',
+                      ),
+                      'category' => array(
+                          'type' => 'string',
+                          'sanitize_callback' => 'sanitize_text_field',
+                      ),
+                      'status' => array(
+                          'type' => 'string',
+                          'enum' => array('draft', 'published', 'archived'),
+                      ),
+                  ),
+              ),
+              array(
+                  'methods' => 'DELETE',
+                  'callback' => array($this, 'delete_document'),
+                  'permission_callback' => array($this, 'validate_token'),
+                  'args' => array(
+                      'id' => array(
+                          'type' => 'integer',
+                          'required' => true,
+                          'validate_callback' => array($this, 'validate_numeric'),
+                      ),
+                  ),
+              ),
+          ));
+
+          // Document upload
+          register_rest_route($this->namespace, '/documents/upload', array(
+              'methods' => 'POST',
+              'callback' => array($this, 'upload_document'),
+              'permission_callback' => array($this, 'validate_token'),
+          ));
+
+          // ===== VERSION CONTROL =====
+          register_rest_route($this->namespace, '/documents/(?P<id>\d+)/versions', array(
+              array(
+                  'methods' => 'GET',
+                  'callback' => array($this, 'get_document_versions'),
+                  'permission_callback' => array($this, 'validate_token'),
+                  'args' => array(
+                      'id' => array(
+                          'type' => 'integer',
+                          'required' => true,
+                          'validate_callback' => array($this, 'validate_numeric'),
+                      ),
+                  ),
+              ),
+              array(
+                  'methods' => 'POST',
+                  'callback' => array($this, 'create_document_version'),
+                  'permission_callback' => array($this, 'validate_token'),
+                  'args' => array(
+                      'id' => array(
+                          'type' => 'integer',
+                          'required' => true,
+                          'validate_callback' => array($this, 'validate_numeric'),
+                      ),
+                      'comment' => array(
+                          'type' => 'string',
+                          'sanitize_callback' => 'sanitize_text_field',
+                      ),
+                  ),
+              ),
+          ));
+
+          register_rest_route($this->namespace, '/documents/(?P<id>\d+)/versions/(?P<version>\d+)', array(
+              array(
+                  'methods' => 'GET',
+                  'callback' => array($this, 'get_document_version'),
+                  'permission_callback' => array($this, 'validate_token'),
+                  'args' => array(
+                      'id' => array(
+                          'type' => 'integer',
+                          'required' => true,
+                          'validate_callback' => array($this, 'validate_numeric'),
+                      ),
+                      'version' => array(
+                          'type' => 'integer',
+                          'required' => true,
+                          'validate_callback' => array($this, 'validate_numeric'),
+                      ),
+                  ),
+              ),
+              array(
+                  'methods' => 'POST',
+                  'callback' => array($this, 'restore_document_version'),
+                  'permission_callback' => array($this, 'validate_token'),
+                  'args' => array(
+                      'id' => array(
+                          'type' => 'integer',
+                          'required' => true,
+                          'validate_callback' => array($this, 'validate_numeric'),
+                      ),
+                      'version' => array(
+                          'type' => 'integer',
+                          'required' => true,
+                          'validate_callback' => array($this, 'validate_numeric'),
+                      ),
+                  ),
+              ),
+              array(
+                  'methods' => 'DELETE',
+                  'callback' => array($this, 'delete_document_version'),
+                  'permission_callback' => array($this, 'validate_token'),
+                  'args' => array(
+                      'id' => array(
+                          'type' => 'integer',
+                          'required' => true,
+                          'validate_callback' => array($this, 'validate_numeric'),
+                      ),
+                      'version' => array(
+                          'type' => 'integer',
+                          'required' => true,
+                          'validate_callback' => array($this, 'validate_numeric'),
+                      ),
+                  ),
+              ),
+          ));
+
+          register_rest_route($this->namespace, '/documents/(?P<id>\d+)/versions/compare', array(
+              'methods' => 'POST',
+              'callback' => array($this, 'compare_document_versions'),
+              'permission_callback' => array($this, 'validate_token'),
+              'args' => array(
+                  'id' => array(
+                      'type' => 'integer',
+                      'required' => true,
+                      'validate_callback' => array($this, 'validate_numeric'),
+                  ),
+                  'version1' => array(
+                      'type' => 'integer',
+                      'required' => true,
+                      'validate_callback' => array($this, 'validate_numeric'),
+                  ),
+                  'version2' => array(
+                      'type' => 'integer',
+                      'required' => true,
+                      'validate_callback' => array($this, 'validate_numeric'),
+                  ),
+              ),
+          ));
+
+          // ===== EXPORT FUNCTIONALITY =====
+          register_rest_route($this->namespace, '/documents/(?P<id>\d+)/export', array(
+              'methods' => 'POST',
+              'callback' => array($this, 'export_document'),
+              'permission_callback' => array($this, 'validate_token'),
+              'args' => array(
+                  'id' => array(
+                      'type' => 'integer',
+                      'required' => true,
+                      'validate_callback' => array($this, 'validate_numeric'),
+                  ),
+                  'format' => array(
+                      'type' => 'string',
+                      'enum' => array('pdf', 'docx', 'html', 'txt'),
+                      'default' => 'pdf',
+                  ),
+                  'include_versions' => array(
+                      'type' => 'boolean',
+                      'default' => false,
+                  ),
+              ),
+          ));
+
+          register_rest_route($this->namespace, '/documents/bulk-export', array(
+              'methods' => 'POST',
+              'callback' => array($this, 'bulk_export_documents'),
+              'permission_callback' => array($this, 'validate_token'),
+              'args' => array(
+                  'document_ids' => array(
+                      'type' => 'array',
+                      'required' => true,
+                      'items' => array('type' => 'integer'),
+                  ),
+                  'format' => array(
+                      'type' => 'string',
+                      'enum' => array('pdf', 'zip'),
+                      'default' => 'zip',
+                  ),
+              ),
+          ));
+
+          register_rest_route($this->namespace, '/export/formats', array(
+              'methods' => 'GET',
+              'callback' => array($this, 'get_export_formats'),
+              'permission_callback' => array($this, 'validate_token'),
+          ));
+
+          // ===== TEMPLATE MANAGEMENT =====
+          register_rest_route($this->namespace, '/templates', array(
+              array(
+                  'methods' => 'GET',
+                  'callback' => array($this, 'get_templates'),
+                  'permission_callback' => array($this, 'validate_token'),
+                  'args' => $this->get_pagination_args(array(
+                      'category' => array(
+                          'type' => 'string',
+                          'sanitize_callback' => 'sanitize_text_field',
+                      ),
+                      'search' => array(
+                          'type' => 'string',
+                          'sanitize_callback' => 'sanitize_text_field',
+                      ),
+                  )),
+              ),
+              array(
+                  'methods' => 'POST',
+                  'callback' => array($this, 'create_template'),
+                  'permission_callback' => array($this, 'validate_token'),
+                  'args' => array(
+                      'name' => array(
+                          'required' => true,
+                          'type' => 'string',
+                          'sanitize_callback' => 'sanitize_text_field',
+                          'validate_callback' => array($this, 'validate_required'),
+                      ),
+                      'description' => array(
+                          'type' => 'string',
+                          'sanitize_callback' => 'sanitize_textarea_field',
+                      ),
+                      'content' => array(
+                          'required' => true,
+                          'type' => 'string',
+                          'sanitize_callback' => 'wp_kses_post',
+                          'validate_callback' => array($this, 'validate_required'),
+                      ),
+                      'category' => array(
+                          'type' => 'string',
+                          'sanitize_callback' => 'sanitize_text_field',
+                      ),
+                      'variables' => array(
+                          'type' => 'array',
+                          'items' => array('type' => 'string'),
+                      ),
+                  ),
+              ),
+          ));
+
+          register_rest_route($this->namespace, '/templates/(?P<id>\d+)', array(
+              array(
+                  'methods' => 'GET',
+                  'callback' => array($this, 'get_template'),
+                  'permission_callback' => array($this, 'validate_token'),
+                  'args' => array(
+                      'id' => array(
+                          'type' => 'integer',
+                          'required' => true,
+                          'validate_callback' => array($this, 'validate_numeric'),
+                      ),
+                  ),
+              ),
+              array(
+                  'methods' => 'PUT',
+                  'callback' => array($this, 'update_template'),
+                  'permission_callback' => array($this, 'validate_token'),
+                  'args' => array(
+                      'id' => array(
+                          'type' => 'integer',
+                          'required' => true,
+                          'validate_callback' => array($this, 'validate_numeric'),
+                      ),
+                      'name' => array(
+                          'type' => 'string',
+                          'sanitize_callback' => 'sanitize_text_field',
+                      ),
+                      'description' => array(
+                          'type' => 'string',
+                          'sanitize_callback' => 'sanitize_textarea_field',
+                      ),
+                      'content' => array(
+                          'type' => 'string',
+                          'sanitize_callback' => 'wp_kses_post',
+                      ),
+                      'category' => array(
+                          'type' => 'string',
+                          'sanitize_callback' => 'sanitize_text_field',
+                      ),
+                      'variables' => array(
+                          'type' => 'array',
+                          'items' => array('type' => 'string'),
+                      ),
+                  ),
+              ),
+              array(
+                  'methods' => 'DELETE',
+                  'callback' => array($this, 'delete_template'),
+                  'permission_callback' => array($this, 'validate_token'),
+                  'args' => array(
+                      'id' => array(
+                          'type' => 'integer',
+                          'required' => true,
+                          'validate_callback' => array($this, 'validate_numeric'),
+                      ),
+                  ),
+              ),
+          ));
+
+          register_rest_route($this->namespace, '/templates/(?P<id>\d+)/preview', array(
+              'methods' => 'POST',
+              'callback' => array($this, 'preview_template'),
+              'permission_callback' => array($this, 'validate_token'),
+              'args' => array(
+                  'id' => array(
+                      'type' => 'integer',
+                      'required' => true,
+                      'validate_callback' => array($this, 'validate_numeric'),
+                  ),
+                  'variables' => array(
+                      'type' => 'object',
+                      'default' => array(),
+                  ),
+              ),
+          ));
+
+          register_rest_route($this->namespace, '/templates/(?P<id>\d+)/create-document', array(
+              'methods' => 'POST',
+              'callback' => array($this, 'create_document_from_template'),
+              'permission_callback' => array($this, 'validate_token'),
+              'args' => array(
+                  'id' => array(
+                      'type' => 'integer',
+                      'required' => true,
+                      'validate_callback' => array($this, 'validate_numeric'),
+                  ),
+                  'variables' => array(
+                      'type' => 'object',
+                      'default' => array(),
+                  ),
+                  'title' => array(
+                      'required' => true,
+                      'type' => 'string',
+                      'sanitize_callback' => 'sanitize_text_field',
+                      'validate_callback' => array($this, 'validate_required'),
+                  ),
+                  'document_type' => array(
+                      'type' => 'string',
+                      'sanitize_callback' => 'sanitize_text_field',
+                  ),
+                  'category' => array(
+                      'type' => 'string',
+                      'sanitize_callback' => 'sanitize_text_field',
+                  ),
+              ),
+          ));
+
+          // ===== ADVANCED SEARCH =====
+          register_rest_route($this->namespace, '/documents/search', array(
+              'methods' => 'GET',
+              'callback' => array($this, 'search_documents'),
+              'permission_callback' => array($this, 'validate_token'),
+              'args' => $this->get_pagination_args(array(
+                  'query' => array(
+                      'type' => 'string',
+                      'sanitize_callback' => 'sanitize_text_field',
+                  ),
+                  'category' => array(
+                      'type' => 'string',
+                      'sanitize_callback' => 'sanitize_text_field',
+                  ),
+                  'document_type' => array(
+                      'type' => 'string',
+                      'sanitize_callback' => 'sanitize_text_field',
+                  ),
+                  'author' => array(
+                      'type' => 'integer',
+                      'validate_callback' => array($this, 'validate_numeric'),
+                  ),
+                  'status' => array(
+                      'type' => 'string',
+                      'enum' => array('draft', 'published', 'archived'),
+                  ),
+                  'date_from' => array(
+                      'type' => 'string',
+                      'format' => 'date',
+                      'validate_callback' => array($this, 'validate_date'),
+                  ),
+                  'date_to' => array(
+                      'type' => 'string',
+                      'format' => 'date',
+                      'validate_callback' => array($this, 'validate_date'),
+                  ),
+                  'tags' => array(
+                      'type' => 'array',
+                      'items' => array('type' => 'string'),
+                  ),
+                  'sort_by' => array(
+                      'type' => 'string',
+                      'enum' => array('date', 'title', 'author', 'modified'),
+                      'default' => 'date',
+                  ),
+                  'sort_order' => array(
+                      'type' => 'string',
+                      'enum' => array('asc', 'desc'),
+                      'default' => 'desc',
+                  ),
+              )),
+          ));
+
+          // ===== ACCESS CONTROL =====
+          register_rest_route($this->namespace, '/documents/(?P<id>\d+)/permissions', array(
+              array(
+                  'methods' => 'GET',
+                  'callback' => array($this, 'get_document_permissions'),
+                  'permission_callback' => array($this, 'validate_token'),
+                  'args' => array(
+                      'id' => array(
+                          'type' => 'integer',
+                          'required' => true,
+                          'validate_callback' => array($this, 'validate_numeric'),
+                      ),
+                  ),
+              ),
+              array(
+                  'methods' => 'PUT',
+                  'callback' => array($this, 'update_document_permissions'),
+                  'permission_callback' => array($this, 'validate_token'),
+                  'args' => array(
+                      'id' => array(
+                          'type' => 'integer',
+                          'required' => true,
+                          'validate_callback' => array($this, 'validate_numeric'),
+                      ),
+                      'permissions' => array(
+                          'type' => 'array',
+                          'items' => array(
+                              'type' => 'object',
+                              'properties' => array(
+                                  'user_id' => array('type' => 'integer'),
+                                  'role_id' => array('type' => 'integer'),
+                                  'can_read' => array('type' => 'boolean'),
+                                  'can_write' => array('type' => 'boolean'),
+                                  'can_delete' => array('type' => 'boolean'),
+                              ),
+                          ),
+                      ),
+                  ),
+              ),
+          ));
+
+          register_rest_route($this->namespace, '/documents/(?P<id>\d+)/share', array(
+              'methods' => 'POST',
+              'callback' => array($this, 'share_document'),
+              'permission_callback' => array($this, 'validate_token'),
+              'args' => array(
+                  'id' => array(
+                      'type' => 'integer',
+                      'required' => true,
+                      'validate_callback' => array($this, 'validate_numeric'),
+                  ),
+                  'recipients' => array(
+                      'type' => 'array',
+                      'required' => true,
+                      'items' => array('type' => 'integer'),
+                  ),
+                  'permissions' => array(
+                      'type' => 'object',
+                      'properties' => array(
+                          'can_read' => array('type' => 'boolean', 'default' => true),
+                          'can_write' => array('type' => 'boolean', 'default' => false),
+                          'can_delete' => array('type' => 'boolean', 'default' => false),
+                      ),
+                  ),
+                  'message' => array(
+                      'type' => 'string',
+                      'sanitize_callback' => 'sanitize_textarea_field',
+                  ),
+                  'expires_at' => array(
+                      'type' => 'string',
+                      'format' => 'date-time',
+                      'validate_callback' => array($this, 'validate_datetime'),
+                  ),
+              ),
+          ));
+
+          // ===== CATEGORIES & METADATA =====
+          register_rest_route($this->namespace, '/categories', array(
+              array(
+                  'methods' => 'GET',
+                  'callback' => array($this, 'get_categories'),
+                  'permission_callback' => array($this, 'validate_token'),
+              ),
+              array(
+                  'methods' => 'POST',
+                  'callback' => array($this, 'create_category'),
+                  'permission_callback' => array($this, 'validate_token'),
+                  'args' => array(
+                      'name' => array(
+                          'required' => true,
+                          'type' => 'string',
+                          'sanitize_callback' => 'sanitize_text_field',
+                          'validate_callback' => array($this, 'validate_required'),
+                      ),
+                      'description' => array(
+                          'type' => 'string',
+                          'sanitize_callback' => 'sanitize_textarea_field',
+                      ),
+                      'parent_id' => array(
+                          'type' => 'integer',
+                          'validate_callback' => array($this, 'validate_numeric'),
+                      ),
+                      'color' => array(
+                          'type' => 'string',
+                          'sanitize_callback' => 'sanitize_hex_color',
+                      ),
+                  ),
+              ),
+          ));
+
+          register_rest_route($this->namespace, '/categories/(?P<id>\d+)', array(
+              array(
+                  'methods' => 'GET',
+                  'callback' => array($this, 'get_category'),
+                  'permission_callback' => array($this, 'validate_token'),
+                  'args' => array(
+                      'id' => array(
+                          'type' => 'integer',
+                          'required' => true,
+                          'validate_callback' => array($this, 'validate_numeric'),
+                      ),
+                  ),
+              ),
+              array(
+                  'methods' => 'PUT',
+                  'callback' => array($this, 'update_category'),
+                  'permission_callback' => array($this, 'validate_token'),
+                  'args' => array(
+                      'id' => array(
+                          'type' => 'integer',
+                          'required' => true,
+                          'validate_callback' => array($this, 'validate_numeric'),
+                      ),
+                      'name' => array(
+                          'type' => 'string',
+                          'sanitize_callback' => 'sanitize_text_field',
+                      ),
+                      'description' => array(
+                          'type' => 'string',
+                          'sanitize_callback' => 'sanitize_textarea_field',
+                      ),
+                      'parent_id' => array(
+                          'type' => 'integer',
+                          'validate_callback' => array($this, 'validate_numeric'),
+                      ),
+                      'color' => array(
+                          'type' => 'string',
+                          'sanitize_callback' => 'sanitize_hex_color',
+                      ),
+                  ),
+              ),
+              array(
+                  'methods' => 'DELETE',
+                  'callback' => array($this, 'delete_category'),
+                  'permission_callback' => array($this, 'validate_token'),
+                  'args' => array(
+                      'id' => array(
+                          'type' => 'integer',
+                          'required' => true,
+                          'validate_callback' => array($this, 'validate_numeric'),
+                      ),
+                  ),
+              ),
+          ));
+
+          register_rest_route($this->namespace, '/documents/(?P<id>\d+)/metadata', array(
+              array(
+                  'methods' => 'GET',
+                  'callback' => array($this, 'get_document_metadata'),
+                  'permission_callback' => array($this, 'validate_token'),
+                  'args' => array(
+                      'id' => array(
+                          'type' => 'integer',
+                          'required' => true,
+                          'validate_callback' => array($this, 'validate_numeric'),
+                      ),
+                  ),
+              ),
+              array(
+                  'methods' => 'PUT',
+                  'callback' => array($this, 'update_document_metadata'),
+                  'permission_callback' => array($this, 'validate_token'),
+                  'args' => array(
+                      'id' => array(
+                          'type' => 'integer',
+                          'required' => true,
+                          'validate_callback' => array($this, 'validate_numeric'),
+                      ),
+                      'metadata' => array(
+                          'type' => 'object',
+                          'default' => array(),
+                      ),
+                  ),
+              ),
+          ));
+
+          // ===== BULK OPERATIONS =====
+          register_rest_route($this->namespace, '/documents/bulk', array(
+              'methods' => 'POST',
+              'callback' => array($this, 'bulk_document_operation'),
+              'permission_callback' => array($this, 'validate_token'),
+              'args' => array(
+                  'operation' => array(
+                      'required' => true,
+                      'type' => 'string',
+                      'enum' => array('delete', 'move', 'update', 'export', 'archive', 'publish'),
+                      'validate_callback' => array($this, 'validate_required'),
+                  ),
+                  'document_ids' => array(
+                      'required' => true,
+                      'type' => 'array',
+                      'items' => array('type' => 'integer'),
+                      'validate_callback' => array($this, 'validate_required'),
+                  ),
+                  'data' => array(
+                      'type' => 'object',
+                      'default' => array(),
+                  ),
+              ),
+          ));
+
+          // ===== DOCUMENT VIEWER =====
+          register_rest_route($this->namespace, '/documents/(?P<id>\d+)/viewer', array(
+              'methods' => 'GET',
+              'callback' => array($this, 'get_document_viewer'),
+              'permission_callback' => array($this, 'validate_token'),
+              'args' => array(
+                  'id' => array(
+                      'type' => 'integer',
+                      'required' => true,
+                      'validate_callback' => array($this, 'validate_numeric'),
+                  ),
+                  'page' => array(
+                      'type' => 'integer',
+                      'default' => 1,
+                      'minimum' => 1,
+                  ),
+                  'zoom' => array(
+                      'type' => 'number',
+                      'default' => 1.0,
+                      'minimum' => 0.1,
+                      'maximum' => 5.0,
+                  ),
+              ),
+          ));
+
+          // ===== DOCUMENT STATISTICS =====
+          register_rest_route($this->namespace, '/documents/(?P<id>\d+)/stats', array(
+              'methods' => 'GET',
+              'callback' => array($this, 'get_document_stats'),
+              'permission_callback' => array($this, 'validate_token'),
+              'args' => array(
+                  'id' => array(
+                      'type' => 'integer',
+                      'required' => true,
+                      'validate_callback' => array($this, 'validate_numeric'),
+                  ),
+              ),
+          ));
+
+          register_rest_route($this->namespace, '/documents/stats', array(
+              'methods' => 'GET',
+              'callback' => array($this, 'get_documents_stats'),
+              'permission_callback' => array($this, 'validate_token'),
+              'args' => array(
+                  'period' => array(
+                      'type' => 'string',
+                      'enum' => array('day', 'week', 'month', 'year'),
+                      'default' => 'month',
+                  ),
+              ),
+          ));
+
+          // ===== DOCUMENT TAGS =====
+          register_rest_route($this->namespace, '/tags', array(
+              array(
+                  'methods' => 'GET',
+                  'callback' => array($this, 'get_tags'),
+                  'permission_callback' => array($this, 'validate_token'),
+                  'args' => array(
+                      'search' => array(
+                          'type' => 'string',
+                          'sanitize_callback' => 'sanitize_text_field',
+                      ),
+                  ),
+              ),
+              array(
+                  'methods' => 'POST',
+                  'callback' => array($this, 'create_tag'),
+                  'permission_callback' => array($this, 'validate_token'),
+                  'args' => array(
+                      'name' => array(
+                          'required' => true,
+                          'type' => 'string',
+                          'sanitize_callback' => 'sanitize_text_field',
+                          'validate_callback' => array($this, 'validate_required'),
+                      ),
+                      'color' => array(
+                          'type' => 'string',
+                          'sanitize_callback' => 'sanitize_hex_color',
+                      ),
+                  ),
+              ),
+          ));
+
+          register_rest_route($this->namespace, '/documents/(?P<id>\d+)/tags', array(
+              array(
+                  'methods' => 'GET',
+                  'callback' => array($this, 'get_document_tags'),
+                  'permission_callback' => array($this, 'validate_token'),
+                  'args' => array(
+                      'id' => array(
+                          'type' => 'integer',
+                          'required' => true,
+                          'validate_callback' => array($this, 'validate_numeric'),
+                      ),
+                  ),
+              ),
+              array(
+                  'methods' => 'PUT',
+                  'callback' => array($this, 'update_document_tags'),
+                  'permission_callback' => array($this, 'validate_token'),
+                  'args' => array(
+                      'id' => array(
+                          'type' => 'integer',
+                          'required' => true,
+                          'validate_callback' => array($this, 'validate_numeric'),
+                      ),
+                      'tags' => array(
+                          'type' => 'array',
+                          'items' => array('type' => 'integer'),
+                      ),
+                  ),
+              ),
+          ));
+      }    /**
      * Get pagination arguments for REST API endpoints
      */
     private function get_pagination_args($additional_args = array()) {
@@ -1442,7 +2236,21 @@ class BKGT_API_Endpoints {
         register_rest_route($this->namespace, '/diagnostic', array(
             'methods' => 'GET',
             'callback' => array($this, 'get_diagnostic_info'),
-            'permission_callback' => array($this, 'validate_token'),
+            'permission_callback' => array($this, 'validate_admin_token'),
+            'args' => array(
+                'sections' => array(
+                    'type' => 'string',
+                    'default' => 'all',
+                    'description' => 'Comma-separated list of sections to include: system_info,plugin_status,database_status,api_status,api_statistics,recent_logs,performance_metrics,error_summary',
+                    'sanitize_callback' => 'sanitize_text_field',
+                ),
+                'limit' => array(
+                    'type' => 'integer',
+                    'default' => 50,
+                    'description' => 'Maximum number of log entries to return',
+                    'sanitize_callback' => 'absint',
+                ),
+            ),
         ));
     }
 
@@ -2015,65 +2823,70 @@ class BKGT_API_Endpoints {
      * Document endpoint handlers
      */
     public function get_documents($request) {
-        global $wpdb;
-
-        $page = $request->get_param('page');
-        $per_page = $request->get_param('per_page');
+        $page = $request->get_param('page') ?: 1;
+        $per_page = $request->get_param('per_page') ?: 20;
         $type = $request->get_param('type');
         $search = $request->get_param('search');
         $year = $request->get_param('year');
 
-        $offset = ($page - 1) * $per_page;
+        // Build WP_Query arguments
+        $args = array(
+            'post_type' => 'bkgt_document',
+            'post_status' => 'publish',
+            'posts_per_page' => $per_page,
+            'paged' => $page,
+            'orderby' => 'date',
+            'order' => 'DESC',
+        );
 
-        $where = "WHERE 1=1";
-        $params = array();
+        // Add meta queries for filtering
+        $meta_query = array();
 
         if ($type) {
-            $where .= " AND type = %s";
-            $params[] = $type;
-        }
-
-        if ($search) {
-            $where .= " AND (title LIKE %s OR description LIKE %s)";
-            $search_term = '%' . $wpdb->esc_like($search) . '%';
-            $params[] = $search_term;
-            $params[] = $search_term;
+            $meta_query[] = array(
+                'key' => '_bkgt_document_type',
+                'value' => $type,
+                'compare' => '='
+            );
         }
 
         if ($year) {
-            $where .= " AND YEAR(upload_date) = %d";
-            $params[] = $year;
+            $args['year'] = $year;
         }
 
-        $total_query = "SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_documents $where";
-        $total = $wpdb->get_var($wpdb->prepare($total_query, $params));
+        if (!empty($meta_query)) {
+            $args['meta_query'] = $meta_query;
+        }
 
-        $documents_query = "SELECT * FROM {$wpdb->prefix}bkgt_documents $where ORDER BY upload_date DESC LIMIT %d OFFSET %d";
-        $params[] = $per_page;
-        $params[] = $offset;
+        // Add search
+        if ($search) {
+            $args['s'] = $search;
+        }
 
-        $documents = $wpdb->get_results($wpdb->prepare($documents_query, $params));
+        $query = new WP_Query($args);
+        $documents = array();
+
+        foreach ($query->posts as $post) {
+            $documents[] = $this->format_document_data($post);
+        }
 
         return new WP_REST_Response(array(
-            'success' => true,
-            'data' => array(
-                'documents' => $documents,
-                'pagination' => $this->prepare_pagination_data($page, $per_page, $total),
+            'documents' => $documents,
+            'pagination' => array(
+                'page' => $page,
+                'per_page' => $per_page,
+                'total' => $query->found_posts,
+                'total_pages' => $query->max_num_pages,
             ),
         ), 200);
     }
 
     public function get_document($request) {
-        global $wpdb;
-
         $document_id = $request->get_param('id');
 
-        $document = $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM {$wpdb->prefix}bkgt_documents WHERE id = %d",
-            $document_id
-        ));
+        $post = get_post($document_id);
 
-        if (!$document) {
+        if (!$post || $post->post_type !== 'bkgt_document') {
             return new WP_Error(
                 'document_not_found',
                 __('Document not found.', 'bkgt-api'),
@@ -2081,23 +2894,15 @@ class BKGT_API_Endpoints {
             );
         }
 
-        return new WP_REST_Response(array(
-            'success' => true,
-            'data' => $document,
-        ), 200);
+        return new WP_REST_Response($this->format_document_data($post), 200);
     }
 
     public function download_document($request) {
-        global $wpdb;
-
         $document_id = $request->get_param('id');
 
-        $document = $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM {$wpdb->prefix}bkgt_documents WHERE id = %d",
-            $document_id
-        ));
+        $post = get_post($document_id);
 
-        if (!$document) {
+        if (!$post || $post->post_type !== 'bkgt_document') {
             return new WP_Error(
                 'document_not_found',
                 __('Document not found.', 'bkgt-api'),
@@ -2105,9 +2910,31 @@ class BKGT_API_Endpoints {
             );
         }
 
-        $file_path = wp_get_upload_dir()['basedir'] . '/bkgt/' . $document->file_path;
+        // Get file path from post meta
+        $file_path_meta = get_post_meta($document_id, '_bkgt_file_path', true);
+        $file_url = get_post_meta($document_id, '_bkgt_file_url', true);
 
-        if (!file_exists($file_path)) {
+        if (empty($file_path_meta)) {
+            // Fallback: try to get attachment
+            $attachments = get_attached_media('', $document_id);
+            if (!empty($attachments)) {
+                $attachment = reset($attachments);
+                $file_path_meta = str_replace(wp_get_upload_dir()['basedir'] . '/', '', get_attached_file($attachment->ID));
+                $file_url = wp_get_attachment_url($attachment->ID);
+            }
+        }
+
+        if (empty($file_path_meta)) {
+            return new WP_Error(
+                'file_not_found',
+                __('File not found.', 'bkgt-api'),
+                array('status' => 404)
+            );
+        }
+
+        $full_file_path = wp_get_upload_dir()['basedir'] . '/' . $file_path_meta;
+
+        if (!file_exists($full_file_path)) {
             return new WP_Error(
                 'file_not_found',
                 __('File not found.', 'bkgt-api'),
@@ -2119,16 +2946,15 @@ class BKGT_API_Endpoints {
         $this->log_document_download($document_id);
 
         // Return file data
-        $file_data = file_get_contents($file_path);
+        $file_data = file_get_contents($full_file_path);
+        $mime_type = get_post_meta($document_id, '_bkgt_mime_type', true) ?: mime_content_type($full_file_path);
 
         return new WP_REST_Response(array(
-            'success' => true,
-            'data' => array(
-                'filename' => $document->title,
-                'mime_type' => $document->mime_type,
-                'size' => $document->file_size,
-                'content' => base64_encode($file_data),
-            ),
+            'filename' => $post->post_title,
+            'mime_type' => $mime_type,
+            'size' => get_post_meta($document_id, '_bkgt_file_size', true) ?: filesize($full_file_path),
+            'content' => base64_encode($file_data),
+            'url' => $file_url,
         ), 200);
     }
 
@@ -3327,127 +4153,96 @@ class BKGT_API_Endpoints {
     public function get_diagnostic_info($request) {
         global $wpdb;
 
+        $sections = $request->get_param('sections');
+        $limit = $request->get_param('limit');
+
         $diagnostic = array(
-            'plugin_status' => array(),
-            'database_tables' => array(),
-            'api_endpoints' => array(),
-            'inventory_items' => array(),
-            'class_availability' => array(),
-            'generated_at' => current_time('mysql'),
+            'timestamp' => current_time('mysql'),
         );
 
-        // Plugin Status
-        $plugins = array(
-            'bkgt-core/bkgt-core.php' => 'BKGT Core',
-            'bkgt-data-scraping/bkgt-data-scraping.php' => 'BKGT Data Scraping',
-            'bkgt-inventory/bkgt-inventory.php' => 'BKGT Inventory',
-            'bkgt-api/bkgt-api.php' => 'BKGT API'
-        );
-
-        foreach ($plugins as $file => $name) {
-            $active = is_plugin_active($file);
-            $diagnostic['plugin_status'][] = array(
-                'plugin' => $name,
-                'status' => $active ? 'ACTIVE' : 'INACTIVE',
-                'active' => $active,
+        // Parse requested sections
+        if ($sections === 'all') {
+            $requested_sections = array(
+                'system_info',
+                'plugin_status',
+                'database_status',
+                'api_status',
+                'api_statistics',
+                'recent_logs',
+                'performance_metrics',
+                'error_summary'
             );
+        } else {
+            $requested_sections = array_map('trim', explode(',', $sections));
         }
 
-        // Database Tables
-        $tables = array(
-            'bkgt_inventory_items',
-            'bkgt_manufacturers',
-            'bkgt_item_types',
-            'bkgt_inventory_assignments',
-            'bkgt_locations'
-        );
-
-        foreach ($tables as $table) {
-            $table_name = $wpdb->prefix . $table;
-            $exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'") === $table_name;
-            $diagnostic['database_tables'][] = array(
-                'table' => $table,
-                'status' => $exists ? 'EXISTS' : 'MISSING',
-                'exists' => $exists,
-            );
-        }
-
-        // API Endpoints
-        $endpoints = array(
-            'wp-json/bkgt/v1/equipment' => 'Requires authentication',
-            'wp-json/bkgt/v1/equipment/preview-identifier' => 'Requires authentication',
-            'wp-json/bkgt/v1/equipment/manufacturers' => 'Requires authentication',
-            'wp-json/bkgt/v1/equipment/types' => 'Requires authentication'
-        );
-
-        foreach ($endpoints as $endpoint => $description) {
-            $url = home_url($endpoint);
-            $response = wp_remote_head($url);
-            $status = wp_remote_retrieve_response_code($response);
-            $is_expected = ($status == 401);
-            $diagnostic['api_endpoints'][] = array(
-                'endpoint' => $endpoint,
-                'description' => $description,
-                'status_code' => $status,
-                'expected' => $is_expected,
-            );
-        }
-
-        // Recent Inventory Items
-        $items = $wpdb->get_results(
-            "SELECT i.id, i.unique_identifier, i.title, m.name as manufacturer_name, it.name as item_type_name, i.condition_status
-             FROM {$wpdb->prefix}bkgt_inventory_items i
-             LEFT JOIN {$wpdb->prefix}bkgt_manufacturers m ON i.manufacturer_id = m.id
-             LEFT JOIN {$wpdb->prefix}bkgt_item_types it ON i.item_type_id = it.id
-             ORDER BY i.id DESC LIMIT 10"
-        );
-
-        foreach ($items as $item) {
-            $diagnostic['inventory_items'][] = array(
-                'id' => $item->id,
-                'identifier' => $item->unique_identifier,
-                'title' => $item->title,
-                'manufacturer' => $item->manufacturer_name ?: 'Unknown',
-                'type' => $item->item_type_name ?: 'Unknown',
-                'status' => $item->condition_status,
-            );
-        }
-
-        // Class Availability
-        $classes = array(
-            'BKGT_Inventory_Item',
-            'BKGT_Manufacturer',
-            'BKGT_Item_Type',
-            'BKGT_Assignment'
-        );
-
-        foreach ($classes as $class) {
-            $exists = class_exists($class);
-            $diagnostic['class_availability'][] = array(
-                'class' => $class,
-                'status' => $exists ? 'EXISTS' : 'MISSING',
-                'available' => $exists,
-            );
+        // Build diagnostic data based on requested sections
+        foreach ($requested_sections as $section) {
+            switch ($section) {
+                case 'system_info':
+                    $diagnostic['system_info'] = $this->get_system_info();
+                    break;
+                case 'plugin_status':
+                    $diagnostic['plugin_status'] = $this->get_plugin_status();
+                    break;
+                case 'database_status':
+                    $diagnostic['database_status'] = $this->get_database_status();
+                    break;
+                case 'api_status':
+                    $diagnostic['api_status'] = $this->get_api_status();
+                    break;
+                case 'api_statistics':
+                    $diagnostic['api_statistics'] = $this->get_api_statistics();
+                    break;
+                case 'recent_logs':
+                    $diagnostic['recent_logs'] = $this->get_recent_logs($limit);
+                    break;
+                case 'performance_metrics':
+                    $diagnostic['performance_metrics'] = $this->get_performance_metrics();
+                    break;
+                case 'error_summary':
+                    $diagnostic['error_summary'] = $this->get_error_summary();
+                    break;
+            }
         }
 
         return new WP_REST_Response(array(
             'success' => true,
             'data' => $diagnostic,
+            'requested_sections' => $requested_sections,
         ), 200);
     }
 
     /**
-     * Dashboard and Error Log Helper Methods
+     * Get comprehensive system information
      */
-    private function get_database_version() {
-        global $wpdb;
-        return $wpdb->get_var("SELECT VERSION()");
+    private function get_system_info() {
+        global $wp_version;
+
+        return array(
+            'wordpress_version' => $wp_version,
+            'php_version' => PHP_VERSION,
+            'server_software' => $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown',
+            'database_version' => $this->get_database_version(),
+            'memory_limit' => ini_get('memory_limit'),
+            'max_execution_time' => ini_get('max_execution_time'),
+            'upload_max_filesize' => ini_get('upload_max_filesize'),
+            'timezone' => wp_timezone_string(),
+            'site_url' => get_site_url(),
+            'home_url' => get_home_url(),
+            'is_multisite' => is_multisite(),
+            'debug_mode' => defined('WP_DEBUG') && WP_DEBUG,
+            'script_debug' => defined('SCRIPT_DEBUG') && SCRIPT_DEBUG,
+        );
     }
 
-    private function get_bkgt_plugins_info() {
+    /**
+     * Get comprehensive plugin status
+     */
+    private function get_plugin_status() {
         $plugins = array();
 
-        // Check for BKGT plugins
+        // BKGT plugins
         $bkgt_plugins = array(
             'bkgt-core' => 'BKGT Core',
             'bkgt-api' => 'BKGT API',
@@ -3461,14 +4256,31 @@ class BKGT_API_Endpoints {
         );
 
         foreach ($bkgt_plugins as $slug => $name) {
-            $plugin_file = WP_PLUGIN_DIR . '/' . $slug . '/' . $slug . '.php';
-            if (file_exists($plugin_file)) {
-                $plugin_data = get_plugin_data($plugin_file);
+            $plugin_file = $slug . '/' . $slug . '.php';
+            $full_path = WP_PLUGIN_DIR . '/' . $plugin_file;
+
+            if (file_exists($full_path)) {
+                $plugin_data = get_plugin_data($full_path);
+                $active = is_plugin_active($plugin_file);
+
                 $plugins[$slug] = array(
                     'name' => $name,
                     'version' => $plugin_data['Version'] ?? 'Unknown',
-                    'active' => is_plugin_active($slug . '/' . $slug . '.php'),
-                    'path' => $slug . '/' . $slug . '.php',
+                    'active' => $active,
+                    'status' => $active ? 'ACTIVE' : 'INACTIVE',
+                    'path' => $plugin_file,
+                    'description' => $plugin_data['Description'] ?? '',
+                    'author' => $plugin_data['Author'] ?? '',
+                );
+            } else {
+                $plugins[$slug] = array(
+                    'name' => $name,
+                    'version' => 'Not Installed',
+                    'active' => false,
+                    'status' => 'NOT_INSTALLED',
+                    'path' => $plugin_file,
+                    'description' => '',
+                    'author' => '',
                 );
             }
         }
@@ -3476,28 +4288,231 @@ class BKGT_API_Endpoints {
         return $plugins;
     }
 
-    private function check_database_connection() {
+    /**
+     * Get database status and table information
+     */
+    private function get_database_status() {
         global $wpdb;
-        $result = $wpdb->check_connection();
+
+        $tables = array(
+            'bkgt_inventory_items',
+            'bkgt_manufacturers',
+            'bkgt_item_types',
+            'bkgt_inventory_assignments',
+            'bkgt_locations',
+            'bkgt_teams',
+            'bkgt_players',
+            'bkgt_events',
+            'bkgt_documents',
+        );
+
+        $table_status = array();
+        $total_rows = 0;
+
+        foreach ($tables as $table) {
+            $table_name = $wpdb->prefix . $table;
+            $exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'") === $table_name;
+
+            if ($exists) {
+                $row_count = $wpdb->get_var("SELECT COUNT(*) FROM $table_name");
+                $total_rows += $row_count;
+
+                $table_status[$table] = array(
+                    'exists' => true,
+                    'status' => 'EXISTS',
+                    'row_count' => (int) $row_count,
+                );
+            } else {
+                $table_status[$table] = array(
+                    'exists' => false,
+                    'status' => 'MISSING',
+                    'row_count' => 0,
+                );
+            }
+        }
+
         return array(
-            'status' => $result ? 'healthy' : 'error',
-            'message' => $result ? 'Database connection is healthy' : 'Database connection failed',
+            'connection' => $this->check_database_connection(),
+            'tables' => $table_status,
+            'total_rows' => $total_rows,
+            'database_size' => $this->get_database_size(),
         );
     }
 
-    private function check_file_permissions() {
-        $wp_content = WP_CONTENT_DIR;
-        $writable = wp_is_writable($wp_content);
+    /**
+     * Get API endpoint status
+     */
+    private function get_api_status() {
+        $endpoints = array(
+            'wp-json/bkgt/v1/health' => 'Health check (no auth required)',
+            'wp-json/bkgt/v1/auth/login' => 'Authentication login',
+            'wp-json/bkgt/v1/equipment' => 'Equipment management (requires auth)',
+            'wp-json/bkgt/v1/teams' => 'Team management (requires auth)',
+            'wp-json/bkgt/v1/players' => 'Player management (requires auth)',
+            'wp-json/bkgt/v1/events' => 'Event management (requires auth)',
+            'wp-json/bkgt/v1/documents' => 'Document management (requires auth)',
+            'wp-json/bkgt/v1/diagnostic' => 'Diagnostics (requires auth)',
+        );
 
+        $endpoint_status = array();
+
+        foreach ($endpoints as $endpoint => $description) {
+            $url = home_url($endpoint);
+            $start_time = microtime(true);
+
+            // Use HEAD request for status check
+            $response = wp_remote_head($url, array('timeout' => 10));
+            $end_time = microtime(true);
+
+            $status_code = wp_remote_retrieve_response_code($response);
+            $response_time = round(($end_time - $start_time) * 1000, 2); // ms
+
+            // Determine if status is expected
+            $is_expected = true;
+            if (strpos($description, 'requires auth') !== false) {
+                $is_expected = in_array($status_code, array(401, 200)); // 401 = auth required, 200 = auth provided
+            } elseif (strpos($description, 'no auth required') !== false) {
+                $is_expected = $status_code === 200;
+            }
+
+            $endpoint_status[$endpoint] = array(
+                'description' => $description,
+                'status_code' => $status_code,
+                'response_time_ms' => $response_time,
+                'expected' => $is_expected,
+                'healthy' => $status_code >= 200 && $status_code < 400,
+            );
+        }
+
+        return $endpoint_status;
+    }
+
+    /**
+     * Get API call statistics
+     */
+    private function get_api_statistics() {
+        global $wpdb;
+
+        // Get API call counts by endpoint (if logging is enabled)
+        $stats = array(
+            'total_calls_today' => 0,
+            'total_calls_week' => 0,
+            'total_calls_month' => 0,
+            'calls_by_endpoint' => array(),
+            'error_rate' => 0,
+            'average_response_time' => 0,
+        );
+
+        // Check if we have API logging tables (this would need to be implemented)
+        // For now, return basic stats
+        $stats['note'] = 'API call logging not yet implemented. This would track endpoint usage, response times, and error rates.';
+
+        return $stats;
+    }
+
+    /**
+     * Get recent logs from BKGT logger
+     */
+    private function get_recent_logs($limit = 20) {
+        $logs = array();
+
+        // Try to get logs from BKGT Logger
+        if (class_exists('BKGT_Logger')) {
+            try {
+                $recent_logs = BKGT_Logger::get_recent_logs($limit);
+
+                foreach ($recent_logs as $log_entry) {
+                    // Parse log entry format: [timestamp] [level]: message
+                    if (preg_match('/\[([^\]]+)\]\s*\[([^\]]+)\]:\s*(.+)/', $log_entry, $matches)) {
+                        $logs[] = array(
+                            'timestamp' => $matches[1],
+                            'level' => $matches[2],
+                            'message' => $matches[3],
+                        );
+                    } else {
+                        $logs[] = array(
+                            'timestamp' => current_time('mysql'),
+                            'level' => 'unknown',
+                            'message' => $log_entry,
+                        );
+                    }
+                }
+            } catch (Exception $e) {
+                $logs[] = array(
+                    'timestamp' => current_time('mysql'),
+                    'level' => 'error',
+                    'message' => 'Failed to retrieve logs: ' . $e->get_message(),
+                );
+            }
+        } else {
+            $logs[] = array(
+                'timestamp' => current_time('mysql'),
+                'level' => 'warning',
+                'message' => 'BKGT Logger class not available',
+            );
+        }
+
+        return $logs;
+    }
+
+    /**
+     * Get performance metrics
+     */
+    private function get_performance_metrics() {
         return array(
-            'status' => $writable ? 'healthy' : 'error',
-            'message' => $writable ? 'File permissions are correct' : 'wp-content directory is not writable',
+            'memory_usage' => $this->get_memory_usage(),
+            'file_permissions' => $this->check_file_permissions(),
+            'cron_status' => $this->check_cron_status(),
+            'cache_status' => $this->check_cache_status(),
+            'uptime' => $this->get_system_uptime(),
         );
     }
 
-    private function get_memory_usage() {
-        $memory_limit = ini_get('memory_limit');
-        $memory_used = memory_get_peak_usage(true);
+    /**
+     * Get error summary
+     */
+    private function get_error_summary() {
+        $errors = array(
+            'php_errors' => array(),
+            'database_errors' => array(),
+            'api_errors' => array(),
+            'plugin_errors' => array(),
+        );
+
+        // Get recent PHP errors if available
+        $error_log = ini_get('error_log');
+        if ($error_log && file_exists($error_log)) {
+            $lines = file($error_log, FILE_IGNORE_NEW_LINES);
+            $recent_lines = array_slice($lines, -10); // Last 10 lines
+
+            foreach ($recent_lines as $line) {
+                if (strpos($line, 'PHP') !== false || strpos($line, 'Error') !== false) {
+                    $errors['php_errors'][] = array(
+                        'timestamp' => current_time('mysql'),
+                        'message' => $line,
+                    );
+                }
+            }
+        }
+
+        // Database errors would need custom logging
+        $errors['database_errors'][] = array(
+            'note' => 'Database error logging not yet implemented',
+        );
+
+        // API errors would need custom logging
+        $errors['api_errors'][] = array(
+            'note' => 'API error logging not yet implemented',
+        );
+
+        // Plugin errors from logs
+        $plugin_errors = array_filter($this->get_recent_logs(), function($log) {
+            return in_array(strtolower($log['level']), array('error', 'critical'));
+        });
+        $errors['plugin_errors'] = array_slice($plugin_errors, 0, 5); // Last 5 errors
+
+        return $errors;
+    }
         $memory_limit_bytes = wp_convert_hr_to_bytes($memory_limit);
 
         return array(
@@ -6452,6 +7467,1168 @@ class BKGT_API_Endpoints {
         );
     }
 
+    // ===== ADDITIONAL DMS METHODS =====
+
+    /**
+     * Upload document file
+     */
+    public function upload_document($request) {
+        // Check if file was uploaded
+        if (empty($_FILES['file'])) {
+            return new WP_Error('no_file', 'No file uploaded', array('status' => 400));
+        }
+
+        $file = $_FILES['file'];
+
+        // Validate file
+        $allowed_types = array('pdf', 'doc', 'docx', 'txt', 'rtf', 'odt');
+        $file_info = wp_check_filetype($file['name']);
+
+        if (!in_array($file_info['ext'], $allowed_types)) {
+            return new WP_Error('invalid_file_type', 'Invalid file type', array('status' => 400));
+        }
+
+        // Handle upload
+        $upload_overrides = array('upload_error_handler' => array($this, 'handle_upload_error'));
+        $uploaded_file = wp_handle_upload($file, $upload_overrides);
+
+        if (isset($uploaded_file['error'])) {
+            return new WP_Error('upload_failed', $uploaded_file['error'], array('status' => 500));
+        }
+
+        // Create document post
+        $title = $request->get_param('title') ?: sanitize_file_name(basename($file['name'], '.' . $file_info['ext']));
+        $content = $request->get_param('description') ?: '';
+        $document_type = $request->get_param('document_type') ?: 'other';
+        $category = $request->get_param('category');
+
+        $post_data = array(
+            'post_title' => $title,
+            'post_content' => $content,
+            'post_type' => 'bkgt_document',
+            'post_status' => 'publish',
+            'post_author' => get_current_user_id(),
+            'meta_input' => array(
+                '_bkgt_document_type' => $document_type,
+                '_bkgt_file_url' => $uploaded_file['url'],
+                '_bkgt_file_path' => $uploaded_file['file'],
+                '_bkgt_file_size' => $file['size'],
+                '_bkgt_mime_type' => $file_info['type'],
+            ),
+        );
+
+        $post_id = wp_insert_post($post_data);
+
+        if (is_wp_error($post_id)) {
+            return $post_id;
+        }
+
+        // Set category if provided
+        if ($category) {
+            wp_set_post_terms($post_id, array($category), 'bkgt_document_category');
+        }
+
+        return new WP_REST_Response($this->format_document_data(get_post($post_id)), 201);
+    }
+
+    /**
+     * Search documents with advanced filters
+     */
+    public function search_documents($request) {
+        $query = $request->get_param('query');
+        $category = $request->get_param('category');
+        $document_type = $request->get_param('document_type');
+        $author = $request->get_param('author');
+        $status = $request->get_param('status');
+        $date_from = $request->get_param('date_from');
+        $date_to = $request->get_param('date_to');
+        $tags = $request->get_param('tags');
+        $sort_by = $request->get_param('sort_by') ?: 'date';
+        $sort_order = $request->get_param('sort_order') ?: 'desc';
+        $page = $request->get_param('page') ?: 1;
+        $per_page = $request->get_param('per_page') ?: 20;
+
+        $args = array(
+            'post_type' => 'bkgt_document',
+            'post_status' => 'publish',
+            'posts_per_page' => $per_page,
+            'paged' => $page,
+            'orderby' => $sort_by,
+            'order' => strtoupper($sort_order),
+        );
+
+        // Add search query
+        if ($query) {
+            $args['s'] = $query;
+        }
+
+        // Add meta queries
+        $meta_query = array();
+
+        if ($document_type) {
+            $meta_query[] = array(
+                'key' => '_bkgt_document_type',
+                'value' => $document_type,
+                'compare' => '='
+            );
+        }
+
+        if ($status) {
+            $args['post_status'] = $status;
+        }
+
+        if (!empty($meta_query)) {
+            $args['meta_query'] = $meta_query;
+        }
+
+        // Add taxonomy queries
+        $tax_query = array();
+
+        if ($category) {
+            $tax_query[] = array(
+                'taxonomy' => 'bkgt_document_category',
+                'field' => 'slug',
+                'terms' => $category,
+            );
+        }
+
+        if (!empty($tags)) {
+            $tax_query[] = array(
+                'taxonomy' => 'bkgt_document_tag',
+                'field' => 'term_id',
+                'terms' => $tags,
+            );
+        }
+
+        if (!empty($tax_query)) {
+            $args['tax_query'] = $tax_query;
+        }
+
+        // Add author filter
+        if ($author) {
+            $args['author'] = $author;
+        }
+
+        // Add date filters
+        if ($date_from) {
+            $args['date_query']['after'] = $date_from;
+        }
+        if ($date_to) {
+            $args['date_query']['before'] = $date_to;
+        }
+
+        $query_obj = new WP_Query($args);
+        $documents = array();
+
+        foreach ($query_obj->posts as $post) {
+            $documents[] = $this->format_document_data($post);
+        }
+
+        return new WP_REST_Response(array(
+            'documents' => $documents,
+            'pagination' => array(
+                'page' => $page,
+                'per_page' => $per_page,
+                'total' => $query_obj->found_posts,
+                'total_pages' => $query_obj->max_num_pages,
+            ),
+        ), 200);
+    }
+
+    /**
+     * Get templates
+     */
+    public function get_templates($request) {
+        global $wpdb;
+
+        $category = $request->get_param('category');
+        $search = $request->get_param('search');
+        $page = $request->get_param('page') ?: 1;
+        $per_page = $request->get_param('per_page') ?: 20;
+
+        $where = array("status = 'active'");
+        $params = array();
+
+        if ($category) {
+            $where[] = "category = %s";
+            $params[] = $category;
+        }
+
+        if ($search) {
+            $where[] = "(name LIKE %s OR description LIKE %s)";
+            $params[] = '%' . $wpdb->esc_like($search) . '%';
+            $params[] = '%' . $wpdb->esc_like($search) . '%';
+        }
+
+        $where_clause = implode(' AND ', $where);
+        $offset = ($page - 1) * $per_page;
+
+        $templates = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}bkgt_document_templates
+             WHERE {$where_clause}
+             ORDER BY name ASC
+             LIMIT %d OFFSET %d",
+            array_merge($params, array($per_page, $offset))
+        ));
+
+        $total = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}bkgt_document_templates
+             WHERE {$where_clause}",
+            $params
+        ));
+
+        return new WP_REST_Response(array(
+            'templates' => $templates,
+            'pagination' => array(
+                'page' => $page,
+                'per_page' => $per_page,
+                'total' => $total,
+                'total_pages' => ceil($total / $per_page),
+            ),
+        ), 200);
+    }
+
+    /**
+     * Get single template
+     */
+    public function get_template($request) {
+        global $wpdb;
+
+        $template_id = $request->get_param('id');
+
+        $template = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}bkgt_document_templates WHERE id = %d",
+            $template_id
+        ));
+
+        if (!$template) {
+            return new WP_Error('template_not_found', 'Template not found', array('status' => 404));
+        }
+
+        return new WP_REST_Response($template, 200);
+    }
+
+    /**
+     * Create template
+     */
+    public function create_template($request) {
+        global $wpdb;
+
+        $name = $request->get_param('name');
+        $description = $request->get_param('description');
+        $content = $request->get_param('content');
+        $category = $request->get_param('category');
+        $variables = $request->get_param('variables') ?: array();
+
+        $result = $wpdb->insert(
+            $wpdb->prefix . 'bkgt_document_templates',
+            array(
+                'name' => $name,
+                'description' => $description,
+                'content' => $content,
+                'category' => $category,
+                'variables' => json_encode($variables),
+                'created_by' => get_current_user_id(),
+                'created_at' => current_time('mysql'),
+                'status' => 'active',
+            ),
+            array('%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s')
+        );
+
+        if ($result === false) {
+            return new WP_Error('db_error', 'Failed to create template', array('status' => 500));
+        }
+
+        $template_id = $wpdb->insert_id;
+
+        return new WP_REST_Response(array(
+            'id' => $template_id,
+            'name' => $name,
+            'description' => $description,
+            'category' => $category,
+            'variables' => $variables,
+            'created_at' => current_time('mysql'),
+        ), 201);
+    }
+
+    /**
+     * Update template
+     */
+    public function update_template($request) {
+        global $wpdb;
+
+        $template_id = $request->get_param('id');
+        $name = $request->get_param('name');
+        $description = $request->get_param('description');
+        $content = $request->get_param('content');
+        $category = $request->get_param('category');
+        $variables = $request->get_param('variables');
+
+        $update_data = array();
+        $update_format = array();
+
+        if ($name !== null) {
+            $update_data['name'] = $name;
+            $update_format[] = '%s';
+        }
+        if ($description !== null) {
+            $update_data['description'] = $description;
+            $update_format[] = '%s';
+        }
+        if ($content !== null) {
+            $update_data['content'] = $content;
+            $update_format[] = '%s';
+        }
+        if ($category !== null) {
+            $update_data['category'] = $category;
+            $update_format[] = '%s';
+        }
+        if ($variables !== null) {
+            $update_data['variables'] = json_encode($variables);
+            $update_format[] = '%s';
+        }
+
+        $update_data['updated_at'] = current_time('mysql');
+        $update_format[] = '%s';
+
+        $result = $wpdb->update(
+            $wpdb->prefix . 'bkgt_document_templates',
+            $update_data,
+            array('id' => $template_id),
+            $update_format,
+            array('%d')
+        );
+
+        if ($result === false) {
+            return new WP_Error('db_error', 'Failed to update template', array('status' => 500));
+        }
+
+        return new WP_REST_Response(array('updated' => true), 200);
+    }
+
+    /**
+     * Delete template
+     */
+    public function delete_template($request) {
+        global $wpdb;
+
+        $template_id = $request->get_param('id');
+
+        $result = $wpdb->update(
+            $wpdb->prefix . 'bkgt_document_templates',
+            array('status' => 'deleted'),
+            array('id' => $template_id),
+            array('%s'),
+            array('%d')
+        );
+
+        if ($result === false) {
+            return new WP_Error('db_error', 'Failed to delete template', array('status' => 500));
+        }
+
+        return new WP_REST_Response(array('deleted' => true), 200);
+    }
+
+    /**
+     * Preview template with variables
+     */
+    public function preview_template($request) {
+        global $wpdb;
+
+        $template_id = $request->get_param('id');
+        $variables = $request->get_param('variables') ?: array();
+
+        $template = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}bkgt_document_templates WHERE id = %d AND status = 'active'",
+            $template_id
+        ));
+
+        if (!$template) {
+            return new WP_Error('template_not_found', 'Template not found', array('status' => 404));
+        }
+
+        $content = $template->content;
+
+        // Replace variables
+        foreach ($variables as $key => $value) {
+            $content = str_replace('{{' . $key . '}}', $value, $content);
+        }
+
+        return new WP_REST_Response(array(
+            'template_id' => $template_id,
+            'preview_content' => $content,
+            'variables_used' => array_keys($variables),
+        ), 200);
+    }
+
+    /**
+     * Create document from template
+     */
+    public function create_document_from_template($request) {
+        global $wpdb;
+
+        $template_id = $request->get_param('id');
+        $variables = $request->get_param('variables') ?: array();
+        $title = $request->get_param('title');
+        $document_type = $request->get_param('document_type') ?: 'other';
+        $category = $request->get_param('category');
+
+        $template = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}bkgt_document_templates WHERE id = %d AND status = 'active'",
+            $template_id
+        ));
+
+        if (!$template) {
+            return new WP_Error('template_not_found', 'Template not found', array('status' => 404));
+        }
+
+        $content = $template->content;
+
+        // Replace variables
+        foreach ($variables as $key => $value) {
+            $content = str_replace('{{' . $key . '}}', $value, $content);
+        }
+
+        // Create document
+        $post_data = array(
+            'post_title' => $title,
+            'post_content' => $content,
+            'post_type' => 'bkgt_document',
+            'post_status' => 'publish',
+            'post_author' => get_current_user_id(),
+            'meta_input' => array(
+                '_bkgt_document_type' => $document_type,
+                '_bkgt_template_id' => $template_id,
+                '_bkgt_template_variables' => json_encode($variables),
+            ),
+        );
+
+        $post_id = wp_insert_post($post_data);
+
+        if (is_wp_error($post_id)) {
+            return $post_id;
+        }
+
+        // Set category if provided
+        if ($category) {
+            wp_set_post_terms($post_id, array($category), 'bkgt_document_category');
+        }
+
+        return new WP_REST_Response($this->format_document_data(get_post($post_id)), 201);
+    }
+
+    /**
+     * Get document permissions
+     */
+    public function get_document_permissions($request) {
+        $document_id = $request->get_param('id');
+
+        if (!$this->check_document_access($document_id, get_current_user_id(), 'manage')) {
+            return new WP_Error('access_denied', 'Access denied', array('status' => 403));
+        }
+
+        $permissions = $this->get_document_permissions_summary($document_id);
+
+        return new WP_REST_Response(array('permissions' => $permissions), 200);
+    }
+
+    /**
+     * Update document permissions
+     */
+    public function update_document_permissions($request) {
+        global $wpdb;
+
+        $document_id = $request->get_param('id');
+        $permissions = $request->get_param('permissions');
+
+        if (!$this->check_document_access($document_id, get_current_user_id(), 'manage')) {
+            return new WP_Error('access_denied', 'Access denied', array('status' => 403));
+        }
+
+        // Clear existing permissions
+        $wpdb->delete(
+            $wpdb->prefix . 'bkgt_document_permissions',
+            array('document_id' => $document_id),
+            array('%d')
+        );
+
+        // Add new permissions
+        foreach ($permissions as $permission) {
+            $wpdb->insert(
+                $wpdb->prefix . 'bkgt_document_permissions',
+                array(
+                    'document_id' => $document_id,
+                    'user_id' => $permission['user_id'] ?? null,
+                    'role_id' => $permission['role_id'] ?? null,
+                    'can_read' => $permission['can_read'] ?? false,
+                    'can_write' => $permission['can_write'] ?? false,
+                    'can_delete' => $permission['can_delete'] ?? false,
+                    'granted_by' => get_current_user_id(),
+                    'granted_at' => current_time('mysql'),
+                ),
+                array('%d', '%d', '%d', '%d', '%d', '%d', '%d', '%s')
+            );
+        }
+
+        return new WP_REST_Response(array('updated' => true), 200);
+    }
+
+    /**
+     * Share document with users
+     */
+    public function share_document($request) {
+        global $wpdb;
+
+        $document_id = $request->get_param('id');
+        $recipients = $request->get_param('recipients');
+        $permissions = $request->get_param('permissions') ?: array();
+        $message = $request->get_param('message');
+        $expires_at = $request->get_param('expires_at');
+
+        if (!$this->check_document_access($document_id, get_current_user_id(), 'manage')) {
+            return new WP_Error('access_denied', 'Access denied', array('status' => 403));
+        }
+
+        $shared_count = 0;
+
+        foreach ($recipients as $user_id) {
+            // Check if user exists
+            if (!get_user_by('id', $user_id)) {
+                continue;
+            }
+
+            // Add permission
+            $wpdb->insert(
+                $wpdb->prefix . 'bkgt_document_permissions',
+                array(
+                    'document_id' => $document_id,
+                    'user_id' => $user_id,
+                    'can_read' => $permissions['can_read'] ?? true,
+                    'can_write' => $permissions['can_write'] ?? false,
+                    'can_delete' => $permissions['can_delete'] ?? false,
+                    'expires_at' => $expires_at,
+                    'granted_by' => get_current_user_id(),
+                    'granted_at' => current_time('mysql'),
+                ),
+                array('%d', '%d', '%d', '%d', '%d', '%s', '%d', '%s')
+            );
+
+            $shared_count++;
+        }
+
+        return new WP_REST_Response(array(
+            'shared' => true,
+            'shared_count' => $shared_count,
+            'message' => 'Document shared successfully'
+        ), 200);
+    }
+
+    /**
+     * Get categories
+     */
+    public function get_categories($request) {
+        $args = array(
+            'taxonomy' => 'bkgt_document_category',
+            'hide_empty' => false,
+            'orderby' => 'name',
+            'order' => 'ASC',
+        );
+
+        $categories = get_terms($args);
+        $formatted_categories = array();
+
+        foreach ($categories as $category) {
+            $formatted_categories[] = array(
+                'id' => $category->term_id,
+                'name' => $category->name,
+                'description' => $category->description,
+                'parent' => $category->parent,
+                'count' => $category->count,
+                'color' => get_term_meta($category->term_id, 'color', true),
+            );
+        }
+
+        return new WP_REST_Response(array('categories' => $formatted_categories), 200);
+    }
+
+    /**
+     * Get single category
+     */
+    public function get_category($request) {
+        $category_id = $request->get_param('id');
+
+        $category = get_term($category_id, 'bkgt_document_category');
+
+        if (!$category || is_wp_error($category)) {
+            return new WP_Error('category_not_found', 'Category not found', array('status' => 404));
+        }
+
+        return new WP_REST_Response(array(
+            'id' => $category->term_id,
+            'name' => $category->name,
+            'description' => $category->description,
+            'parent' => $category->parent,
+            'count' => $category->count,
+            'color' => get_term_meta($category->term_id, 'color', true),
+        ), 200);
+    }
+
+    /**
+     * Create category
+     */
+    public function create_category($request) {
+        $name = $request->get_param('name');
+        $description = $request->get_param('description');
+        $parent = $request->get_param('parent');
+        $color = $request->get_param('color');
+
+        $term = wp_insert_term($name, 'bkgt_document_category', array(
+            'description' => $description,
+            'parent' => $parent ?: 0,
+        ));
+
+        if (is_wp_error($term)) {
+            return $term;
+        }
+
+        if ($color) {
+            update_term_meta($term['term_id'], 'color', $color);
+        }
+
+        return new WP_REST_Response(array(
+            'id' => $term['term_id'],
+            'name' => $name,
+            'description' => $description,
+            'parent' => $parent,
+            'color' => $color,
+        ), 201);
+    }
+
+    /**
+     * Update category
+     */
+    public function update_category($request) {
+        $category_id = $request->get_param('id');
+        $name = $request->get_param('name');
+        $description = $request->get_param('description');
+        $parent = $request->get_param('parent');
+        $color = $request->get_param('color');
+
+        $args = array();
+
+        if ($name !== null) $args['name'] = $name;
+        if ($description !== null) $args['description'] = $description;
+        if ($parent !== null) $args['parent'] = $parent;
+
+        $result = wp_update_term($category_id, 'bkgt_document_category', $args);
+
+        if (is_wp_error($result)) {
+            return $result;
+        }
+
+        if ($color !== null) {
+            update_term_meta($category_id, 'color', $color);
+        }
+
+        return new WP_REST_Response(array('updated' => true), 200);
+    }
+
+    /**
+     * Delete category
+     */
+    public function delete_category($request) {
+        $category_id = $request->get_param('id');
+
+        $result = wp_delete_term($category_id, 'bkgt_document_category');
+
+        if (is_wp_error($result)) {
+            return $result;
+        }
+
+        return new WP_REST_Response(array('deleted' => true), 200);
+    }
+
+    /**
+     * Get document metadata
+     */
+    public function get_document_metadata($request) {
+        $document_id = $request->get_param('id');
+
+        if (!$this->check_document_access($document_id, get_current_user_id(), 'read')) {
+            return new WP_Error('access_denied', 'Access denied', array('status' => 403));
+        }
+
+        $metadata = $this->get_document_metadata($document_id);
+
+        return new WP_REST_Response(array('metadata' => $metadata), 200);
+    }
+
+    /**
+     * Update document metadata
+     */
+    public function update_document_metadata($request) {
+        $document_id = $request->get_param('id');
+        $metadata = $request->get_param('metadata');
+
+        if (!$this->check_document_access($document_id, get_current_user_id(), 'write')) {
+            return new WP_Error('access_denied', 'Access denied', array('status' => 403));
+        }
+
+        foreach ($metadata as $key => $value) {
+            update_post_meta($document_id, $key, $value);
+        }
+
+        return new WP_REST_Response(array('updated' => true), 200);
+    }
+
+    /**
+     * Bulk document operations
+     */
+    public function bulk_document_operation($request) {
+        $operation = $request->get_param('operation');
+        $document_ids = $request->get_param('document_ids');
+        $data = $request->get_param('data') ?: array();
+
+        $results = array();
+        $errors = array();
+
+        foreach ($document_ids as $document_id) {
+            // Check access for each document
+            if (!$this->check_document_access($document_id, get_current_user_id(), 'manage')) {
+                $errors[] = array('id' => $document_id, 'error' => 'Access denied');
+                continue;
+            }
+
+            switch ($operation) {
+                case 'delete':
+                    wp_delete_post($document_id, true);
+                    $results[] = array('id' => $document_id, 'status' => 'deleted');
+                    break;
+
+                case 'move':
+                    if (isset($data['category'])) {
+                        wp_set_post_terms($document_id, array($data['category']), 'bkgt_document_category');
+                        $results[] = array('id' => $document_id, 'status' => 'moved');
+                    }
+                    break;
+
+                case 'update':
+                    $update_data = array();
+                    if (isset($data['status'])) $update_data['post_status'] = $data['status'];
+                    if (isset($data['title'])) $update_data['post_title'] = $data['title'];
+
+                    if (!empty($update_data)) {
+                        wp_update_post(array_merge($update_data, array('ID' => $document_id)));
+                        $results[] = array('id' => $document_id, 'status' => 'updated');
+                    }
+                    break;
+
+                case 'archive':
+                    wp_update_post(array('ID' => $document_id, 'post_status' => 'archive'));
+                    $results[] = array('id' => $document_id, 'status' => 'archived');
+                    break;
+
+                case 'publish':
+                    wp_update_post(array('ID' => $document_id, 'post_status' => 'publish'));
+                    $results[] = array('id' => $document_id, 'status' => 'published');
+                    break;
+            }
+        }
+
+        return new WP_REST_Response(array(
+            'operation' => $operation,
+            'results' => $results,
+            'errors' => $errors,
+            'total_processed' => count($results),
+            'total_errors' => count($errors),
+        ), 200);
+    }
+
+    /**
+     * Bulk export documents
+     */
+    public function bulk_export_documents($request) {
+        $document_ids = $request->get_param('document_ids');
+        $format = $request->get_param('format') ?: 'zip';
+
+        if ($format !== 'zip') {
+            return new WP_Error('invalid_format', 'Bulk export only supports ZIP format', array('status' => 400));
+        }
+
+        // Create ZIP file
+        $upload_dir = wp_upload_dir();
+        $zip_filename = 'documents_export_' . date('Y-m-d_H-i-s') . '.zip';
+        $zip_path = $upload_dir['path'] . '/' . $zip_filename;
+
+        $zip = new ZipArchive();
+        if ($zip->open($zip_path, ZipArchive::CREATE) !== TRUE) {
+            return new WP_Error('zip_error', 'Could not create ZIP file', array('status' => 500));
+        }
+
+        foreach ($document_ids as $document_id) {
+            if (!$this->check_document_access($document_id, get_current_user_id(), 'read')) {
+                continue; // Skip documents user can't access
+            }
+
+            $post = get_post($document_id);
+            if (!$post) continue;
+
+            // Add document content as HTML file
+            $content = '<html><body><h1>' . esc_html($post->post_title) . '</h1>' .
+                      wpautop($post->post_content) . '</body></html>';
+
+            $filename = sanitize_file_name($post->post_title) . '.html';
+            $zip->addFromString($filename, $content);
+        }
+
+        $zip->close();
+
+        return new WP_REST_Response(array(
+            'download_url' => $upload_dir['url'] . '/' . $zip_filename,
+            'filename' => $zip_filename,
+            'format' => 'zip',
+            'document_count' => count($document_ids),
+        ), 200);
+    }
+
+    /**
+     * Get document viewer data
+     */
+    public function get_document_viewer($request) {
+        $document_id = $request->get_param('id');
+        $page = $request->get_param('page') ?: 1;
+        $zoom = $request->get_param('zoom') ?: 1.0;
+
+        if (!$this->check_document_access($document_id, get_current_user_id(), 'read')) {
+            return new WP_Error('access_denied', 'Access denied', array('status' => 403));
+        }
+
+        $post = get_post($document_id);
+        if (!$post) {
+            return new WP_Error('document_not_found', 'Document not found', array('status' => 404));
+        }
+
+        // Get file URL if it exists
+        $file_url = get_post_meta($document_id, '_bkgt_file_url', true);
+        $mime_type = get_post_meta($document_id, '_bkgt_mime_type', true);
+
+        return new WP_REST_Response(array(
+            'document_id' => $document_id,
+            'title' => $post->post_title,
+            'content' => $post->post_content,
+            'file_url' => $file_url,
+            'mime_type' => $mime_type,
+            'viewer_settings' => array(
+                'page' => $page,
+                'zoom' => $zoom,
+                'can_print' => true,
+                'can_download' => true,
+            ),
+        ), 200);
+    }
+
+    /**
+     * Get document statistics
+     */
+    public function get_document_stats($request) {
+        $document_id = $request->get_param('id');
+
+        if (!$this->check_document_access($document_id, get_current_user_id(), 'read')) {
+            return new WP_Error('access_denied', 'Access denied', array('status' => 403));
+        }
+
+        $stats = array(
+            'views' => (int) get_post_meta($document_id, '_bkgt_view_count', true) ?: 0,
+            'downloads' => (int) get_post_meta($document_id, '_bkgt_download_count', true) ?: 0,
+            'versions' => $this->get_document_versions_count($document_id),
+            'last_modified' => get_post_modified_time('c', false, $document_id),
+            'created_at' => get_post_time('c', false, $document_id),
+        );
+
+        return new WP_REST_Response(array('stats' => $stats), 200);
+    }
+
+    /**
+     * Get documents statistics overview
+     */
+    public function get_documents_stats($request) {
+        global $wpdb;
+
+        $period = $request->get_param('period') ?: 'month';
+
+        // Calculate date range
+        $date_format = 'Y-m-d H:i:s';
+        switch ($period) {
+            case 'day':
+                $start_date = date($date_format, strtotime('-1 day'));
+                break;
+            case 'week':
+                $start_date = date($date_format, strtotime('-1 week'));
+                break;
+            case 'month':
+                $start_date = date($date_format, strtotime('-1 month'));
+                break;
+            case 'year':
+                $start_date = date($date_format, strtotime('-1 year'));
+                break;
+            default:
+                $start_date = date($date_format, strtotime('-1 month'));
+        }
+
+        $stats = $wpdb->get_row($wpdb->prepare(
+            "SELECT
+                COUNT(*) as total_documents,
+                COUNT(CASE WHEN post_status = 'publish' THEN 1 END) as published_documents,
+                COUNT(CASE WHEN post_status = 'draft' THEN 1 END) as draft_documents,
+                COUNT(CASE WHEN post_date >= %s THEN 1 END) as new_documents
+             FROM {$wpdb->posts}
+             WHERE post_type = 'bkgt_document'
+             AND post_status IN ('publish', 'draft', 'private')",
+            $start_date
+        ));
+
+        return new WP_REST_Response(array(
+            'period' => $period,
+            'stats' => array(
+                'total_documents' => (int) $stats->total_documents,
+                'published_documents' => (int) $stats->published_documents,
+                'draft_documents' => (int) $stats->draft_documents,
+                'new_documents' => (int) $stats->new_documents,
+            ),
+        ), 200);
+    }
+
+    /**
+     * Get tags
+     */
+    public function get_tags($request) {
+        $search = $request->get_param('search');
+
+        $args = array(
+            'taxonomy' => 'bkgt_document_tag',
+            'hide_empty' => false,
+            'orderby' => 'name',
+            'order' => 'ASC',
+        );
+
+        if ($search) {
+            $args['name__like'] = $search;
+        }
+
+        $tags = get_terms($args);
+        $formatted_tags = array();
+
+        foreach ($tags as $tag) {
+            $formatted_tags[] = array(
+                'id' => $tag->term_id,
+                'name' => $tag->name,
+                'description' => $tag->description,
+                'count' => $tag->count,
+                'color' => get_term_meta($tag->term_id, 'color', true),
+            );
+        }
+
+        return new WP_REST_Response(array('tags' => $formatted_tags), 200);
+    }
+
+    /**
+     * Create tag
+     */
+    public function create_tag($request) {
+        $name = $request->get_param('name');
+        $color = $request->get_param('color');
+
+        $term = wp_insert_term($name, 'bkgt_document_tag');
+
+        if (is_wp_error($term)) {
+            return $term;
+        }
+
+        if ($color) {
+            update_term_meta($term['term_id'], 'color', $color);
+        }
+
+        return new WP_REST_Response(array(
+            'id' => $term['term_id'],
+            'name' => $name,
+            'color' => $color,
+        ), 201);
+    }
+
+    /**
+     * Get document tags
+     */
+    public function get_document_tags($request) {
+        $document_id = $request->get_param('id');
+
+        $tags = wp_get_post_terms($document_id, 'bkgt_document_tag');
+        $formatted_tags = array();
+
+        foreach ($tags as $tag) {
+            $formatted_tags[] = array(
+                'id' => $tag->term_id,
+                'name' => $tag->name,
+                'color' => get_term_meta($tag->term_id, 'color', true),
+            );
+        }
+
+        return new WP_REST_Response(array('tags' => $formatted_tags), 200);
+    }
+
+    /**
+     * Update document tags
+     */
+    public function update_document_tags($request) {
+        $document_id = $request->get_param('id');
+        $tags = $request->get_param('tags');
+
+        wp_set_post_terms($document_id, $tags, 'bkgt_document_tag');
+
+        return new WP_REST_Response(array('updated' => true), 200);
+    }
+
+    /**
+     * Get single document version
+     */
+    public function get_document_version($request) {
+        global $wpdb;
+
+        $document_id = $request->get_param('id');
+        $version = $request->get_param('version');
+
+        if (!$this->check_document_access($document_id, get_current_user_id(), 'read')) {
+            return new WP_Error('access_denied', 'Access denied', array('status' => 403));
+        }
+
+        $version_data = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}bkgt_document_versions
+             WHERE document_id = %d AND version_number = %d",
+            $document_id, $version
+        ));
+
+        if (!$version_data) {
+            return new WP_Error('version_not_found', 'Version not found', array('status' => 404));
+        }
+
+        return new WP_REST_Response(array(
+            'version' => $version,
+            'content' => $version_data->content,
+            'title' => $version_data->title,
+            'created_at' => $version_data->created_at,
+            'created_by' => $version_data->created_by,
+            'change_summary' => $version_data->change_summary,
+        ), 200);
+    }
+
+    /**
+     * Create document version
+     */
+    public function create_document_version($request) {
+        $document_id = $request->get_param('id');
+        $comment = $request->get_param('comment');
+
+        if (!$this->check_document_access($document_id, get_current_user_id(), 'write')) {
+            return new WP_Error('access_denied', 'Access denied', array('status' => 403));
+        }
+
+        $version_id = $this->create_document_version($document_id, $comment);
+
+        return new WP_REST_Response(array(
+            'version_created' => true,
+            'version_id' => $version_id,
+        ), 201);
+    }
+
+    /**
+     * Delete document version
+     */
+    public function delete_document_version($request) {
+        global $wpdb;
+
+        $document_id = $request->get_param('id');
+        $version = $request->get_param('version');
+
+        if (!$this->check_document_access($document_id, get_current_user_id(), 'manage')) {
+            return new WP_Error('access_denied', 'Access denied', array('status' => 403));
+        }
+
+        $result = $wpdb->delete(
+            $wpdb->prefix . 'bkgt_document_versions',
+            array(
+                'document_id' => $document_id,
+                'version_number' => $version,
+            ),
+            array('%d', '%d')
+        );
+
+        if ($result === false) {
+            return new WP_Error('db_error', 'Failed to delete version', array('status' => 500));
+        }
+
+        return new WP_REST_Response(array('deleted' => true), 200);
+    }
+
+    /**
+     * Compare document versions
+     */
+    public function compare_document_versions($request) {
+        global $wpdb;
+
+        $document_id = $request->get_param('id');
+        $version1 = $request->get_param('version1');
+        $version2 = $request->get_param('version2');
+
+        if (!$this->check_document_access($document_id, get_current_user_id(), 'read')) {
+            return new WP_Error('access_denied', 'Access denied', array('status' => 403));
+        }
+
+        $v1_data = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}bkgt_document_versions
+             WHERE document_id = %d AND version_number = %d",
+            $document_id, $version1
+        ));
+
+        $v2_data = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}bkgt_document_versions
+             WHERE document_id = %d AND version_number = %d",
+            $document_id, $version2
+        ));
+
+        if (!$v1_data || !$v2_data) {
+            return new WP_Error('version_not_found', 'One or both versions not found', array('status' => 404));
+        }
+
+        // Simple diff (in production, you'd use a proper diff library)
+        $diff = array(
+            'version1' => array(
+                'number' => $version1,
+                'content' => $v1_data->content,
+                'title' => $v1_data->title,
+                'created_at' => $v1_data->created_at,
+            ),
+            'version2' => array(
+                'number' => $version2,
+                'content' => $v2_data->content,
+                'title' => $v2_data->title,
+                'created_at' => $v2_data->created_at,
+            ),
+            'changes' => array(
+                'title_changed' => $v1_data->title !== $v2_data->title,
+                'content_changed' => $v1_data->content !== $v2_data->content,
+                'content_length_diff' => strlen($v2_data->content) - strlen($v1_data->content),
+            ),
+        );
+
+        return new WP_REST_Response(array('comparison' => $diff), 200);
+    }
+
+    /**
+     * Handle upload error
+     */
+    private function handle_upload_error($file, $message) {
+        return new WP_Error('upload_error', $message);
+    }
+
     /**
      * Get API documentation
      */
@@ -6931,6 +9108,164 @@ class BKGT_API_Endpoints {
         }
 
         return true;
+    }
+
+    /**
+     * Get database version
+     */
+    private function get_database_version() {
+        global $wpdb;
+        return $wpdb->get_var("SELECT VERSION()");
+    }
+
+    /**
+     * Get database size information
+     */
+    private function get_database_size() {
+        global $wpdb;
+
+        $size_query = $wpdb->get_row("
+            SELECT
+                ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) as size_mb,
+                COUNT(*) as table_count
+            FROM information_schema.tables
+            WHERE table_schema = DATABASE()
+            AND table_name LIKE '{$wpdb->prefix}bkgt_%'
+        ");
+
+        return array(
+            'bkgt_tables_size_mb' => $size_query->size_mb ?? 0,
+            'bkgt_table_count' => $size_query->table_count ?? 0,
+        );
+    }
+
+    /**
+     * Get memory usage information
+     */
+    private function get_memory_usage() {
+        $memory_limit = ini_get('memory_limit');
+        $memory_used = memory_get_peak_usage(true);
+        $memory_limit_bytes = $this->convert_to_bytes($memory_limit);
+
+        return array(
+            'memory_limit' => $memory_limit,
+            'memory_used_bytes' => $memory_used,
+            'memory_used_mb' => round($memory_used / 1024 / 1024, 2),
+            'memory_usage_percent' => $memory_limit_bytes > 0 ? round(($memory_used / $memory_limit_bytes) * 100, 2) : 0,
+        );
+    }
+
+    /**
+     * Check file permissions
+     */
+    private function check_file_permissions() {
+        $checks = array();
+
+        $paths = array(
+            WP_CONTENT_DIR => 'wp-content',
+            WP_PLUGIN_DIR => 'plugins',
+            get_template_directory() => 'theme',
+            wp_upload_dir()['basedir'] => 'uploads',
+        );
+
+        foreach ($paths as $path => $name) {
+            $writable = wp_is_writable($path);
+            $checks[$name] = array(
+                'path' => $path,
+                'writable' => $writable,
+                'status' => $writable ? 'healthy' : 'error',
+            );
+        }
+
+        return $checks;
+    }
+
+    /**
+     * Check cron job status
+     */
+    private function check_cron_status() {
+        $cron_status = array(
+            'cron_enabled' => !(defined('DISABLE_WP_CRON') && DISABLE_WP_CRON),
+            'next_scheduled' => wp_next_scheduled('wp_version_check'),
+            'cron_jobs_count' => count(_get_cron_array()),
+        );
+
+        // Check if cron is running (rough estimate)
+        $last_run = get_option('cron');
+        $time_since_last_run = time() - $last_run;
+        $cron_status['last_run_seconds_ago'] = $time_since_last_run;
+        $cron_status['cron_running'] = $time_since_last_run < 300; // Less than 5 minutes ago
+
+        return $cron_status;
+    }
+
+    /**
+     * Check cache status
+     */
+    private function check_cache_status() {
+        $cache_status = array(
+            'object_cache' => wp_using_ext_object_cache(),
+            'page_cache' => false, // Would need specific cache plugin detection
+            'transient_cache' => true, // WordPress always has transient cache
+        );
+
+        // Check for common caching plugins
+        $caching_plugins = array(
+            'wp-super-cache/wp-cache.php' => 'WP Super Cache',
+            'w3-total-cache/w3-total-cache.php' => 'W3 Total Cache',
+            'wp-fastest-cache/wpFastestCache.php' => 'WP Fastest Cache',
+            'wp-rocket/wp-rocket.php' => 'WP Rocket',
+        );
+
+        $cache_status['caching_plugins'] = array();
+        foreach ($caching_plugins as $plugin => $name) {
+            if (is_plugin_active($plugin)) {
+                $cache_status['caching_plugins'][] = $name;
+            }
+        }
+
+        return $cache_status;
+    }
+
+    /**
+     * Get system uptime (if available)
+     */
+    private function get_system_uptime() {
+        if (function_exists('shell_exec') && strtoupper(substr(PHP_OS, 0, 3)) !== 'WIN') {
+            $uptime = shell_exec('uptime -p 2>/dev/null');
+            if ($uptime) {
+                return trim($uptime);
+            }
+        }
+
+        return 'Not available (Windows or shell_exec disabled)';
+    }
+
+    /**
+     * Convert PHP ini values to bytes
+     */
+    private function convert_to_bytes($value) {
+        if (is_numeric($value)) {
+            return $value;
+        }
+
+        $value = trim($value);
+        $last = strtolower($value[strlen($value) - 1]);
+        $value = (int) $value;
+
+        switch ($last) {
+            case 'g':
+                $value *= 1024 * 1024 * 1024;
+                break;
+            case 'm':
+                $value *= 1024 * 1024;
+                break;
+            case 'k':
+                $value *= 1024;
+                break;
+        }
+
+        return $value;
     }
 
     /**

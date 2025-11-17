@@ -22,7 +22,6 @@ class BKGT_Admin {
      * Constructor
      */
     public function __construct($db) {
-        error_log('BKGT Admin class constructor called');
         $this->db = $db;
         $this->init_hooks();
     }
@@ -86,16 +85,10 @@ class BKGT_Admin {
      * Enqueue admin scripts and styles
      */
     public function enqueue_scripts($hook) {
-        // Debug: log the hook
-        error_log('BKGT Admin enqueue_scripts called with hook: ' . $hook);
-        
         // Load scripts on BKGT pages and tools page with bkgt-data-management
         if (strpos($hook, 'bkgt') === false && strpos($hook, 'bkgt-data-management') === false && strpos($hook, 'tools') === false) {
-            error_log('BKGT Admin: Hook does not match, not loading scripts');
             return;
         }
-
-        error_log('BKGT Admin: Loading scripts for hook: ' . $hook);
 
         wp_enqueue_script('jquery');
         wp_enqueue_script('jquery-ui-dialog');
@@ -1077,7 +1070,7 @@ class BKGT_Admin {
     }
 
     /**
-     * AJAX: Run scraper
+     * Run scraper via AJAX
      */
     public function run_scraper() {
         check_ajax_referer('bkgt_scraper_nonce', 'nonce');
@@ -1106,13 +1099,6 @@ class BKGT_Admin {
                     break;
                 case 'events':
                     $result['events'] = $scraper->scrape_events();
-                    break;
-                case 'swe3':
-                    if (!is_plugin_active('bkgt-swe3-scraper/bkgt-swe3-scraper.php')) {
-                        throw new Exception(__('SWE3 scraper plugin är inte aktiv', 'bkgt-data-scraping'));
-                    }
-                    $swe3_scraper = bkgt_swe3_scraper()->scraper;
-                    $result['swe3'] = $swe3_scraper->execute_scrape();
                     break;
                 default:
                     throw new Exception(__('Ogiltig skrapningstyp', 'bkgt-data-scraping'));

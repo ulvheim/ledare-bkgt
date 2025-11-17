@@ -120,6 +120,27 @@ class BKGT_Scraper {
 
             $count = 0;
             foreach ($teams as $team_data) {
+                // Visit individual team page to get coach information
+                if (!empty($team_data['source_url'])) {
+                    try {
+                        $team_html = $this->fetch_url($team_data['source_url'], true);
+                        $coach_data = $this->extract_coach_from_team_page($team_html);
+                        if (!empty($coach_data)) {
+                            $team_data['coach'] = $coach_data['name'];
+                            $team_data['coach_title'] = $coach_data['title'];
+                            // Create WordPress user for coach with appropriate role
+                            $this->create_coach_user($coach_data['name'], $coach_data['title'], $team_data);
+                        }
+                    } catch (Exception $e) {
+                        // Continue without coach info if team page fails
+                        bkgt_log('warning', 'Failed to extract coach from team page', array(
+                            'team' => $team_data['name'],
+                            'url' => $team_data['source_url'],
+                            'error' => $e->getMessage()
+                        ));
+                    }
+                }
+
                 if ($this->db->insert_team($team_data)) {
                     $count++;
                 }
@@ -671,23 +692,205 @@ class BKGT_Scraper {
             $event_data['location'] = trim($location_element->textContent);
         }
 
-        return $event_data;
+    /**
+     * Extract coach information from individual team page
+     */
+    private function extract_coach_from_team_page($html) {
+        $dom = new DOMDocument();
+        @$dom->loadHTML($html);
+        $xpath = new DOMXPath($dom);
+
+        // Look for coach/trainer/leader information in various formats
+        $coach_selectors = array(
+            "//*[contains(text(), 'Tränare') or contains(text(), 'Coach') or contains(text(), 'Ledare') or contains(text(), 'Träna') or contains(text(), 'Klubbdirektör') or contains(text(), 'Direktör')]/following-sibling::*",
+            "//dt[contains(text(), 'Tränare') or contains(text(), 'Ledare') or contains(text(), 'Klubbdirektör') or contains(text(), 'Direktör')]/following-sibling::dd",
+            "//th[contains(text(), 'Tränare') or contains(text(), 'Ledare') or contains(text(), 'Klubbdirektör') or contains(text(), 'Direktör')]/following-sibling::td",
+            "//div[contains(@class, 'coach') or contains(@class, 'trainer') or contains(@class, 'leader') or contains(@class, 'director')] | //span[contains(@class, 'coach') or contains(@class, 'trainer') or contains(@class, 'leader') or contains(@class, 'director')]",
+            "//strong[contains(text(), 'Tränare') or contains(text(), 'Ledare') or contains(text(), 'Klubbdirektör') or contains(text(), 'Direktör')]/parent::*",
+            "//h3[contains(text(), 'Tränare') or contains(text(), 'Ledare') or contains(text(), 'Klubbdirektör') or contains(text(), 'Direktör')]/following-sibling::*",
+            "//p[contains(text(), 'Tränare') or contains(text(), 'Ledare') or contains(text(), 'Klubbdirektör') or contains(text(), 'Direktör')]/following-sibling::*",
+        );
+
+        $coaches = array();
+
+        foreach ($coach_selectors as $selector) {
+            $elements = $xpath->query($selector);
+            foreach ($elements as $element) {
+                $text = trim($element->textContent);
+                if (!empty($text) && strlen($text) > 2) {
+                    // Clean up the text and extract names
+                    $text = preg_replace('/\s+/', ' ', $text);
+
+                    // Determine the title from the selector or parent element
+                    $title = 'Tränare'; // Default
+                    if (stripos($selector, 'Ledare') !== false) {
+                        $title = 'Ledare';
+                    } elseif (stripos($selector, 'Klubbdirektör') !== false || stripos($selector, 'Direktör') !== false) {
+                        $title = 'Klubbdirektör';
+                    }
+
+                    // Check parent element for title clues
+                    $parent = $element->parentNode;
+                    if ($parent) {
+                        $parent_text = trim($parent->textContent);
+                        if (stripos($parent_text, 'Ledare') !== false) {
+                            $title = 'Ledare';
+                        } elseif (stripos($parent_text, 'Klubbdirektör') !== false || stripos($parent_text, 'Direktör') !== false) {
+                            $title = 'Klubbdirektör';
+                        } elseif (stripos($parent_text, 'Tränare') !== false) {
+                            $title = 'Tränare';
+                        }
+                    }
+
+                    // Split on common separators (commas, semicolons, etc.)
+                    $potential_names = preg_split('/[,;]/', $text);
+
+                    foreach ($potential_names as $name) {
+                        $name = trim($name);
+                        if (!empty($name) && strlen($name) > 2 && !preg_match('/^(och|och|&|and)$/i', $name)) {
+                            $coaches[] = array(
+                                'name' => $name,
+                                'title' => $title
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        // Return primary coach (first one found)
+        return !empty($coaches) ? $coaches[0] : array('name' => '', 'title' => '');
     }
 
     /**
-     * Generate team-specific URL based on team name
+     * Create WordPress user for coach if they don't exist
      */
-    private function generate_team_url($team_name) {
-        $source_url = get_option('bkgt_scraping_source_url', 'https://www.svenskalag.se/bkgt');
+    private function create_coach_user($coach_name, $coach_title, $team_data) {
+        if (empty($coach_name)) {
+            return;
+        }
 
-        // Map team names to their URL slugs based on the actual site structure
-        $team_mappings = array(
-            'P2013' => 'bkgt-p2013',
-            'P2014' => 'bkgt-p2014',
-            'P2015' => 'bkgt-p2015',
-            'P2016' => 'bkgt-p2016',
-            'P2017' => 'bkgt-p2017',
-            'P2018' => 'bkgt-p2018',
+        // Determine appropriate role based on title
+        $role_mapping = array(
+            'Tränare' => 'tranare',
+            'Ledare' => 'lagledare',
+            'Coach' => 'tranare',
+            'Klubbdirektör' => 'styrelsemedlem',
+            'Direktör' => 'styrelsemedlem',
+        );
+        $assigned_role = isset($role_mapping[$coach_title]) ? $role_mapping[$coach_title] : 'tranare';
+
+        // Parse coach name - assume "First Last" format
+        $name_parts = explode(' ', $coach_name, 2);
+        $first_name = $name_parts[0] ?? '';
+        $last_name = $name_parts[1] ?? '';
+
+        // Create username from coach name
+        $username = sanitize_user(strtolower(str_replace(' ', '.', $coach_name)));
+
+        // Define role hierarchy (higher roles should not be overwritten)
+        $role_hierarchy = array(
+            'administrator' => 4,
+            'styrelsemedlem' => 3,
+            'tranare' => 2,
+            'lagledare' => 1,
+        );
+
+        // Check if user already exists by username
+        $existing_user = get_user_by('login', $username);
+        if (!$existing_user) {
+            // Try to find by email
+            $existing_user = get_user_by('email', $username . '@bkgt.local');
+        }
+
+        if ($existing_user) {
+            // User exists - check their current role
+            $user_roles = $existing_user->roles;
+            $current_role = reset($user_roles);
+
+            // Get hierarchy levels
+            $current_level = isset($role_hierarchy[$current_role]) ? $role_hierarchy[$current_role] : 0;
+            $assigned_level = $role_hierarchy[$assigned_role];
+
+            if ($current_level >= $assigned_level) {
+                // User already has equal or higher role - don't change it
+                bkgt_log('info', 'Coach user already exists with sufficient role', array(
+                    'username' => $existing_user->user_login,
+                    'current_role' => $current_role,
+                    'requested_role' => $assigned_role,
+                    'coach' => $coach_name,
+                    'title' => $coach_title,
+                    'team' => $team_data['name']
+                ));
+                return;
+            } else {
+                // User has lower role - update to the requested role
+                $existing_user->set_role($assigned_role);
+                update_user_meta($existing_user->ID, 'svenskalag_coach_for', $team_data['source_id']);
+                update_user_meta($existing_user->ID, 'svenskalag_synced', '1');
+                update_user_meta($existing_user->ID, 'svenskalag_title', $coach_title);
+
+                bkgt_log('info', 'Updated existing user role', array(
+                    'user_id' => $existing_user->ID,
+                    'username' => $existing_user->user_login,
+                    'old_role' => $current_role,
+                    'new_role' => $assigned_role,
+                    'coach' => $coach_name,
+                    'title' => $coach_title,
+                    'team' => $team_data['name']
+                ));
+                return;
+            }
+        }
+
+        // User doesn't exist - create new user with appropriate role
+        $user_data = array(
+            'user_login' => $username,
+            'user_email' => $username . '@bkgt.local',
+            'first_name' => $first_name,
+            'last_name' => $last_name,
+            'display_name' => $coach_name,
+            'role' => $assigned_role,
+            'user_pass' => wp_generate_password(12, true, true)
+        );
+
+        $user_id = wp_insert_user($user_data);
+
+        if (!is_wp_error($user_id)) {
+            // Store reference to svenskalag team and title
+            update_user_meta($user_id, 'svenskalag_coach_for', $team_data['source_id']);
+            update_user_meta($user_id, 'svenskalag_synced', '1');
+            update_user_meta($user_id, 'svenskalag_title', $coach_title);
+
+            bkgt_log('info', 'Created coach user', array(
+                'user_id' => $user_id,
+                'username' => $username,
+                'role' => $assigned_role,
+                'coach' => $coach_name,
+                'title' => $coach_title,
+                'team' => $team_data['name']
+            ));
+
+            // Send notification to admin about new user
+            $admin_email = get_option('admin_email');
+            if ($admin_email) {
+                wp_mail(
+                    $admin_email,
+                    __('New Team Staff User Created', 'bkgt-data-scraping'),
+                    sprintf(__('A new %s user has been created from svenskalag.se data: %s (%s) for team %s. Please set a proper password for this user.', 'bkgt-data-scraping'),
+                        $coach_title, $coach_name, $username, $team_data['name'])
+                );
+            }
+        } else {
+            bkgt_log('error', 'Failed to create coach user', array(
+                'coach' => $coach_name,
+                'title' => $coach_title,
+                'role' => $assigned_role,
+                'error' => $user_id->get_error_message()
+            ));
+        }
+    }
+}
             'P2019' => 'bkgt-p2019',
             'P2020' => 'bkgt-p2020',
             // Add more mappings as needed

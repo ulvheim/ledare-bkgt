@@ -20,6 +20,46 @@ class BKGT_SWE3_DMS_Integration {
     const DMS_PREFIX = 'SWE3-';
 
     /**
+     * Constructor - ensure DMS classes are loaded
+     */
+    public function __construct() {
+        $this->ensure_dms_classes_loaded();
+    }
+
+    /**
+     * Ensure DMS plugin classes are loaded
+     */
+    private function ensure_dms_classes_loaded() {
+        // Check if DMS plugin is active
+        if (!is_plugin_active('bkgt-document-management/bkgt-document-management.php')) {
+            $this->log('error', 'DMS plugin is not active');
+            return false;
+        }
+
+        // Load DMS classes if not already loaded
+        if (!class_exists('BKGT_Document')) {
+            $dms_plugin_dir = WP_PLUGIN_DIR . '/bkgt-document-management/';
+
+            // Load core DMS classes
+            $classes_to_load = array(
+                'includes/class-document.php',
+                'includes/class-database.php',
+                'includes/class-category.php',
+                'includes/class-access.php'
+            );
+
+            foreach ($classes_to_load as $class_file) {
+                $file_path = $dms_plugin_dir . $class_file;
+                if (file_exists($file_path)) {
+                    require_once $file_path;
+                }
+            }
+        }
+
+        return class_exists('BKGT_Document');
+    }
+
+    /**
      * Get DMS post type
      */
     private function get_dms_post_type() {
@@ -30,8 +70,15 @@ class BKGT_SWE3_DMS_Integration {
      * Create or update DMS document
      */
     public function create_or_update_document($document, $file_path, $metadata, $file_hash) {
+        // Ensure DMS classes are loaded
+        if (!$this->ensure_dms_classes_loaded()) {
+            $this->log('error', 'Failed to load DMS classes');
+            return false;
+        }
+
         // Check if document already exists in DMS
-        $existing_dms_doc = $this->find_existing_dms_document($document['url']);
+        $swe3_url = isset($document['url']) ? $document['url'] : $document['swe3_url'];
+        $existing_dms_doc = $this->find_existing_dms_document($swe3_url);
 
         if ($existing_dms_doc) {
             // Update existing document
@@ -48,25 +95,31 @@ class BKGT_SWE3_DMS_Integration {
     public function create_dms_document($document, $file_path, $metadata) {
         $this->log('info', sprintf('Creating new DMS document: %s', $document['title']));
 
+        // Check if DMS plugin is available
+        if (!class_exists('BKGT_Document')) {
+            $this->log('error', 'DMS plugin not available - BKGT_Document class not found');
+            return false;
+        }
+
         // Generate DMS title with prefix
         $dms_title = $this->generate_dms_title($document, $metadata);
 
-        // Prepare document data
+        // Prepare document data for DMS API
         $document_data = array(
-            'title' => $dms_title,
-            'content' => $this->generate_document_content($document, $metadata),
-            'excerpt' => $this->generate_document_excerpt($document, $metadata),
-            'status' => 'publish',
-            'post_type' => $this->get_dms_post_type(),
+            'post_title' => $dms_title,
+            'post_content' => $this->generate_document_content($document, $metadata),
+            'post_status' => 'publish',
         );
 
-        // Insert the document
-        $post_id = wp_insert_post($document_data);
+        // Use DMS plugin's proper API to create document
+        $dms_document = BKGT_Document::create($document_data);
 
-        if (is_wp_error($post_id)) {
-            $this->log('error', 'Failed to create DMS document: ' . $post_id->get_error_message());
+        if (is_wp_error($dms_document)) {
+            $this->log('error', 'Failed to create DMS document: ' . $dms_document->get_error_message());
             return false;
         }
+
+        $post_id = $dms_document->get_id();
 
         // Set document category
         $this->set_document_category($post_id);
@@ -96,17 +149,29 @@ class BKGT_SWE3_DMS_Integration {
     public function update_dms_document($existing_doc, $document, $file_path, $metadata) {
         $this->log('info', sprintf('Updating existing DMS document: %s', $document['title']));
 
+        // Check if DMS plugin is available
+        if (!class_exists('BKGT_Document')) {
+            $this->log('error', 'DMS plugin not available - BKGT_Document class not found');
+            return false;
+        }
+
         $post_id = $existing_doc->ID;
 
-        // Update document content
+        // Load existing document using DMS API
+        $dms_document = new BKGT_Document($post_id);
+
+        if (!$dms_document->get_id()) {
+            $this->log('error', 'Failed to load existing DMS document');
+            return false;
+        }
+
+        // Update document content using DMS API
         $update_data = array(
-            'ID' => $post_id,
             'post_title' => $this->generate_dms_title($document, $metadata),
             'post_content' => $this->generate_document_content($document, $metadata),
-            'post_excerpt' => $this->generate_document_excerpt($document, $metadata),
         );
 
-        $result = wp_update_post($update_data);
+        $result = $dms_document->update($update_data);
 
         if (is_wp_error($result)) {
             $this->log('error', 'Failed to update DMS document: ' . $result->get_error_message());
@@ -344,8 +409,34 @@ class BKGT_SWE3_DMS_Integration {
      * Set document metadata
      */
     private function set_document_metadata($post_id, $document, $metadata, $attachment_id = null) {
+        // Get attachment data for DMS API compatibility
+        $file_url = '';
+        $file_path = '';
+        $file_size = 0;
+        $mime_type = '';
+
+        if ($attachment_id) {
+            $attachment = get_post($attachment_id);
+            if ($attachment) {
+                $file_url = wp_get_attachment_url($attachment_id);
+                $file_path = get_attached_file($attachment_id);
+                $file_size = filesize($file_path);
+                $mime_type = $attachment->post_mime_type;
+            }
+        }
+
+        // DMS API compatible metadata (same as upload_document method)
+        update_post_meta($post_id, '_bkgt_file_url', $file_url);
+        update_post_meta($post_id, '_bkgt_file_path', str_replace(wp_get_upload_dir()['basedir'] . '/', '', $file_path));
+        update_post_meta($post_id, '_bkgt_file_size', $file_size);
+        update_post_meta($post_id, '_bkgt_mime_type', $mime_type);
+
+        // Document type and category for DMS API
+        update_post_meta($post_id, '_bkgt_document_type', $this->map_swe3_type_to_dms_type($document['type']));
+
         // SWE3 specific metadata
-        update_post_meta($post_id, '_bkgt_swe3_url', $document['url']);
+        $swe3_url = isset($document['url']) ? $document['url'] : $document['swe3_url'];
+        update_post_meta($post_id, '_bkgt_swe3_url', $swe3_url);
         update_post_meta($post_id, '_bkgt_swe3_type', $document['type']);
         update_post_meta($post_id, '_bkgt_swe3_title', $document['title']);
         update_post_meta($post_id, '_bkgt_swe3_version', $metadata['version']);
@@ -512,5 +603,23 @@ class BKGT_SWE3_DMS_Integration {
         } else {
             error_log(sprintf('[BKGT SWE3 DMS] [%s] %s', strtoupper($level), $message));
         }
+    }
+
+    /**
+     * Map SWE3 document types to DMS document types
+     */
+    private function map_swe3_type_to_dms_type($swe3_type) {
+        $type_mapping = array(
+            'competition-regulations' => 'rules',
+            'game-rules' => 'rules',
+            'referee-guidelines' => 'rules',
+            'development-series' => 'rules',
+            'safety-medical' => 'rules',
+            'easy-football' => 'rules',
+            'competition-formats' => 'rules',
+            'general' => 'other',
+        );
+
+        return isset($type_mapping[$swe3_type]) ? $type_mapping[$swe3_type] : 'other';
     }
 }

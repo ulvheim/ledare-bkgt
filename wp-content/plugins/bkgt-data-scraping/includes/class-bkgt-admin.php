@@ -8,6 +8,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+error_log('BKGT Admin class file included');
+
 /**
  * BKGT Admin Class
  */
@@ -22,6 +24,7 @@ class BKGT_Admin {
      * Constructor
      */
     public function __construct($db) {
+        error_log('BKGT Admin class (includes) constructor called');
         if (!$db instanceof BKGT_DataScraping_Database) {
             throw new Exception('Invalid database instance provided');
         }
@@ -119,9 +122,15 @@ class BKGT_Admin {
      * Enqueue admin scripts and styles
      */
     public function enqueue_scripts($hook) {
-        if (strpos($hook, 'bkgt') === false) {
-            return;
-        }
+        error_log('BKGT Admin (includes) enqueue_scripts called with hook: ' . $hook);
+        
+        // Temporarily remove hook check to test
+        // if (strpos($hook, 'bkgt') === false) {
+        //     error_log('BKGT Admin (includes): Hook does not contain bkgt, not loading scripts');
+        //     return;
+        // }
+
+        error_log('BKGT Admin (includes): Loading scripts for hook: ' . $hook);
 
         wp_enqueue_script('jquery');
         wp_enqueue_script('jquery-ui-dialog');
@@ -129,13 +138,17 @@ class BKGT_Admin {
         wp_enqueue_script('jquery-ui-droppable');
         wp_enqueue_style('wp-jquery-ui-dialog');
 
+        error_log('BKGT Admin: About to enqueue bkgt-admin-js');
+
         wp_enqueue_script(
             'bkgt-admin-js',
             BKGT_DATA_SCRAPING_PLUGIN_URL . 'admin/js/admin.js',
-            array('jquery', 'jquery-ui-dialog', 'jquery-ui-draggable', 'jquery-ui-droppable'),
+            array(), // Remove dependencies for testing
             BKGT_DATA_SCRAPING_VERSION,
-            true
+            false // Load in head instead of footer
         );
+
+        error_log('BKGT Admin: bkgt-admin-js enqueued');
 
         wp_enqueue_style(
             'bkgt-admin-css',
@@ -143,6 +156,8 @@ class BKGT_Admin {
             array(),
             BKGT_DATA_SCRAPING_VERSION
         );
+
+        error_log('BKGT Admin: bkgt-admin-css enqueued');
 
         wp_localize_script('bkgt-admin-js', 'bkgt_ajax', array(
             'ajax_url' => admin_url('admin-ajax.php'),

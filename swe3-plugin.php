@@ -37,9 +37,9 @@ require_once BKGT_SWE3_PLUGIN_DIR . 'includes/rest-api-endpoint.php';
 require_once BKGT_SWE3_PLUGIN_DIR . 'includes/ajax-upload-endpoint.php';
 
 // Include admin classes
-// if (is_admin()) {
-//     require_once BKGT_SWE3_PLUGIN_DIR . 'admin/class-bkgt-swe3-admin.php';
-// }
+if (is_admin()) {
+    require_once BKGT_SWE3_PLUGIN_DIR . 'admin/class-bkgt-swe3-admin.php';
+}
 
 /**
  * Main plugin class
@@ -138,12 +138,12 @@ class BKGT_SWE3_Scraper_Plugin {
         }
 
         if (is_admin()) {
-            // try {
-            //     $this->admin = new BKGT_SWE3_Admin();
-            //     error_log('BKGT SWE3: Admin initialized');
-            // } catch (Exception $e) {
-            //     error_log('BKGT SWE3: Failed to initialize admin: ' . $e->getMessage());
-            // }
+            try {
+                $this->admin = new BKGT_SWE3_Admin();
+                error_log('BKGT SWE3: Admin initialized');
+            } catch (Exception $e) {
+                error_log('BKGT SWE3: Failed to initialize admin: ' . $e->getMessage());
+            }
         }
     }
 
